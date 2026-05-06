@@ -1,0 +1,1495 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clark testbed</title>
+  <style>
+    :root {
+      --ink: #101418;
+      --paper: #f7f1e5;
+      --line: rgba(17, 22, 27, 0.18);
+      --panel: rgba(255, 252, 244, 0.24);
+      --metal: #d49b2a;
+      --reactive: #e85d4f;
+      --gas: #2e79bd;
+      --halogen: #0f9b8f;
+      --metalloid: #8d6ab6;
+      --radioactive: #b7d12a;
+      --shadow: rgba(17, 22, 27, 0.16);
+      --cyan: #2aa8d8;
+      --violet: #8067c8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      min-height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(232, 93, 79, 0.18), transparent 24%),
+        radial-gradient(circle at 82% 24%, rgba(42, 168, 216, 0.16), transparent 26%),
+        radial-gradient(circle at 72% 82%, rgba(15, 155, 143, 0.18), transparent 28%),
+        linear-gradient(145deg, #fbf4e8 0%, #edf6f2 42%, #f4edf7 100%);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(16, 20, 24, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 20, 24, 0.035) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
+      opacity: 0.72;
+      z-index: 1;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 0;
+    }
+
+    .topbar {
+      position: fixed;
+      top: 18px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .brand {
+      pointer-events: auto;
+      max-width: min(760px, calc(100vw - 130px));
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 6vw, 78px);
+      line-height: 0.92;
+      letter-spacing: 0;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.48), 0 18px 52px rgba(17, 22, 27, 0.12);
+    }
+
+    .subhead {
+      max-width: 620px;
+      margin: 8px 0 0;
+      color: rgba(17, 22, 27, 0.66);
+      font-size: clamp(14px, 1.8vw, 18px);
+      text-wrap: balance;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    button {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08)),
+        var(--panel);
+      color: var(--ink);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        0 12px 32px var(--shadow);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+      backdrop-filter: blur(18px) saturate(1.3);
+      -webkit-backdrop-filter: blur(18px) saturate(1.3);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      border-color: rgba(17, 22, 27, 0.34);
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    button svg {
+      width: 21px;
+      height: 21px;
+      stroke-width: 2;
+    }
+
+    .lab-panel {
+      position: fixed;
+      left: 20px;
+      bottom: 20px;
+      width: min(520px, calc(100vw - 40px));
+      display: grid;
+      gap: 12px;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .message {
+      min-height: 92px;
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 252, 244, 0.06)),
+        rgba(255, 252, 244, 0.15);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.36),
+        0 20px 58px rgba(17, 22, 27, 0.13);
+      backdrop-filter: blur(28px) saturate(1.55);
+      -webkit-backdrop-filter: blur(28px) saturate(1.55);
+      font-size: 14px;
+      line-height: 1.45;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .message::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 2px;
+      background: linear-gradient(90deg, var(--reactive), var(--metal), var(--halogen), var(--gas), var(--metalloid), var(--radioactive));
+      opacity: 0.7;
+    }
+
+    .auto-message {
+      min-height: 58px;
+      border-color: rgba(232, 93, 79, 0.34);
+      background:
+        linear-gradient(135deg, rgba(232, 93, 79, 0.14), rgba(42, 168, 216, 0.07)),
+        rgba(255, 252, 244, 0.12);
+    }
+
+    .auto-message.is-idle {
+      opacity: 0.58;
+    }
+
+    .message strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .manual-slots {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .lookup {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
+        rgba(255, 252, 244, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(22px) saturate(1.35);
+      -webkit-backdrop-filter: blur(22px) saturate(1.35);
+      pointer-events: auto;
+    }
+
+    .lookup input {
+      width: 100%;
+      height: 38px;
+      border: 1px solid rgba(17, 22, 27, 0.16);
+      border-radius: 8px;
+      padding: 0 12px;
+      background: rgba(255, 252, 244, 0.52);
+      color: var(--ink);
+      font: 600 13px Inter, system-ui, sans-serif;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.46);
+    }
+
+    .lookup input:focus {
+      border-color: rgba(42, 168, 216, 0.58);
+      box-shadow: 0 0 0 3px rgba(42, 168, 216, 0.14);
+    }
+
+    .lookup-result {
+      min-height: 38px;
+      color: rgba(17, 22, 27, 0.7);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .lookup-result strong {
+      display: inline;
+      font-size: 14px;
+    }
+
+    .tray {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      pointer-events: auto;
+    }
+
+    .slot,
+    .legend {
+      min-width: 74px;
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.04)),
+        rgba(255, 252, 244, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(20px) saturate(1.35);
+      -webkit-backdrop-filter: blur(20px) saturate(1.35);
+      display: inline-grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(17, 22, 27, 0.64);
+    }
+
+    .legend {
+      width: auto;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .legend {
+      gap: 6px;
+      grid-auto-flow: column;
+      font-weight: 650;
+    }
+
+    .legend.is-active {
+      color: var(--ink);
+      border-color: rgba(17, 22, 27, 0.38);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08)),
+        rgba(255, 252, 244, 0.28);
+      transform: translateY(-1px);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.46),
+        0 12px 28px rgba(17, 22, 27, 0.11);
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .readout {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      font-size: 12px;
+      color: rgba(17, 22, 27, 0.58);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      text-align: right;
+      pointer-events: none;
+      z-index: 3;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      border-radius: 8px;
+      background: rgba(255, 252, 244, 0.12);
+      backdrop-filter: blur(20px) saturate(1.3);
+      -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    }
+
+    .tooltip {
+      position: fixed;
+      z-index: 5;
+      width: min(330px, calc(100vw - 28px));
+      padding: 12px 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 252, 244, 0.22)),
+        rgba(255, 252, 244, 0.48);
+      box-shadow: 0 18px 44px rgba(17, 22, 27, 0.16);
+      backdrop-filter: blur(20px) saturate(1.35);
+      -webkit-backdrop-filter: blur(20px) saturate(1.35);
+      color: rgba(17, 22, 27, 0.76);
+      font-size: 13px;
+      line-height: 1.42;
+      opacity: 0;
+      transform: translate(-50%, -108%) scale(0.96);
+      transform-origin: center bottom;
+      transition: opacity 120ms ease, transform 120ms ease;
+      pointer-events: none;
+    }
+
+    .tooltip.is-visible {
+      opacity: 1;
+      transform: translate(-50%, -116%) scale(1);
+    }
+
+    .tooltip strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: 15px;
+    }
+
+    .tooltip span {
+      display: block;
+      margin-top: 7px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      color: rgba(17, 22, 27, 0.54);
+    }
+
+    .atom-preview {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(17, 22, 27, 0.12);
+    }
+
+    .atom-model {
+      position: relative;
+      width: 92px;
+      height: 92px;
+    }
+
+    .orbit {
+      position: absolute;
+      inset: calc(var(--i) * 10px);
+      border: 1px solid rgba(17, 22, 27, 0.18);
+      border-radius: 50%;
+    }
+
+    .electron {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--electron-color);
+      box-shadow: 0 0 10px var(--electron-color);
+      transform:
+        rotate(var(--angle))
+        translateX(var(--radius))
+        translate(-50%, -50%);
+      transform-origin: 0 0;
+    }
+
+    .nucleus {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.9), var(--nucleus-color));
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: 0 0 20px var(--nucleus-color);
+    }
+
+    .atom-notes {
+      font-size: 12px;
+      color: rgba(17, 22, 27, 0.68);
+    }
+
+    .atom-notes b {
+      color: var(--ink);
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        left: 14px;
+        right: 14px;
+      }
+
+      .buttons {
+        flex-direction: column;
+      }
+
+      .lab-panel {
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        width: auto;
+      }
+
+      .readout {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="field" aria-label="Floating interactive chemistry field"></canvas>
+
+  <div class="topbar">
+    <section class="brand">
+      <h1>Clark testbed</h1>
+      <p class="subhead">A floating chemistry bench for mixing elements, watching reactions, and catching tiny simulated disasters before they cool down.</p>
+    </section>
+
+    <div class="buttons">
+      <button id="shuffle" type="button" aria-label="Shuffle elements" title="Shuffle elements">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M16 3h5v5"></path>
+          <path d="M4 20 21 3"></path>
+          <path d="M21 16v5h-5"></path>
+          <path d="m15 15 6 6"></path>
+          <path d="m4 4 5 5"></path>
+        </svg>
+      </button>
+      <button id="pause" type="button" aria-label="Pause motion" title="Pause motion">
+        <svg id="pauseIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M10 4H6v16h4V4Z"></path>
+          <path d="M18 4h-4v16h4V4Z"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <section class="lab-panel" aria-label="Reaction panel">
+    <div class="message" id="message">
+      <strong>Manual reaction</strong>
+      Pick any two elements. Try H + O, C + O, Na + Cl, H + F, or K + O.
+      <div class="manual-slots">
+        <span class="slot" id="slotA">slot A</span>
+        <span class="slot" id="slotB">slot B</span>
+      </div>
+    </div>
+    <div class="message auto-message is-idle" id="autoMessage">
+      <strong>Auto reaction</strong>
+      Waiting for nearby elements to react.
+    </div>
+    <div class="lookup" aria-label="Chemical lookup">
+      <input id="lookupInput" type="text" autocomplete="off" placeholder="Type a substance: water, salt, rust, CO2, 氧气">
+      <div class="lookup-result" id="lookupResult">Enter a substance name or formula to identify its elements.</div>
+    </div>
+    <div class="tray">
+      <button class="legend" type="button" data-family="reactive" aria-pressed="false"><span class="swatch" style="background: var(--reactive)"></span>reactive</button>
+      <button class="legend" type="button" data-family="metal" aria-pressed="false"><span class="swatch" style="background: var(--metal)"></span>metal</button>
+      <button class="legend" type="button" data-family="halogen" aria-pressed="false"><span class="swatch" style="background: var(--halogen)"></span>halogen</button>
+      <button class="legend" type="button" data-family="noble" aria-pressed="false"><span class="swatch" style="background: var(--gas)"></span>noble gas</button>
+      <button class="legend" type="button" data-family="metalloid" aria-pressed="false"><span class="swatch" style="background: var(--metalloid)"></span>metalloid</button>
+      <button class="legend" type="button" data-family="radioactive" aria-pressed="false"><span class="swatch" style="background: var(--radioactive)"></span>radioactive</button>
+    </div>
+  </section>
+
+  <div class="readout" id="readout">elements: 0<br>compounds: 0</div>
+  <div class="tooltip" id="tooltip" aria-hidden="true"></div>
+
+  <script>
+    const canvas = document.querySelector("#field");
+    const ctx = canvas.getContext("2d");
+    const message = document.querySelector("#message");
+    const autoMessage = document.querySelector("#autoMessage");
+    const readout = document.querySelector("#readout");
+    const shuffleButton = document.querySelector("#shuffle");
+    const pauseButton = document.querySelector("#pause");
+    const pauseIcon = document.querySelector("#pauseIcon");
+    const slotA = document.querySelector("#slotA");
+    const slotB = document.querySelector("#slotB");
+    const tooltip = document.querySelector("#tooltip");
+    const lookupInput = document.querySelector("#lookupInput");
+    const lookupResult = document.querySelector("#lookupResult");
+    const familyButtons = [...document.querySelectorAll("[data-family]")];
+
+    const elements = [
+      { n: 1, symbol: "H", name: "Hydrogen", family: "reactive", info: "The lightest element. It burns easily and forms water with oxygen." },
+      { n: 2, symbol: "He", name: "Helium", family: "noble", info: "A noble gas that rarely reacts. It is used in balloons and cooling systems." },
+      { n: 3, symbol: "Li", name: "Lithium", family: "metal", info: "A soft, light metal used in batteries and reactive salts." },
+      { n: 6, symbol: "C", name: "Carbon", family: "reactive", info: "The backbone of organic chemistry. It forms diamond, graphite, CO2, and methane." },
+      { n: 7, symbol: "N", name: "Nitrogen", family: "reactive", info: "Most of Earth's air is nitrogen. It forms ammonia with hydrogen." },
+      { n: 8, symbol: "O", name: "Oxygen", family: "reactive", info: "Supports breathing and combustion. It forms water with hydrogen and oxides with metals." },
+      { n: 9, symbol: "F", name: "Fluorine", family: "halogen", info: "A highly reactive halogen. It can react violently with hydrogen." },
+      { n: 10, symbol: "Ne", name: "Neon", family: "noble", info: "A noble gas famous for bright red-orange signs." },
+      { n: 11, symbol: "Na", name: "Sodium", family: "metal", info: "A soft metal that reacts strongly with oxygen and chlorine." },
+      { n: 12, symbol: "Mg", name: "Magnesium", family: "metal", info: "A light metal that burns with a bright white flame to form magnesium oxide." },
+      { n: 13, symbol: "Al", name: "Aluminum", family: "metal", info: "A lightweight metal protected by a thin oxide layer." },
+      { n: 14, symbol: "Si", name: "Silicon", family: "metalloid", info: "A metalloid used in glass, sand, and computer chips." },
+      { n: 15, symbol: "P", name: "Phosphorus", family: "reactive", info: "A reactive element important in DNA, bones, and fertilizers." },
+      { n: 16, symbol: "S", name: "Sulfur", family: "reactive", info: "A yellow nonmetal found in minerals and many strong-smelling compounds." },
+      { n: 17, symbol: "Cl", name: "Chlorine", family: "halogen", info: "A reactive halogen used in disinfectants and table salt." },
+      { n: 18, symbol: "Ar", name: "Argon", family: "noble", info: "A noble gas used in welding and light bulbs because it avoids reacting." },
+      { n: 19, symbol: "K", name: "Potassium", family: "metal", info: "A very reactive metal. It can flare violently when it meets oxygen or water." },
+      { n: 20, symbol: "Ca", name: "Calcium", family: "metal", info: "A metal important in bones, shells, limestone, and quicklime." },
+      { n: 26, symbol: "Fe", name: "Iron", family: "metal", info: "A strong metal that forms rust when it reacts with oxygen." },
+      { n: 29, symbol: "Cu", name: "Copper", family: "metal", info: "A conductive reddish metal used in wires, pipes, and alloys." },
+      { n: 30, symbol: "Zn", name: "Zinc", family: "metal", info: "A metal used for galvanizing steel and making useful sulfide compounds." },
+      { n: 35, symbol: "Br", name: "Bromine", family: "halogen", info: "A reddish-brown liquid halogen that reacts with many metals." },
+      { n: 47, symbol: "Ag", name: "Silver", family: "metal", info: "A shiny conductive metal. Silver chloride darkens in light." },
+      { n: 53, symbol: "I", name: "Iodine", family: "halogen", info: "A purple-black halogen important for thyroid health and antiseptics." },
+      { n: 79, symbol: "Au", name: "Gold", family: "metal", info: "A dense, stable precious metal that resists corrosion." },
+      { n: 88, symbol: "Ra", name: "Radium", family: "radioactive", info: "A naturally radioactive metal once famous for glowing compounds. It must be handled with strict shielding." },
+      { n: 92, symbol: "U", name: "Uranium", family: "radioactive", info: "A heavy radioactive element used as nuclear fuel. Its atoms can release energy through radioactive decay and fission." },
+      { n: 94, symbol: "Pu", name: "Plutonium", family: "radioactive", info: "A synthetic radioactive metal used in nuclear technology. It is highly hazardous and tightly controlled." }
+    ];
+
+    const familyColors = {
+      reactive: "#e85d4f",
+      metal: "#d49b2a",
+      halogen: "#0f9b8f",
+      noble: "#2e79bd",
+      metalloid: "#8d6ab6",
+      radioactive: "#b7d12a"
+    };
+
+    const reactions = {
+      "H+O": { formula: "H2O", name: "water", note: "H2O is water.", animation: "water" },
+      "C+O": { formula: "CO2", name: "carbon dioxide", note: "CO2 is carbon dioxide, the gas we breathe out.", animation: "gas" },
+      "H+N": { formula: "NH3", name: "ammonia", note: "NH3 is ammonia, a sharp-smelling compound.", animation: "gas" },
+      "H+Cl": { formula: "HCl", name: "hydrogen chloride", note: "HCl is hydrogen chloride; in water it forms hydrochloric acid.", animation: "gas" },
+      "Na+Cl": { formula: "NaCl", name: "salt", note: "NaCl is table salt.", animation: "crystal" },
+      "Mg+O": { formula: "MgO", name: "magnesium oxide", note: "MgO is magnesium oxide, formed by burning magnesium.", animation: "spark" },
+      "Ca+O": { formula: "CaO", name: "calcium oxide", note: "CaO is quicklime.", animation: "spark" },
+      "Fe+O": { formula: "Fe2O3", name: "iron oxide", note: "Fe2O3 is rust.", animation: "crystal" },
+      "Cu+S": { formula: "CuS", name: "copper sulfide", note: "CuS is copper sulfide.", animation: "crystal" },
+      "Ag+Cl": { formula: "AgCl", name: "silver chloride", note: "AgCl is silver chloride, a light-sensitive compound.", animation: "crystal" },
+      "Zn+S": { formula: "ZnS", name: "zinc sulfide", note: "ZnS is zinc sulfide.", animation: "spark" },
+      "Al+O": { formula: "Al2O3", name: "aluminum oxide", note: "Al2O3 is aluminum oxide.", animation: "crystal" },
+      "Li+F": { formula: "LiF", name: "lithium fluoride", note: "LiF is lithium fluoride.", animation: "crystal" },
+      "C+H": { formula: "CH4", name: "methane", note: "CH4 is methane, a flammable gas.", animation: "gas" }
+    };
+
+    const explosiveReactions = {
+      "H+F": { formula: "HF", note: "H + F can react explosively to make hydrogen fluoride.", product: "hydrogen fluoride" },
+      "K+O": { formula: "K2O", note: "Potassium reacts violently with oxygen. Boom: potassium oxide.", product: "potassium oxide" },
+      "Na+O": { formula: "Na2O", note: "Sodium and oxygen can flare violently into sodium oxide.", product: "sodium oxide" },
+      "Al+Cl": { formula: "AlCl3", note: "Aluminum and chlorine can react very violently to form aluminum chloride.", product: "aluminum chloride" },
+      "H+Cl": { formula: "HCl", note: "Hydrogen and chlorine can explode in bright light, forming hydrogen chloride.", product: "hydrogen chloride" }
+    };
+
+    const substanceLookup = {
+      water: { formula: "H2O", name: "water" },
+      "水": { formula: "H2O", name: "water" },
+      salt: { formula: "NaCl", name: "table salt" },
+      "食盐": { formula: "NaCl", name: "table salt" },
+      "盐": { formula: "NaCl", name: "table salt" },
+      rust: { formula: "Fe2O3", name: "iron oxide / rust" },
+      "铁锈": { formula: "Fe2O3", name: "iron oxide / rust" },
+      "carbon dioxide": { formula: "CO2", name: "carbon dioxide" },
+      "二氧化碳": { formula: "CO2", name: "carbon dioxide" },
+      oxygen: { formula: "O2", name: "oxygen gas" },
+      "氧气": { formula: "O2", name: "oxygen gas" },
+      hydrogen: { formula: "H2", name: "hydrogen gas" },
+      "氢气": { formula: "H2", name: "hydrogen gas" },
+      nitrogen: { formula: "N2", name: "nitrogen gas" },
+      "氮气": { formula: "N2", name: "nitrogen gas" },
+      ammonia: { formula: "NH3", name: "ammonia" },
+      "氨": { formula: "NH3", name: "ammonia" },
+      methane: { formula: "CH4", name: "methane" },
+      "甲烷": { formula: "CH4", name: "methane" },
+      "hydrochloric acid": { formula: "HCl", name: "hydrogen chloride / hydrochloric acid" },
+      "盐酸": { formula: "HCl", name: "hydrogen chloride / hydrochloric acid" },
+      "magnesium oxide": { formula: "MgO", name: "magnesium oxide" },
+      "氧化镁": { formula: "MgO", name: "magnesium oxide" },
+      "calcium oxide": { formula: "CaO", name: "calcium oxide / quicklime" },
+      "生石灰": { formula: "CaO", name: "calcium oxide / quicklime" },
+      "quicklime": { formula: "CaO", name: "calcium oxide / quicklime" },
+      "silver chloride": { formula: "AgCl", name: "silver chloride" },
+      "氯化银": { formula: "AgCl", name: "silver chloride" },
+      "aluminum oxide": { formula: "Al2O3", name: "aluminum oxide" },
+      "氧化铝": { formula: "Al2O3", name: "aluminum oxide" },
+      "zinc sulfide": { formula: "ZnS", name: "zinc sulfide" },
+      "硫化锌": { formula: "ZnS", name: "zinc sulfide" },
+      uranium: { formula: "U", name: "uranium" },
+      "铀": { formula: "U", name: "uranium" },
+      radium: { formula: "Ra", name: "radium" },
+      "镭": { formula: "Ra", name: "radium" },
+      plutonium: { formula: "Pu", name: "plutonium" },
+      "钚": { formula: "Pu", name: "plutonium" }
+    };
+
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let running = true;
+    let nodes = [];
+    let compounds = [];
+    let effects = [];
+    let selected = [];
+    let pointer = { x: 0, y: 0, active: false };
+    let hoveredNode = null;
+    let reactionCooldowns = new Map();
+    let lastAutoReactionAt = 0;
+    let activeFamily = null;
+
+    function randomBetween(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function pairKey(a, b) {
+      const forward = `${a}+${b}`;
+      const backward = `${b}+${a}`;
+      if (explosiveReactions[forward] || reactions[forward]) return forward;
+      if (explosiveReactions[backward] || reactions[backward]) return backward;
+      return forward;
+    }
+
+    function nodePairId(a, b) {
+      return [a.id, b.id].sort().join("|");
+    }
+
+    function setMessage(title, body) {
+      message.innerHTML = `<strong>${title}</strong>${body}`;
+    }
+
+    function setAutoMessage(title, body) {
+      autoMessage.innerHTML = `<strong>${title}</strong>${body}`;
+      autoMessage.classList.remove("is-idle");
+    }
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      makeNodes();
+    }
+
+    function makeNodes() {
+      const count = Math.max(30, Math.min(62, Math.floor(width * height / 22000)));
+      nodes = Array.from({ length: count }, (_, index) => {
+        const element = elements[index % elements.length];
+        return {
+          id: `${element.symbol}-${index}-${Math.random().toString(16).slice(2)}`,
+          x: randomBetween(50, Math.max(80, width - 50)),
+          y: randomBetween(110, Math.max(170, height - 110)),
+          size: randomBetween(38, 48),
+          vx: randomBetween(-0.42, 0.42),
+          vy: randomBetween(-0.38, 0.38),
+          phase: randomBetween(0, Math.PI * 2),
+          element,
+          selected: false
+        };
+      });
+      selected = [];
+      compounds = [];
+      effects = [];
+      reactionCooldowns = new Map();
+      lastAutoReactionAt = 0;
+      updateSlots();
+    }
+
+    function updateSlots() {
+      slotA.textContent = selected[0] ? selected[0].element.symbol : "slot A";
+      slotB.textContent = selected[1] ? selected[1].element.symbol : "slot B";
+    }
+
+    function electronShells(atomicNumber) {
+      const capacities = [2, 8, 18, 32, 32, 18, 8];
+      let remaining = atomicNumber;
+      const shells = [];
+      capacities.forEach((capacity) => {
+        if (remaining <= 0) return;
+        const count = Math.min(capacity, remaining);
+        shells.push(count);
+        remaining -= count;
+      });
+      if (remaining > 0) shells.push(remaining);
+      return shells;
+    }
+
+    function atomModelMarkup(element, color) {
+      const shells = electronShells(element.n);
+      const orbitMarkup = shells.map((_, index) => `<i class="orbit" style="--i: ${index}"></i>`).join("");
+      const electronMarkup = shells.map((count, shellIndex) => {
+        const radius = 15 + shellIndex * 10;
+        const visible = Math.min(count, 16);
+        return Array.from({ length: visible }, (_, electronIndex) => {
+          const angle = (360 / visible) * electronIndex + shellIndex * 18;
+          return `<i class="electron" style="--angle: ${angle}deg; --radius: ${radius}px"></i>`;
+        }).join("");
+      }).join("");
+      const shellLabels = shells.map((count, index) => `${["K", "L", "M", "N", "O", "P", "Q"][index] || `S${index + 1}`}:${count}`).join(" · ");
+      return `
+        <div class="atom-preview" style="--electron-color: ${color}; --nucleus-color: ${color}">
+          <div class="atom-model">
+            ${orbitMarkup}
+            ${electronMarkup}
+            <i class="nucleus">${element.symbol}</i>
+          </div>
+          <div class="atom-notes">
+            <b>Atom view</b><br>
+            Protons: ${element.n}<br>
+            Electrons: ${element.n}<br>
+            Shells: ${shellLabels}
+          </div>
+        </div>
+      `;
+    }
+
+    function setActiveFamily(family) {
+      activeFamily = activeFamily === family ? null : family;
+      familyButtons.forEach((button) => {
+        const active = button.dataset.family === activeFamily;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+    }
+
+    function elementBySymbol(symbol) {
+      return elements.find((element) => element.symbol.toLowerCase() === symbol.toLowerCase());
+    }
+
+    function parseFormula(formula) {
+      const clean = formula.replace(/\s+/g, "");
+      const parts = [...clean.matchAll(/([A-Z][a-z]?)(\d*)/g)];
+      if (!parts.length || parts.map((part) => part[0]).join("") !== clean) return null;
+      return parts.map((part) => ({
+        symbol: part[1],
+        count: part[2] ? Number(part[2]) : 1,
+        element: elementBySymbol(part[1])
+      }));
+    }
+
+    function prettyElements(parsed) {
+      return parsed.map((item) => {
+        const name = item.element ? item.element.name : "unknown element";
+        return `${item.symbol}${item.count > 1 ? ` x ${item.count}` : ""} (${name})`;
+      }).join(", ");
+    }
+
+    function lookupSubstance(rawValue) {
+      const result = resolveSubstance(rawValue);
+      const value = result.value;
+      if (!value) {
+        lookupResult.textContent = "Enter a substance name or formula to identify its elements.";
+        return;
+      }
+
+      if (result.error === "parse") {
+        lookupResult.innerHTML = `I do not know <strong>${value}</strong> yet. Try water, salt, rust, CO2, NaCl, 氧气, or 二氧化碳.`;
+        return;
+      }
+
+      if (result.unknown.length) {
+        lookupResult.innerHTML = `<strong>${result.formula}</strong> contains symbols I have not loaded yet: ${result.unknown.map((item) => item.symbol).join(", ")}.`;
+        return;
+      }
+
+      const displayName = result.direct ? result.direct.name : "formula input";
+      lookupResult.innerHTML = `<strong>${displayName}: ${result.formula}</strong><br>Elements: ${prettyElements(result.parsed)}.`;
+
+      const firstFamily = result.parsed[0]?.element?.family;
+      if (firstFamily) {
+        activeFamily = firstFamily;
+        familyButtons.forEach((button) => {
+          const active = button.dataset.family === activeFamily;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
+      }
+    }
+
+    function resolveSubstance(rawValue) {
+      const value = rawValue.trim();
+      if (!value) return { value: "", parsed: null, unknown: [] };
+      const direct = substanceLookup[value.toLowerCase()] || substanceLookup[value];
+      const formula = direct ? direct.formula : value;
+      const parsed = parseFormula(formula);
+      if (!parsed) return { value, direct, formula, parsed: null, unknown: [], error: "parse" };
+      return {
+        value,
+        direct,
+        formula,
+        parsed,
+        unknown: parsed.filter((item) => !item.element)
+      };
+    }
+
+    function updateTooltip() {
+      if (!hoveredNode) {
+        tooltip.classList.remove("is-visible");
+        tooltip.setAttribute("aria-hidden", "true");
+        return;
+      }
+
+      const element = hoveredNode.element;
+      const color = familyColors[element.family];
+      tooltip.innerHTML = `<strong>${element.name} (${element.symbol})</strong>${element.info}<span>Atomic number ${element.n} · ${element.family}</span>${atomModelMarkup(element, color)}`;
+      tooltip.style.borderColor = color;
+      tooltip.style.left = `${Math.max(132, Math.min(width - 132, hoveredNode.x))}px`;
+      tooltip.style.top = `${Math.max(118, hoveredNode.y - hoveredNode.size * 0.8)}px`;
+      tooltip.classList.add("is-visible");
+      tooltip.setAttribute("aria-hidden", "false");
+    }
+
+    function roundRect(x, y, w, h, radius) {
+      const r = Math.min(radius, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function updateNodes(t) {
+      nodes.forEach((node) => {
+        if (hoveredNode && hoveredNode.id === node.id) {
+          node.vx *= 0.78;
+          node.vy *= 0.78;
+          return;
+        }
+
+        node.x += node.vx + Math.sin(t * 0.0008 + node.phase) * 0.08;
+        node.y += node.vy + Math.cos(t * 0.0007 + node.phase) * 0.08;
+
+        if (pointer.active) {
+          const dx = node.x - pointer.x;
+          const dy = node.y - pointer.y;
+          const distance = Math.max(1, Math.hypot(dx, dy));
+          if (distance < 130) {
+            const force = (1 - distance / 130) * 0.75;
+            node.vx += (dx / distance) * force * 0.035;
+            node.vy += (dy / distance) * force * 0.035;
+          }
+        }
+
+        if (node.x < 32 || node.x > width - 32) node.vx *= -1;
+        if (node.y < 86 || node.y > height - 34) node.vy *= -1;
+        node.x = Math.max(32, Math.min(width - 32, node.x));
+        node.y = Math.max(86, Math.min(height - 34, node.y));
+        node.vx *= 0.996;
+        node.vy *= 0.996;
+        if (Math.abs(node.vx) < 0.12) node.vx += Math.sin(t * 0.001 + node.phase) * 0.006;
+        if (Math.abs(node.vy) < 0.12) node.vy += Math.cos(t * 0.001 + node.phase) * 0.006;
+      });
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const distance = Math.max(1, Math.hypot(dx, dy));
+          if (distance < 58) {
+            const push = (58 - distance) * 0.003;
+            a.vx -= dx / distance * push;
+            a.vy -= dy / distance * push;
+            b.vx += dx / distance * push;
+            b.vy += dy / distance * push;
+          } else {
+            const key = pairKey(a.element.symbol, b.element.symbol);
+            const known = reactions[key] || explosiveReactions[key];
+            if (known && distance < 132 && !a.selected && !b.selected) {
+              const pull = (132 - distance) * 0.00011;
+              a.vx += dx / distance * pull;
+              a.vy += dy / distance * pull;
+              b.vx -= dx / distance * pull;
+              b.vy -= dy / distance * pull;
+            }
+          }
+        }
+      }
+
+      compounds.forEach((compound) => {
+        compound.x += compound.vx;
+        compound.y += compound.vy + Math.sin(t * 0.002 + compound.phase) * 0.06;
+        if (compound.x < 60 || compound.x > width - 60) compound.vx *= -1;
+        if (compound.y < 120 || compound.y > height - 70) compound.vy *= -1;
+      });
+    }
+
+    function autoReactNearby(now) {
+      if (now - lastAutoReactionAt < 520) return;
+      for (let i = 0; i < nodes.length; i += 1) {
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const a = nodes[i];
+          const b = nodes[j];
+          if (a.selected || b.selected) continue;
+
+          const key = pairKey(a.element.symbol, b.element.symbol);
+          const known = reactions[key] || explosiveReactions[key];
+          if (!known) continue;
+
+          const distance = Math.hypot(a.x - b.x, a.y - b.y);
+          if (distance > 62) continue;
+
+          const id = nodePairId(a, b);
+          const last = reactionCooldowns.get(id) || 0;
+          if (now - last < 4200) continue;
+
+          reactionCooldowns.set(id, now);
+          lastAutoReactionAt = now;
+          triggerReaction(a, b, now, true);
+          return;
+        }
+      }
+    }
+
+    function drawBackground(t) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.save();
+      ctx.globalAlpha = 0.34;
+      const colors = ["#e85d4f", "#0f9b8f", "#d49b2a", "#2e79bd", "#8067c8"];
+      for (let i = 0; i < 8; i += 1) {
+        const x = width * (0.12 + i * 0.12) + Math.sin(t * 0.0002 + i) * 45;
+        const y = height * (0.18 + (i % 3) * 0.26) + Math.cos(t * 0.00025 + i) * 48;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, Math.max(width, height) * 0.2);
+        gradient.addColorStop(0, `${colors[i % colors.length]}44`);
+        gradient.addColorStop(1, `${colors[i % colors.length]}00`);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(width, height) * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = "rgba(16, 20, 24, 0.22)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i += 1) {
+        const x = width * (0.18 + i * 0.18) + Math.sin(t * 0.00035 + i) * 34;
+        const y = height * (0.28 + (i % 2) * 0.32) + Math.cos(t * 0.00032 + i) * 28;
+        const r = 42 + Math.sin(t * 0.001 + i) * 8;
+        ctx.beginPath();
+        ctx.ellipse(x, y, r * 1.9, r * 0.72, t * 0.00025 + i, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(x, y, r * 0.72, r * 1.9, -t * 0.00022 + i, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(t * 0.001 + i) * r, y + Math.sin(t * 0.001 + i) * r * 0.55, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawBonds() {
+      for (let i = 0; i < nodes.length; i += 1) {
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const key = pairKey(a.element.symbol, b.element.symbol);
+          const known = reactions[key] || explosiveReactions[key];
+          const distance = Math.hypot(a.x - b.x, a.y - b.y);
+          if (known && distance < 148) {
+            const alpha = (1 - distance / 148) * 0.55;
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = explosiveReactions[key] ? "#e85d4f" : "#11161b";
+            ctx.lineWidth = explosiveReactions[key] ? 2.8 : 1.8;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.fillStyle = explosiveReactions[key] ? "#e85d4f" : "#2aa8d8";
+            ctx.beginPath();
+            ctx.arc((a.x + b.x) / 2, (a.y + b.y) / 2, explosiveReactions[key] ? 4 : 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawElementTile(node, t) {
+      const color = familyColors[node.element.family];
+      const isHovered = hoveredNode && hoveredNode.id === node.id;
+      const isFamilyMatch = !activeFamily || node.element.family === activeFamily;
+      const pulse = Math.sin(t * 0.003 + node.phase) * 0.04 + 1;
+      const hoverScale = isHovered ? 1.18 : 1;
+      const filterScale = activeFamily && node.element.family === activeFamily ? 1.12 : 1;
+      const size = node.size * pulse * filterScale;
+      const visualSize = size * hoverScale;
+      const x = node.x - visualSize / 2;
+      const y = node.y - visualSize / 2;
+
+      ctx.save();
+      ctx.globalAlpha = isFamilyMatch ? 1 : 0.3;
+      ctx.shadowColor = node.selected || isHovered ? color : "rgba(17, 22, 27, 0.16)";
+      ctx.shadowBlur = node.selected || isHovered || (activeFamily && isFamilyMatch) ? 24 : 8;
+      ctx.shadowOffsetY = node.selected || isHovered ? 0 : 4;
+      roundRect(x, y, visualSize, visualSize, 7);
+      const tileGradient = ctx.createLinearGradient(x, y, x + visualSize, y + visualSize);
+      tileGradient.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+      tileGradient.addColorStop(0.52, "rgba(255, 252, 244, 0.78)");
+      tileGradient.addColorStop(1, `${color}22`);
+      ctx.fillStyle = tileGradient;
+      ctx.fill();
+      ctx.lineWidth = node.selected || isHovered || (activeFamily && isFamilyMatch) ? 3 : 1;
+      ctx.strokeStyle = node.selected || isHovered || (activeFamily && isFamilyMatch) ? color : "rgba(17, 22, 27, 0.25)";
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, visualSize, 5);
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(17, 22, 27, 0.62)";
+      ctx.font = "600 9px SFMono-Regular, Consolas, monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(String(node.element.n), x + 5, y + 15);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#11161b";
+      ctx.font = `800 ${visualSize > 46 ? 23 : 20}px Inter, system-ui, sans-serif`;
+      ctx.fillText(node.element.symbol, node.x, y + visualSize * 0.61);
+      if (node.element.family === "radioactive") {
+        ctx.fillStyle = color;
+        ctx.font = "900 11px Inter, system-ui, sans-serif";
+        ctx.fillText("RAD", node.x, y + visualSize * 0.82);
+      }
+      ctx.fillStyle = "rgba(17, 22, 27, 0.52)";
+      ctx.font = "600 8px Inter, system-ui, sans-serif";
+      ctx.fillText(node.element.family, node.x, y + visualSize - 7);
+      ctx.restore();
+    }
+
+    function drawCompound(compound, t) {
+      const age = t - compound.createdAt;
+      const alpha = Math.max(0, 1 - age / 9000);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = compound.color;
+      ctx.shadowBlur = 28;
+      ctx.font = "800 22px Inter, system-ui, sans-serif";
+      const w = Math.max(74, ctx.measureText(compound.formula).width + 30);
+      roundRect(compound.x - w / 2, compound.y - 22, w, 44, 8);
+      const compoundGradient = ctx.createLinearGradient(compound.x - w / 2, compound.y - 22, compound.x + w / 2, compound.y + 22);
+      compoundGradient.addColorStop(0, "rgba(255, 255, 255, 0.92)");
+      compoundGradient.addColorStop(1, `${compound.color}2f`);
+      ctx.fillStyle = compoundGradient;
+      ctx.fill();
+      ctx.strokeStyle = compound.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#11161b";
+      ctx.textAlign = "center";
+      ctx.fillText(compound.formula, compound.x, compound.y + 8);
+      ctx.restore();
+    }
+
+    function addWaterEffect(x, y, now) {
+      effects.push({ type: "water", x, y, born: now, drops: Array.from({ length: 34 }, () => ({
+        angle: randomBetween(0, Math.PI * 2),
+        speed: randomBetween(0.45, 2.4),
+        radius: randomBetween(1.8, 5.8),
+        wobble: randomBetween(0, Math.PI * 2)
+      })) });
+    }
+
+    function addExplosionEffect(x, y, now) {
+      effects.push({ type: "explosion", x, y, born: now, particles: Array.from({ length: 76 }, () => ({
+        angle: randomBetween(0, Math.PI * 2),
+        speed: randomBetween(2.1, 7.2),
+        radius: randomBetween(1.8, 7),
+        color: ["#ffcf33", "#ff6b35", "#e85d4f", "#11161b"][Math.floor(randomBetween(0, 4))]
+      })) });
+    }
+
+    function addSimpleEffect(type, x, y, now) {
+      effects.push({ type, x, y, born: now });
+    }
+
+    function addSynthesisEffect(x, y, now, formula, parsed, animation) {
+      const atoms = [];
+      parsed.forEach((item) => {
+        const count = Math.min(item.count, 4);
+        for (let i = 0; i < count; i += 1) {
+          atoms.push({
+            symbol: item.symbol,
+            color: familyColors[item.element.family],
+            angle: randomBetween(0, Math.PI * 2),
+            orbit: randomBetween(72, 138),
+            phase: randomBetween(0, Math.PI * 2)
+          });
+        }
+      });
+      effects.push({ type: "synthesis", x, y, born: now, formula, animation, atoms });
+    }
+
+    function drawWaterEffect(effect, t) {
+      const age = t - effect.born;
+      const p = age / 2200;
+      if (p > 1) return false;
+      ctx.save();
+      ctx.globalAlpha = 1 - p;
+      for (let i = 0; i < 5; i += 1) {
+        ctx.strokeStyle = i % 2 ? "rgba(46, 159, 219, 0.62)" : "rgba(15, 155, 143, 0.46)";
+        ctx.lineWidth = 3 - i * 0.25;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, 12 + p * 126 + i * 18, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      const pool = ctx.createRadialGradient(effect.x, effect.y, 0, effect.x, effect.y, 72 + p * 28);
+      pool.addColorStop(0, `rgba(46, 159, 219, ${0.32 * (1 - p)})`);
+      pool.addColorStop(1, "rgba(46, 159, 219, 0)");
+      ctx.fillStyle = pool;
+      ctx.beginPath();
+      ctx.arc(effect.x, effect.y, 96, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#2e9fdb";
+      effect.drops.forEach((drop) => {
+        const d = p * drop.speed * 88;
+        ctx.beginPath();
+        ctx.arc(effect.x + Math.cos(drop.angle) * d, effect.y + Math.sin(drop.angle) * d + Math.sin(p * Math.PI + drop.wobble) * 22, drop.radius * (1 - p * 0.35), 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+      return true;
+    }
+
+    function drawExplosionEffect(effect, t) {
+      const age = t - effect.born;
+      const p = age / 1500;
+      if (p > 1) return false;
+      ctx.save();
+      const flash = ctx.createRadialGradient(effect.x, effect.y, 0, effect.x, effect.y, 150 * (1 - p + 0.2));
+      flash.addColorStop(0, `rgba(255, 244, 190, ${0.9 * (1 - p)})`);
+      flash.addColorStop(0.45, `rgba(255, 107, 53, ${0.55 * (1 - p)})`);
+      flash.addColorStop(1, "rgba(232, 93, 79, 0)");
+      ctx.fillStyle = flash;
+      ctx.beginPath();
+      ctx.arc(effect.x, effect.y, 190, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.7 * (1 - p);
+      ctx.strokeStyle = "#ffcf33";
+      ctx.lineWidth = 5 * (1 - p) + 1;
+      ctx.beginPath();
+      ctx.arc(effect.x, effect.y, 22 + p * 180, 0, Math.PI * 2);
+      ctx.stroke();
+      effect.particles.forEach((particle) => {
+        const d = p * particle.speed * 72;
+        ctx.globalAlpha = 1 - p;
+        ctx.fillStyle = particle.color;
+        ctx.beginPath();
+        ctx.arc(effect.x + Math.cos(particle.angle) * d, effect.y + Math.sin(particle.angle) * d, particle.radius * (1 - p * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+      return true;
+    }
+
+    function drawSynthesisEffect(effect, t) {
+      const age = t - effect.born;
+      const p = age / 2600;
+      if (p > 1) return false;
+      const gather = Math.min(1, p / 0.62);
+      const bloom = Math.max(0, (p - 0.48) / 0.52);
+      ctx.save();
+      effect.atoms.forEach((atom, index) => {
+        const orbit = atom.orbit * (1 - gather) + 22 * gather;
+        const angle = atom.angle + p * 7 + index * 0.36;
+        const x = effect.x + Math.cos(angle) * orbit;
+        const y = effect.y + Math.sin(angle) * orbit * 0.62;
+        ctx.globalAlpha = 1 - bloom * 0.45;
+        ctx.strokeStyle = atom.color;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(effect.x, effect.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255, 252, 244, 0.9)";
+        ctx.shadowColor = atom.color;
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.arc(x, y, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = atom.color;
+        ctx.font = "800 13px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(atom.symbol, x, y + 5);
+      });
+
+      ctx.globalAlpha = Math.min(1, bloom * 1.2);
+      ctx.shadowColor = effect.animation === "water" ? "#2e9fdb" : "#d49b2a";
+      ctx.shadowBlur = 30;
+      ctx.font = "900 28px Inter, system-ui, sans-serif";
+      const w = Math.max(86, ctx.measureText(effect.formula).width + 36);
+      roundRect(effect.x - w / 2, effect.y - 26, w, 52, 8);
+      ctx.fillStyle = "rgba(255, 252, 244, 0.86)";
+      ctx.fill();
+      ctx.strokeStyle = effect.animation === "water" ? "#2e9fdb" : "#d49b2a";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#101418";
+      ctx.textAlign = "center";
+      ctx.fillText(effect.formula, effect.x, effect.y + 10);
+      ctx.restore();
+      return true;
+    }
+
+    function drawSimpleEffect(effect, t) {
+      const age = t - effect.born;
+      const p = age / 1400;
+      if (p > 1) return false;
+      ctx.save();
+      ctx.globalAlpha = 1 - p;
+      ctx.strokeStyle = effect.type === "gas" ? "#2e79bd" : "#d49b2a";
+      ctx.fillStyle = effect.type === "gas" ? "rgba(46, 121, 189, 0.12)" : "rgba(212, 155, 42, 0.16)";
+      for (let i = 0; i < 6; i += 1) {
+        ctx.beginPath();
+        ctx.arc(effect.x + Math.cos(i) * p * 54, effect.y + Math.sin(i * 1.7) * p * 38, 10 + p * 22, 0, Math.PI * 2);
+        if (effect.type === "gas") ctx.stroke();
+        else ctx.fill();
+      }
+      ctx.restore();
+      return true;
+    }
+
+    function drawEffects(t) {
+      effects = effects.filter((effect) => {
+        if (t < effect.born) return true;
+        if (effect.type === "water") return drawWaterEffect(effect, t);
+        if (effect.type === "explosion") return drawExplosionEffect(effect, t);
+        if (effect.type === "synthesis") return drawSynthesisEffect(effect, t);
+        return drawSimpleEffect(effect, t);
+      });
+    }
+
+    function pushApart(a, b, strength) {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const nx = dx / distance;
+      const ny = dy / distance;
+      a.vx -= nx * strength;
+      a.vy -= ny * strength;
+      b.vx += nx * strength;
+      b.vy += ny * strength;
+    }
+
+    function triggerReaction(a, b, now, automatic = false) {
+      const x = (a.x + b.x) / 2;
+      const y = (a.y + b.y) / 2;
+      const key = pairKey(a.element.symbol, b.element.symbol);
+      const explosive = explosiveReactions[key];
+      const reaction = reactions[key];
+      const report = automatic ? setAutoMessage : setMessage;
+
+      if (explosive) {
+        addExplosionEffect(x, y, now);
+        compounds.push({
+          formula: explosive.formula,
+          x,
+          y,
+          vx: randomBetween(-0.18, 0.18),
+          vy: randomBetween(-0.12, 0.12),
+          phase: randomBetween(0, Math.PI * 2),
+          color: "#e85d4f",
+          createdAt: now
+        });
+        report(`${a.element.symbol} + ${b.element.symbol} -> ${explosive.formula}`, explosive.note);
+        pushApart(a, b, 1.45);
+        return true;
+      } else if (reaction) {
+        if (reaction.animation === "water") addWaterEffect(x, y, now);
+        else addSimpleEffect(reaction.animation, x, y, now);
+        compounds.push({
+          formula: reaction.formula,
+          x,
+          y,
+          vx: randomBetween(-0.18, 0.18),
+          vy: randomBetween(-0.12, 0.12),
+          phase: randomBetween(0, Math.PI * 2),
+          color: reaction.animation === "water" ? "#2e9fdb" : "#d49b2a",
+          createdAt: now
+        });
+        report(`${a.element.symbol} + ${b.element.symbol} -> ${reaction.formula}`, reaction.note);
+        pushApart(a, b, 0.88);
+        return true;
+      }
+
+      if (!automatic) {
+        addSimpleEffect("gas", x, y, now);
+        setMessage(`${a.element.symbol} + ${b.element.symbol}`, "No stable compound in this mini lab yet. The elements drift apart.");
+        pushApart(a, b, 0.8);
+      }
+      return false;
+    }
+
+    function runLookupReaction(now) {
+      const result = resolveSubstance(lookupInput.value);
+      if (!result.value || !result.parsed || result.unknown.length) {
+        lookupSubstance(lookupInput.value);
+        return;
+      }
+
+      const unique = result.parsed.map((item) => item.symbol);
+      const x = Math.max(width * 0.56, Math.min(width - 190, width * 0.62));
+      const y = Math.max(160, Math.min(height - 160, height * 0.48));
+      const pair = unique.length >= 2 ? pairKey(unique[0], unique[1]) : `${unique[0]}+${unique[0]}`;
+      const explosive = explosiveReactions[pair];
+      const reaction = reactions[pair];
+      const animation = reaction?.animation || (result.formula.includes("O") ? "spark" : "gas");
+      const displayName = result.direct ? result.direct.name : result.formula;
+
+      addSynthesisEffect(x, y, now, result.formula, result.parsed, animation);
+      if (explosive) {
+        addExplosionEffect(x, y, now + 180);
+        setMessage(`Lookup reaction: ${result.formula}`, `${displayName} uses ${prettyElements(result.parsed)}. ${explosive.note}`);
+      } else {
+        if (animation === "water") addWaterEffect(x, y, now + 520);
+        else addSimpleEffect(animation, x, y, now + 520);
+        setMessage(`Lookup reaction: ${result.formula}`, `${displayName} uses ${prettyElements(result.parsed)}.`);
+      }
+
+      compounds.push({
+        formula: result.formula,
+        x,
+        y: y + 62,
+        vx: randomBetween(-0.12, 0.12),
+        vy: randomBetween(-0.08, 0.08),
+        phase: randomBetween(0, Math.PI * 2),
+        color: animation === "water" ? "#2e9fdb" : explosive ? "#e85d4f" : "#d49b2a",
+        createdAt: now
+      });
+    }
+
+    function combineSelection(now) {
+      if (selected.length < 2) return;
+      const a = selected[0];
+      const b = selected[1];
+      triggerReaction(a, b, now, false);
+      a.selected = false;
+      b.selected = false;
+      selected = [];
+      updateSlots();
+    }
+
+    function nodeAt(x, y) {
+      for (let i = nodes.length - 1; i >= 0; i -= 1) {
+        const node = nodes[i];
+        const half = node.size * (hoveredNode && hoveredNode.id === node.id ? 0.68 : 0.58);
+        if (x >= node.x - half && x <= node.x + half && y >= node.y - half && y <= node.y + half) {
+          return node;
+        }
+      }
+      return null;
+    }
+
+    function chooseNode(node) {
+      if (!node) return;
+      if (node.selected) {
+        node.selected = false;
+        selected = selected.filter((item) => item.id !== node.id);
+        updateSlots();
+        return;
+      }
+      if (selected.length >= 2) {
+        selected.forEach((item) => { item.selected = false; });
+        selected = [];
+      }
+      node.selected = true;
+      selected.push(node);
+      updateSlots();
+      if (selected.length === 1) {
+        setMessage(`${node.element.name} selected`, `Pick one more element to combine with ${node.element.symbol}.`);
+      }
+      if (selected.length === 2) {
+        combineSelection(performance.now());
+      }
+    }
+
+    function loop(t) {
+      drawBackground(t);
+      if (running) {
+        updateNodes(t);
+        autoReactNearby(t);
+      }
+      drawBonds();
+      compounds = compounds.filter((compound) => t - compound.createdAt < 9500);
+      compounds.forEach((compound) => drawCompound(compound, t));
+      nodes.forEach((node) => drawElementTile(node, t));
+      drawEffects(t);
+      updateTooltip();
+      readout.innerHTML = `elements: ${nodes.length}<br>compounds: ${compounds.length}<br>effects: ${effects.length}`;
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", (event) => {
+      pointer = { x: event.clientX, y: event.clientY, active: true };
+      hoveredNode = nodeAt(event.clientX, event.clientY);
+      canvas.style.cursor = hoveredNode ? "pointer" : "default";
+      updateTooltip();
+    });
+    window.addEventListener("pointerleave", () => {
+      pointer.active = false;
+      hoveredNode = null;
+      canvas.style.cursor = "default";
+      updateTooltip();
+    });
+    canvas.addEventListener("click", (event) => {
+      chooseNode(nodeAt(event.clientX, event.clientY));
+    });
+    familyButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        setActiveFamily(button.dataset.family);
+      });
+    });
+    lookupInput.addEventListener("input", () => {
+      lookupSubstance(lookupInput.value);
+    });
+    lookupInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        runLookupReaction(performance.now());
+      }
+    });
+
+    shuffleButton.addEventListener("click", () => {
+      makeNodes();
+      setMessage("Shuffled.", "New floating elements are ready. Try H + O for water.");
+      autoMessage.innerHTML = "<strong>Auto reaction</strong>Waiting for nearby elements to react.";
+      autoMessage.classList.add("is-idle");
+    });
+    pauseButton.addEventListener("click", () => {
+      running = !running;
+      pauseButton.setAttribute("aria-label", running ? "Pause motion" : "Resume motion");
+      pauseButton.setAttribute("title", running ? "Pause motion" : "Resume motion");
+      pauseIcon.innerHTML = running
+        ? '<path d="M10 4H6v16h4V4Z"></path><path d="M18 4h-4v16h4V4Z"></path>'
+        : '<path d="M8 5v14l11-7L8 5Z"></path>';
+    });
+
+    resize();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
