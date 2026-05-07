@@ -495,8 +495,8 @@
       Waiting for nearby elements to react.
     </div>
     <div class="lookup" aria-label="Chemical lookup">
-      <input id="lookupInput" type="text" autocomplete="off" placeholder="Type a substance: water, salt, rust, CO2, 氧气">
-      <div class="lookup-result" id="lookupResult">Enter a substance name or formula to identify its elements.</div>
+      <input id="lookupInput" type="text" autocomplete="off" placeholder="Type water, CO2, or a pair like Na+Cl / Fe O">
+      <div class="lookup-result" id="lookupResult">Enter a substance, formula, or two element symbols to predict a reaction.</div>
     </div>
     <div class="tray">
       <button class="legend" type="button" data-family="reactive" aria-pressed="false"><span class="swatch" style="background: var(--reactive)"></span>reactive</button>
@@ -531,6 +531,8 @@
       { n: 1, symbol: "H", name: "Hydrogen", family: "reactive", info: "The lightest element. It burns easily and forms water with oxygen." },
       { n: 2, symbol: "He", name: "Helium", family: "noble", info: "A noble gas that rarely reacts. It is used in balloons and cooling systems." },
       { n: 3, symbol: "Li", name: "Lithium", family: "metal", info: "A soft, light metal used in batteries and reactive salts." },
+      { n: 4, symbol: "Be", name: "Beryllium", family: "metal", info: "A light, hard alkaline earth metal used in special alloys." },
+      { n: 5, symbol: "B", name: "Boron", family: "metalloid", info: "A metalloid used in borosilicate glass, detergents, and semiconductors." },
       { n: 6, symbol: "C", name: "Carbon", family: "reactive", info: "The backbone of organic chemistry. It forms diamond, graphite, CO2, and methane." },
       { n: 7, symbol: "N", name: "Nitrogen", family: "reactive", info: "Most of Earth's air is nitrogen. It forms ammonia with hydrogen." },
       { n: 8, symbol: "O", name: "Oxygen", family: "reactive", info: "Supports breathing and combustion. It forms water with hydrogen and oxides with metals." },
@@ -546,16 +548,104 @@
       { n: 18, symbol: "Ar", name: "Argon", family: "noble", info: "A noble gas used in welding and light bulbs because it avoids reacting." },
       { n: 19, symbol: "K", name: "Potassium", family: "metal", info: "A very reactive metal. It can flare violently when it meets oxygen or water." },
       { n: 20, symbol: "Ca", name: "Calcium", family: "metal", info: "A metal important in bones, shells, limestone, and quicklime." },
+      { n: 21, symbol: "Sc", name: "Scandium", family: "metal", info: "A transition metal used in lightweight aluminum alloys." },
+      { n: 22, symbol: "Ti", name: "Titanium", family: "metal", info: "A strong, light metal valued for aircraft, implants, and corrosion resistance." },
+      { n: 23, symbol: "V", name: "Vanadium", family: "metal", info: "A transition metal used to strengthen steel and in flow batteries." },
+      { n: 24, symbol: "Cr", name: "Chromium", family: "metal", info: "A shiny transition metal used in stainless steel and chrome plating." },
+      { n: 25, symbol: "Mn", name: "Manganese", family: "metal", info: "A transition metal important in steelmaking and battery chemistry." },
       { n: 26, symbol: "Fe", name: "Iron", family: "metal", info: "A strong metal that forms rust when it reacts with oxygen." },
+      { n: 27, symbol: "Co", name: "Cobalt", family: "metal", info: "A magnetic metal used in superalloys, pigments, and batteries." },
+      { n: 28, symbol: "Ni", name: "Nickel", family: "metal", info: "A corrosion-resistant metal used in stainless steel and rechargeable batteries." },
       { n: 29, symbol: "Cu", name: "Copper", family: "metal", info: "A conductive reddish metal used in wires, pipes, and alloys." },
       { n: 30, symbol: "Zn", name: "Zinc", family: "metal", info: "A metal used for galvanizing steel and making useful sulfide compounds." },
+      { n: 31, symbol: "Ga", name: "Gallium", family: "metal", info: "A soft metal that melts near room temperature and is used in electronics." },
+      { n: 32, symbol: "Ge", name: "Germanium", family: "metalloid", info: "A metalloid used in fiber optics, infrared optics, and semiconductors." },
+      { n: 33, symbol: "As", name: "Arsenic", family: "metalloid", info: "A toxic metalloid found in minerals and some semiconductor materials." },
+      { n: 34, symbol: "Se", name: "Selenium", family: "reactive", info: "A trace element used in glass, electronics, and biology in tiny amounts." },
       { n: 35, symbol: "Br", name: "Bromine", family: "halogen", info: "A reddish-brown liquid halogen that reacts with many metals." },
+      { n: 36, symbol: "Kr", name: "Krypton", family: "noble", info: "A noble gas used in lighting, lasers, and high-performance windows." },
+      { n: 37, symbol: "Rb", name: "Rubidium", family: "metal", info: "A very reactive alkali metal used in research and atomic clocks." },
+      { n: 38, symbol: "Sr", name: "Strontium", family: "metal", info: "An alkaline earth metal that gives fireworks a red color." },
+      { n: 39, symbol: "Y", name: "Yttrium", family: "metal", info: "A transition metal used in LEDs, lasers, and advanced ceramics." },
+      { n: 40, symbol: "Zr", name: "Zirconium", family: "metal", info: "A corrosion-resistant metal used in ceramics and nuclear reactor materials." },
+      { n: 41, symbol: "Nb", name: "Niobium", family: "metal", info: "A transition metal used in superconducting magnets and strong alloys." },
+      { n: 42, symbol: "Mo", name: "Molybdenum", family: "metal", info: "A heat-resistant metal used in high-strength steels and catalysts." },
+      { n: 43, symbol: "Tc", name: "Technetium", family: "radioactive", info: "The lightest element with no stable isotopes. It is used in medical imaging." },
+      { n: 44, symbol: "Ru", name: "Ruthenium", family: "metal", info: "A rare transition metal used in electronics, catalysts, and alloys." },
+      { n: 45, symbol: "Rh", name: "Rhodium", family: "metal", info: "A rare, reflective metal used in catalytic converters and plating." },
+      { n: 46, symbol: "Pd", name: "Palladium", family: "metal", info: "A precious metal used in catalytic converters, electronics, and hydrogen chemistry." },
       { n: 47, symbol: "Ag", name: "Silver", family: "metal", info: "A shiny conductive metal. Silver chloride darkens in light." },
+      { n: 48, symbol: "Cd", name: "Cadmium", family: "metal", info: "A toxic metal formerly common in batteries and pigments." },
+      { n: 49, symbol: "In", name: "Indium", family: "metal", info: "A soft metal used in touchscreens, solders, and semiconductors." },
+      { n: 50, symbol: "Sn", name: "Tin", family: "metal", info: "A soft metal used in solder, bronze, and protective coatings." },
+      { n: 51, symbol: "Sb", name: "Antimony", family: "metalloid", info: "A brittle metalloid used in flame retardants, alloys, and semiconductors." },
+      { n: 52, symbol: "Te", name: "Tellurium", family: "metalloid", info: "A brittle metalloid used in solar cells, alloys, and thermoelectrics." },
       { n: 53, symbol: "I", name: "Iodine", family: "halogen", info: "A purple-black halogen important for thyroid health and antiseptics." },
+      { n: 54, symbol: "Xe", name: "Xenon", family: "noble", info: "A heavy noble gas used in lamps, ion thrusters, and medical imaging." },
+      { n: 55, symbol: "Cs", name: "Cesium", family: "metal", info: "A very reactive alkali metal used in atomic clocks." },
+      { n: 56, symbol: "Ba", name: "Barium", family: "metal", info: "An alkaline earth metal used in medical contrast agents and fireworks." },
+      { n: 57, symbol: "La", name: "Lanthanum", family: "metal", info: "A lanthanide metal used in camera lenses, catalysts, and batteries." },
+      { n: 58, symbol: "Ce", name: "Cerium", family: "metal", info: "A lanthanide used in polishing powders, catalysts, and lighter flints." },
+      { n: 59, symbol: "Pr", name: "Praseodymium", family: "metal", info: "A lanthanide used in magnets, glass coloring, and alloys." },
+      { n: 60, symbol: "Nd", name: "Neodymium", family: "metal", info: "A lanthanide famous for powerful permanent magnets." },
+      { n: 61, symbol: "Pm", name: "Promethium", family: "radioactive", info: "A radioactive lanthanide with no stable isotopes." },
+      { n: 62, symbol: "Sm", name: "Samarium", family: "metal", info: "A lanthanide used in magnets, lasers, and nuclear reactor control rods." },
+      { n: 63, symbol: "Eu", name: "Europium", family: "metal", info: "A lanthanide used in red and blue phosphors for displays and lighting." },
+      { n: 64, symbol: "Gd", name: "Gadolinium", family: "metal", info: "A lanthanide used in MRI contrast agents and magnetic materials." },
+      { n: 65, symbol: "Tb", name: "Terbium", family: "metal", info: "A lanthanide used in green phosphors, magnets, and sensors." },
+      { n: 66, symbol: "Dy", name: "Dysprosium", family: "metal", info: "A lanthanide used in high-performance magnets and lasers." },
+      { n: 67, symbol: "Ho", name: "Holmium", family: "metal", info: "A lanthanide with strong magnetic properties and laser uses." },
+      { n: 68, symbol: "Er", name: "Erbium", family: "metal", info: "A lanthanide used in fiber-optic amplifiers and pink glass coloring." },
+      { n: 69, symbol: "Tm", name: "Thulium", family: "metal", info: "A rare lanthanide used in lasers and portable X-ray sources." },
+      { n: 70, symbol: "Yb", name: "Ytterbium", family: "metal", info: "A lanthanide used in lasers, atomic clocks, and specialty alloys." },
+      { n: 71, symbol: "Lu", name: "Lutetium", family: "metal", info: "A dense lanthanide used in detectors, catalysts, and medical applications." },
+      { n: 72, symbol: "Hf", name: "Hafnium", family: "metal", info: "A corrosion-resistant metal used in superalloys and nuclear control rods." },
+      { n: 73, symbol: "Ta", name: "Tantalum", family: "metal", info: "A corrosion-resistant metal used in electronics and medical implants." },
+      { n: 74, symbol: "W", name: "Tungsten", family: "metal", info: "A very high-melting metal used in tools, filaments, and armor-piercing alloys." },
+      { n: 75, symbol: "Re", name: "Rhenium", family: "metal", info: "A rare metal used in jet engine superalloys and catalysts." },
+      { n: 76, symbol: "Os", name: "Osmium", family: "metal", info: "A very dense transition metal used in hard alloys and research." },
+      { n: 77, symbol: "Ir", name: "Iridium", family: "metal", info: "A dense, corrosion-resistant metal used in spark plugs and crucibles." },
+      { n: 78, symbol: "Pt", name: "Platinum", family: "metal", info: "A precious metal used in catalysts, jewelry, and medical devices." },
       { n: 79, symbol: "Au", name: "Gold", family: "metal", info: "A dense, stable precious metal that resists corrosion." },
+      { n: 80, symbol: "Hg", name: "Mercury", family: "metal", info: "A liquid metal at room temperature. It is toxic and used only with care." },
+      { n: 81, symbol: "Tl", name: "Thallium", family: "metal", info: "A toxic heavy metal used in specialized electronics and research." },
+      { n: 82, symbol: "Pb", name: "Lead", family: "metal", info: "A dense heavy metal once used widely, now restricted because of toxicity." },
+      { n: 83, symbol: "Bi", name: "Bismuth", family: "metal", info: "A heavy metal used in medicines, low-melting alloys, and cosmetics." },
+      { n: 84, symbol: "Po", name: "Polonium", family: "radioactive", info: "A rare radioactive element discovered by Marie Curie." },
+      { n: 85, symbol: "At", name: "Astatine", family: "radioactive", info: "A very rare radioactive halogen with only tiny natural amounts on Earth." },
+      { n: 86, symbol: "Rn", name: "Radon", family: "radioactive", info: "A radioactive noble gas produced by decay of uranium and radium." },
+      { n: 87, symbol: "Fr", name: "Francium", family: "radioactive", info: "An extremely rare radioactive alkali metal." },
       { n: 88, symbol: "Ra", name: "Radium", family: "radioactive", info: "A naturally radioactive metal once famous for glowing compounds. It must be handled with strict shielding." },
+      { n: 89, symbol: "Ac", name: "Actinium", family: "radioactive", info: "A radioactive actinide used in research and targeted medical isotope work." },
+      { n: 90, symbol: "Th", name: "Thorium", family: "radioactive", info: "A weakly radioactive actinide studied as a possible nuclear fuel." },
+      { n: 91, symbol: "Pa", name: "Protactinium", family: "radioactive", info: "A rare radioactive actinide found in uranium ores." },
       { n: 92, symbol: "U", name: "Uranium", family: "radioactive", info: "A heavy radioactive element used as nuclear fuel. Its atoms can release energy through radioactive decay and fission." },
-      { n: 94, symbol: "Pu", name: "Plutonium", family: "radioactive", info: "A synthetic radioactive metal used in nuclear technology. It is highly hazardous and tightly controlled." }
+      { n: 93, symbol: "Np", name: "Neptunium", family: "radioactive", info: "A radioactive actinide produced in nuclear reactors." },
+      { n: 94, symbol: "Pu", name: "Plutonium", family: "radioactive", info: "A synthetic radioactive metal used in nuclear technology. It is highly hazardous and tightly controlled." },
+      { n: 95, symbol: "Am", name: "Americium", family: "radioactive", info: "A radioactive actinide used in some smoke detectors and research sources." },
+      { n: 96, symbol: "Cm", name: "Curium", family: "radioactive", info: "A synthetic radioactive actinide named after Marie and Pierre Curie." },
+      { n: 97, symbol: "Bk", name: "Berkelium", family: "radioactive", info: "A synthetic radioactive actinide made in nuclear reactors." },
+      { n: 98, symbol: "Cf", name: "Californium", family: "radioactive", info: "A radioactive actinide used as a neutron source in specialized applications." },
+      { n: 99, symbol: "Es", name: "Einsteinium", family: "radioactive", info: "A synthetic radioactive element discovered in nuclear test debris." },
+      { n: 100, symbol: "Fm", name: "Fermium", family: "radioactive", info: "A synthetic radioactive element named after physicist Enrico Fermi." },
+      { n: 101, symbol: "Md", name: "Mendelevium", family: "radioactive", info: "A synthetic radioactive element named after Dmitri Mendeleev." },
+      { n: 102, symbol: "No", name: "Nobelium", family: "radioactive", info: "A synthetic radioactive element named after Alfred Nobel." },
+      { n: 103, symbol: "Lr", name: "Lawrencium", family: "radioactive", info: "A synthetic radioactive actinide named after Ernest Lawrence." },
+      { n: 104, symbol: "Rf", name: "Rutherfordium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 105, symbol: "Db", name: "Dubnium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 106, symbol: "Sg", name: "Seaborgium", family: "radioactive", info: "A synthetic superheavy radioactive element named after Glenn Seaborg." },
+      { n: 107, symbol: "Bh", name: "Bohrium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 108, symbol: "Hs", name: "Hassium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 109, symbol: "Mt", name: "Meitnerium", family: "radioactive", info: "A synthetic superheavy radioactive element named after Lise Meitner." },
+      { n: 110, symbol: "Ds", name: "Darmstadtium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 111, symbol: "Rg", name: "Roentgenium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 112, symbol: "Cn", name: "Copernicium", family: "radioactive", info: "A synthetic superheavy radioactive element named after Nicolaus Copernicus." },
+      { n: 113, symbol: "Nh", name: "Nihonium", family: "radioactive", info: "A synthetic superheavy radioactive element discovered by researchers in Japan." },
+      { n: 114, symbol: "Fl", name: "Flerovium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 115, symbol: "Mc", name: "Moscovium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 116, symbol: "Lv", name: "Livermorium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
+      { n: 117, symbol: "Ts", name: "Tennessine", family: "radioactive", info: "A synthetic superheavy radioactive element in the halogen column." },
+      { n: 118, symbol: "Og", name: "Oganesson", family: "radioactive", info: "A synthetic superheavy radioactive element in the noble gas column." }
     ];
 
     const familyColors = {
@@ -590,6 +680,21 @@
       "Na+O": { formula: "Na2O", note: "Sodium and oxygen can flare violently into sodium oxide.", product: "sodium oxide" },
       "Al+Cl": { formula: "AlCl3", note: "Aluminum and chlorine can react very violently to form aluminum chloride.", product: "aluminum chloride" },
       "H+Cl": { formula: "HCl", note: "Hydrogen and chlorine can explode in bright light, forming hydrogen chloride.", product: "hydrogen chloride" }
+    };
+
+    const nonmetals = new Set(["H", "C", "N", "O", "P", "S", "Se"]);
+    const diatomicElements = new Set(["H", "N", "O", "F", "Cl", "Br", "I"]);
+    const commonIons = {
+      Li: 1, Na: 1, K: 1, Rb: 1, Cs: 1, Fr: 1, Ag: 1,
+      Be: 2, Mg: 2, Ca: 2, Sr: 2, Ba: 2, Ra: 2, Zn: 2, Cd: 2,
+      Al: 3, Ga: 3, Sc: 3, Y: 3, La: 3,
+      F: -1, Cl: -1, Br: -1, I: -1, O: -2, S: -2, Se: -2, N: -3, P: -3
+    };
+    const electronegativity = {
+      H: 2.20, Li: 0.98, Be: 1.57, B: 2.04, C: 2.55, N: 3.04, O: 3.44, F: 3.98,
+      Na: 0.93, Mg: 1.31, Al: 1.61, Si: 1.90, P: 2.19, S: 2.58, Cl: 3.16,
+      K: 0.82, Ca: 1.00, Fe: 1.83, Cu: 1.90, Zn: 1.65, Br: 2.96, Ag: 1.93,
+      I: 2.66, Au: 2.54, Hg: 2.00, Pb: 2.33, U: 1.38
     };
 
     const substanceLookup = {
@@ -663,6 +768,96 @@
       return [a.id, b.id].sort().join("|");
     }
 
+    function gcd(a, b) {
+      return b === 0 ? Math.abs(a) : gcd(b, a % b);
+    }
+
+    function formulaPart(symbol, count) {
+      return `${symbol}${count > 1 ? count : ""}`;
+    }
+
+    function metalLike(element) {
+      return element.family === "metal" || element.family === "radioactive";
+    }
+
+    function oxidationState(element) {
+      return commonIons[element.symbol] || null;
+    }
+
+    function makeIonicFormula(cation, anion) {
+      const cCharge = Math.abs(oxidationState(cation));
+      const aCharge = Math.abs(oxidationState(anion));
+      if (!cCharge || !aCharge) return null;
+      const divisor = gcd(cCharge, aCharge);
+      const cCount = aCharge / divisor;
+      const aCount = cCharge / divisor;
+      return `${formulaPart(cation.symbol, cCount)}${formulaPart(anion.symbol, aCount)}`;
+    }
+
+    function compoundName(a, b, kind) {
+      if (kind === "diatomic") return `${a.name} molecule`;
+      if (kind === "oxide") return `${a.name.toLowerCase()} oxide`;
+      if (kind === "halide") return `${a.name.toLowerCase()} ${b.name.toLowerCase()} compound`;
+      if (kind === "hydride") return `${a.name.toLowerCase()} hydride`;
+      if (kind === "ionic") return `${a.name.toLowerCase()} ${b.name.toLowerCase()} compound`;
+      return `${a.name.toLowerCase()}-${b.name.toLowerCase()} compound`;
+    }
+
+    function inferReaction(a, b) {
+      const key = pairKey(a.symbol, b.symbol);
+      if (reactions[key]) return { ...reactions[key], inferred: false };
+      if (explosiveReactions[key]) return null;
+      if (a.symbol === b.symbol && diatomicElements.has(a.symbol)) {
+        return {
+          formula: `${a.symbol}2`,
+          name: compoundName(a, b, "diatomic"),
+          note: `${a.symbol} commonly exists as a diatomic molecule: ${a.symbol}2.`,
+          animation: "gas",
+          inferred: true
+        };
+      }
+
+      const first = metalLike(a) && !metalLike(b) ? a : metalLike(b) && !metalLike(a) ? b : a;
+      const second = first === a ? b : a;
+      const firstIon = oxidationState(first);
+      const secondIon = oxidationState(second);
+      if (metalLike(first) && secondIon < 0 && firstIon > 0) {
+        const formula = makeIonicFormula(first, second);
+        if (formula) {
+          const kind = second.symbol === "O" ? "oxide" : second.family === "halogen" ? "halide" : second.symbol === "H" ? "hydride" : "ionic";
+          return {
+            formula,
+            name: compoundName(first, second, kind),
+            note: `Rule prediction: ${first.symbol} tends to form ${firstIon}+ ions and ${second.symbol} tends to form ${Math.abs(secondIon)}- ions, giving ${formula}.`,
+            animation: kind === "oxide" ? "spark" : "crystal",
+            inferred: true
+          };
+        }
+      }
+
+      if (nonmetals.has(a.symbol) && nonmetals.has(b.symbol)) {
+        const delta = Math.abs((electronegativity[a.symbol] || 2) - (electronegativity[b.symbol] || 2));
+        if (delta < 1.2) {
+          const formula = a.symbol === "C" && b.symbol === "O" || a.symbol === "O" && b.symbol === "C" ? "CO2" : `${a.symbol}${b.symbol}`;
+          return {
+            formula,
+            name: compoundName(a, b, "covalent"),
+            note: `Rule prediction: two nonmetals usually form covalent compounds by sharing electrons.`,
+            animation: "gas",
+            inferred: true
+          };
+        }
+      }
+
+      return null;
+    }
+
+    function reactionForElements(a, b) {
+      const key = pairKey(a.symbol, b.symbol);
+      if (explosiveReactions[key]) return { ...explosiveReactions[key], explosive: true };
+      return inferReaction(a, b);
+    }
+
     function setMessage(title, body) {
       message.innerHTML = `<strong>${title}</strong>${body}`;
     }
@@ -685,14 +880,14 @@
     }
 
     function makeNodes() {
-      const count = Math.max(30, Math.min(62, Math.floor(width * height / 22000)));
+      const count = elements.length;
       nodes = Array.from({ length: count }, (_, index) => {
         const element = elements[index % elements.length];
         return {
           id: `${element.symbol}-${index}-${Math.random().toString(16).slice(2)}`,
           x: randomBetween(50, Math.max(80, width - 50)),
           y: randomBetween(110, Math.max(170, height - 110)),
-          size: randomBetween(38, 48),
+          size: randomBetween(28, 37),
           vx: randomBetween(-0.42, 0.42),
           vy: randomBetween(-0.38, 0.38),
           phase: randomBetween(0, Math.PI * 2),
@@ -835,6 +1030,14 @@
       };
     }
 
+    function parseElementPair(rawValue) {
+      const pieces = rawValue.trim().split(/[\s,+-]+/).filter(Boolean);
+      if (pieces.length !== 2) return null;
+      const a = elementBySymbol(pieces[0]);
+      const b = elementBySymbol(pieces[1]);
+      return a && b ? [a, b] : null;
+    }
+
     function updateTooltip() {
       if (!hoveredNode) {
         tooltip.classList.remove("is-visible");
@@ -906,15 +1109,14 @@
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const distance = Math.max(1, Math.hypot(dx, dy));
-          if (distance < 58) {
-            const push = (58 - distance) * 0.003;
+          if (distance < 44) {
+            const push = (44 - distance) * 0.003;
             a.vx -= dx / distance * push;
             a.vy -= dy / distance * push;
             b.vx += dx / distance * push;
             b.vy += dy / distance * push;
           } else {
-            const key = pairKey(a.element.symbol, b.element.symbol);
-            const known = reactions[key] || explosiveReactions[key];
+            const known = reactionForElements(a.element, b.element);
             if (known && distance < 132 && !a.selected && !b.selected) {
               const pull = (132 - distance) * 0.00011;
               a.vx += dx / distance * pull;
@@ -942,8 +1144,7 @@
           const b = nodes[j];
           if (a.selected || b.selected) continue;
 
-          const key = pairKey(a.element.symbol, b.element.symbol);
-          const known = reactions[key] || explosiveReactions[key];
+          const known = reactionForElements(a.element, b.element);
           if (!known) continue;
 
           const distance = Math.hypot(a.x - b.x, a.y - b.y);
@@ -1004,22 +1205,21 @@
         for (let j = i + 1; j < nodes.length; j += 1) {
           const a = nodes[i];
           const b = nodes[j];
-          const key = pairKey(a.element.symbol, b.element.symbol);
-          const known = reactions[key] || explosiveReactions[key];
+          const known = reactionForElements(a.element, b.element);
           const distance = Math.hypot(a.x - b.x, a.y - b.y);
           if (known && distance < 148) {
             const alpha = (1 - distance / 148) * 0.55;
             ctx.globalAlpha = alpha;
-            ctx.strokeStyle = explosiveReactions[key] ? "#e85d4f" : "#11161b";
-            ctx.lineWidth = explosiveReactions[key] ? 2.8 : 1.8;
+            ctx.strokeStyle = known.explosive ? "#e85d4f" : known.inferred ? "#2aa8d8" : "#11161b";
+            ctx.lineWidth = known.explosive ? 2.8 : known.inferred ? 1.4 : 1.8;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
             ctx.stroke();
             ctx.globalAlpha = alpha * 0.8;
-            ctx.fillStyle = explosiveReactions[key] ? "#e85d4f" : "#2aa8d8";
+            ctx.fillStyle = known.explosive ? "#e85d4f" : "#2aa8d8";
             ctx.beginPath();
-            ctx.arc((a.x + b.x) / 2, (a.y + b.y) / 2, explosiveReactions[key] ? 4 : 3, 0, Math.PI * 2);
+            ctx.arc((a.x + b.x) / 2, (a.y + b.y) / 2, known.explosive ? 4 : 3, 0, Math.PI * 2);
             ctx.fill();
           }
         }
@@ -1059,21 +1259,21 @@
 
       ctx.shadowBlur = 0;
       ctx.fillStyle = "rgba(17, 22, 27, 0.62)";
-      ctx.font = "600 9px SFMono-Regular, Consolas, monospace";
+      ctx.font = "600 8px SFMono-Regular, Consolas, monospace";
       ctx.textAlign = "left";
-      ctx.fillText(String(node.element.n), x + 5, y + 15);
+      ctx.fillText(String(node.element.n), x + 4, y + 13);
       ctx.textAlign = "center";
       ctx.fillStyle = "#11161b";
-      ctx.font = `800 ${visualSize > 46 ? 23 : 20}px Inter, system-ui, sans-serif`;
+      ctx.font = `800 ${visualSize > 36 ? 18 : 16}px Inter, system-ui, sans-serif`;
       ctx.fillText(node.element.symbol, node.x, y + visualSize * 0.61);
       if (node.element.family === "radioactive") {
         ctx.fillStyle = color;
-        ctx.font = "900 11px Inter, system-ui, sans-serif";
+        ctx.font = "900 9px Inter, system-ui, sans-serif";
         ctx.fillText("RAD", node.x, y + visualSize * 0.82);
       }
       ctx.fillStyle = "rgba(17, 22, 27, 0.52)";
-      ctx.font = "600 8px Inter, system-ui, sans-serif";
-      ctx.fillText(node.element.family, node.x, y + visualSize - 7);
+      ctx.font = "600 7px Inter, system-ui, sans-serif";
+      ctx.fillText(node.element.family, node.x, y + visualSize - 5);
       ctx.restore();
     }
 
@@ -1297,15 +1497,13 @@
     function triggerReaction(a, b, now, automatic = false) {
       const x = (a.x + b.x) / 2;
       const y = (a.y + b.y) / 2;
-      const key = pairKey(a.element.symbol, b.element.symbol);
-      const explosive = explosiveReactions[key];
-      const reaction = reactions[key];
+      const result = reactionForElements(a.element, b.element);
       const report = automatic ? setAutoMessage : setMessage;
 
-      if (explosive) {
+      if (result?.explosive) {
         addExplosionEffect(x, y, now);
         compounds.push({
-          formula: explosive.formula,
+          formula: result.formula,
           x,
           y,
           vx: randomBetween(-0.18, 0.18),
@@ -1314,23 +1512,23 @@
           color: "#e85d4f",
           createdAt: now
         });
-        report(`${a.element.symbol} + ${b.element.symbol} -> ${explosive.formula}`, explosive.note);
+        report(`${a.element.symbol} + ${b.element.symbol} -> ${result.formula}`, result.note);
         pushApart(a, b, 1.45);
         return true;
-      } else if (reaction) {
-        if (reaction.animation === "water") addWaterEffect(x, y, now);
-        else addSimpleEffect(reaction.animation, x, y, now);
+      } else if (result) {
+        if (result.animation === "water") addWaterEffect(x, y, now);
+        else addSimpleEffect(result.animation, x, y, now);
         compounds.push({
-          formula: reaction.formula,
+          formula: result.formula,
           x,
           y,
           vx: randomBetween(-0.18, 0.18),
           vy: randomBetween(-0.12, 0.12),
           phase: randomBetween(0, Math.PI * 2),
-          color: reaction.animation === "water" ? "#2e9fdb" : "#d49b2a",
+          color: result.animation === "water" ? "#2e9fdb" : result.inferred ? "#2aa8d8" : "#d49b2a",
           createdAt: now
         });
-        report(`${a.element.symbol} + ${b.element.symbol} -> ${reaction.formula}`, reaction.note);
+        report(`${a.element.symbol} + ${b.element.symbol} -> ${result.formula}`, result.note);
         pushApart(a, b, 0.88);
         return true;
       }
@@ -1344,6 +1542,36 @@
     }
 
     function runLookupReaction(now) {
+      const pairInput = parseElementPair(lookupInput.value);
+      if (pairInput) {
+        const [a, b] = pairInput;
+        const result = reactionForElements(a, b);
+        const x = Math.max(width * 0.56, Math.min(width - 190, width * 0.62));
+        const y = Math.max(160, Math.min(height - 160, height * 0.48));
+        if (!result) {
+          addSimpleEffect("gas", x, y, now);
+          setMessage(`Lookup reaction: ${a.symbol} + ${b.symbol}`, "No simple rule prediction for this pair yet.");
+          return;
+        }
+        const parsed = parseFormula(result.formula).filter((item) => item.element);
+        addSynthesisEffect(x, y, now, result.formula, parsed, result.animation || "crystal");
+        if (result.explosive) addExplosionEffect(x, y, now + 180);
+        else if (result.animation === "water") addWaterEffect(x, y, now + 520);
+        else addSimpleEffect(result.animation || "crystal", x, y, now + 520);
+        setMessage(`Lookup reaction: ${a.symbol} + ${b.symbol} -> ${result.formula}`, result.note);
+        compounds.push({
+          formula: result.formula,
+          x,
+          y: y + 62,
+          vx: randomBetween(-0.12, 0.12),
+          vy: randomBetween(-0.08, 0.08),
+          phase: randomBetween(0, Math.PI * 2),
+          color: result.explosive ? "#e85d4f" : result.inferred ? "#2aa8d8" : "#d49b2a",
+          createdAt: now
+        });
+        return;
+      }
+
       const result = resolveSubstance(lookupInput.value);
       if (!result.value || !result.parsed || result.unknown.length) {
         lookupSubstance(lookupInput.value);
