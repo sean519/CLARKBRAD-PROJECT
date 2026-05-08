@@ -58,6 +58,7 @@
     const soundToggleButton = document.querySelector("#soundToggle");
     const openCodexButton = document.querySelector("#openCodex");
     const fireUfoButton = document.querySelector("#fireUfo");
+    const vacuumUfoButton = document.querySelector("#vacuumUfo");
     const closeCodexButton = document.querySelector("#closeCodex");
     const codexModal = document.querySelector("#codexModal");
     const codexGrid = document.querySelector("#codexGrid");
@@ -4377,6 +4378,22 @@
       shootUfo(performance.now());
       setMessage("UFO defense", "Use Fire or press Space to shoot the monster black hole.");
     });
+    function holdVacuumButton(event) {
+      event.preventDefault();
+      vacuumUfoButton.classList.add("is-held");
+      setTractorBeam(true);
+    }
+
+    function releaseVacuumButton(event) {
+      event.preventDefault();
+      vacuumUfoButton.classList.remove("is-held");
+      setTractorBeam(false);
+    }
+
+    vacuumUfoButton.addEventListener("pointerdown", holdVacuumButton);
+    vacuumUfoButton.addEventListener("pointerup", releaseVacuumButton);
+    vacuumUfoButton.addEventListener("pointercancel", releaseVacuumButton);
+    vacuumUfoButton.addEventListener("pointerleave", releaseVacuumButton);
     window.addEventListener("keydown", (event) => {
       if (document.activeElement === lookupInput) return;
       if (event.code === "Space") {
@@ -4421,6 +4438,7 @@
     window.addEventListener("keyup", (event) => {
       if (document.activeElement !== lookupInput && event.key.toLowerCase() === "c") {
         event.preventDefault();
+        vacuumUfoButton.classList.remove("is-held");
         setTractorBeam(false);
         return;
       }

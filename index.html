@@ -220,6 +220,22 @@ XP tip: mission elements and boss-weakness compounds give the most energy.</text
   <div class="tooltip" id="tooltip" aria-hidden="true"></div>
 
   <script src="js/game.js"></script>
+  <script>
+    (() => {
+      const button = document.querySelector("#vacuumUfo");
+      if (!button || button.dataset.touchVacuumReady) return;
+      button.dataset.touchVacuumReady = "true";
+      const setBeam = (active, event) => {
+        event?.preventDefault();
+        button.classList.toggle("is-held", active);
+        if (typeof window.setTractorBeam === "function") window.setTractorBeam(active);
+      };
+      button.addEventListener("pointerdown", (event) => setBeam(true, event));
+      button.addEventListener("pointerup", (event) => setBeam(false, event));
+      button.addEventListener("pointercancel", (event) => setBeam(false, event));
+      button.addEventListener("pointerleave", (event) => setBeam(false, event));
+    })();
+  </script>
 </body>
 </html>
 
