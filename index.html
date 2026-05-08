@@ -1,465 +1,18 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Clark testbed</title>
-  <style>
-    :root {
-      --ink: #101418;
-      --paper: #f7f1e5;
-      --line: rgba(17, 22, 27, 0.18);
-      --panel: rgba(255, 252, 244, 0.24);
-      --metal: #d49b2a;
-      --reactive: #e85d4f;
-      --gas: #2e79bd;
-      --halogen: #0f9b8f;
-      --metalloid: #8d6ab6;
-      --radioactive: #b7d12a;
-      --shadow: rgba(17, 22, 27, 0.16);
-      --cyan: #2aa8d8;
-      --violet: #8067c8;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      height: 100%;
-      margin: 0;
-    }
-
-    body {
-      min-height: 100%;
-      overflow: hidden;
-      background:
-        radial-gradient(circle at 18% 18%, rgba(232, 93, 79, 0.18), transparent 24%),
-        radial-gradient(circle at 82% 24%, rgba(42, 168, 216, 0.16), transparent 26%),
-        radial-gradient(circle at 72% 82%, rgba(15, 155, 143, 0.18), transparent 28%),
-        linear-gradient(145deg, #fbf4e8 0%, #edf6f2 42%, #f4edf7 100%);
-      color: var(--ink);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background:
-        linear-gradient(rgba(16, 20, 24, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(16, 20, 24, 0.035) 1px, transparent 1px);
-      background-size: 42px 42px;
-      mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
-      opacity: 0.72;
-      z-index: 1;
-    }
-
-    canvas {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-      z-index: 0;
-    }
-
-    .topbar {
-      position: fixed;
-      top: 18px;
-      left: 20px;
-      right: 20px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 14px;
-      pointer-events: none;
-      z-index: 3;
-    }
-
-    .brand {
-      pointer-events: auto;
-      max-width: min(760px, calc(100vw - 130px));
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(34px, 6vw, 78px);
-      line-height: 0.92;
-      letter-spacing: 0;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.48), 0 18px 52px rgba(17, 22, 27, 0.12);
-    }
-
-    .subhead {
-      max-width: 620px;
-      margin: 8px 0 0;
-      color: rgba(17, 22, 27, 0.66);
-      font-size: clamp(14px, 1.8vw, 18px);
-      text-wrap: balance;
-    }
-
-    .buttons {
-      display: flex;
-      gap: 8px;
-      pointer-events: auto;
-    }
-
-    button {
-      width: 44px;
-      height: 44px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08)),
-        var(--panel);
-      color: var(--ink);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.45),
-        0 12px 32px var(--shadow);
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
-      backdrop-filter: blur(18px) saturate(1.3);
-      -webkit-backdrop-filter: blur(18px) saturate(1.3);
-    }
-
-    button:hover {
-      transform: translateY(-2px);
-      border-color: rgba(17, 22, 27, 0.34);
-      background: rgba(255, 255, 255, 0.86);
-    }
-
-    button svg {
-      width: 21px;
-      height: 21px;
-      stroke-width: 2;
-    }
-
-    .lab-panel {
-      position: fixed;
-      left: 20px;
-      bottom: 20px;
-      width: min(520px, calc(100vw - 40px));
-      display: grid;
-      gap: 12px;
-      pointer-events: none;
-      z-index: 3;
-    }
-
-    .message {
-      min-height: 92px;
-      padding: 14px 16px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 8px;
-      background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 252, 244, 0.06)),
-        rgba(255, 252, 244, 0.15);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.36),
-        0 20px 58px rgba(17, 22, 27, 0.13);
-      backdrop-filter: blur(28px) saturate(1.55);
-      -webkit-backdrop-filter: blur(28px) saturate(1.55);
-      font-size: 14px;
-      line-height: 1.45;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .message::before {
-      content: "";
-      position: absolute;
-      inset: 0 0 auto;
-      height: 2px;
-      background: linear-gradient(90deg, var(--reactive), var(--metal), var(--halogen), var(--gas), var(--metalloid), var(--radioactive));
-      opacity: 0.7;
-    }
-
-    .auto-message {
-      min-height: 58px;
-      border-color: rgba(232, 93, 79, 0.34);
-      background:
-        linear-gradient(135deg, rgba(232, 93, 79, 0.14), rgba(42, 168, 216, 0.07)),
-        rgba(255, 252, 244, 0.12);
-    }
-
-    .auto-message.is-idle {
-      opacity: 0.58;
-    }
-
-    .message strong {
-      display: block;
-      margin-bottom: 4px;
-      font-size: 17px;
-      letter-spacing: 0;
-    }
-
-    .manual-slots {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 12px;
-    }
-
-    .lookup {
-      display: grid;
-      gap: 8px;
-      padding: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.28);
-      border-radius: 8px;
-      background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
-        rgba(255, 252, 244, 0.12);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
-      backdrop-filter: blur(22px) saturate(1.35);
-      -webkit-backdrop-filter: blur(22px) saturate(1.35);
-      pointer-events: auto;
-    }
-
-    .lookup input {
-      width: 100%;
-      height: 38px;
-      border: 1px solid rgba(17, 22, 27, 0.16);
-      border-radius: 8px;
-      padding: 0 12px;
-      background: rgba(255, 252, 244, 0.52);
-      color: var(--ink);
-      font: 600 13px Inter, system-ui, sans-serif;
-      outline: none;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.46);
-    }
-
-    .lookup input:focus {
-      border-color: rgba(42, 168, 216, 0.58);
-      box-shadow: 0 0 0 3px rgba(42, 168, 216, 0.14);
-    }
-
-    .lookup-result {
-      min-height: 38px;
-      color: rgba(17, 22, 27, 0.7);
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
-    .lookup-result strong {
-      display: inline;
-      font-size: 14px;
-    }
-
-    .tray {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      pointer-events: auto;
-    }
-
-    .slot,
-    .legend {
-      min-width: 74px;
-      height: 36px;
-      padding: 0 12px;
-      border: 1px solid rgba(255, 255, 255, 0.28);
-      border-radius: 8px;
-      background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.04)),
-        rgba(255, 252, 244, 0.12);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
-      backdrop-filter: blur(20px) saturate(1.35);
-      -webkit-backdrop-filter: blur(20px) saturate(1.35);
-      display: inline-grid;
-      place-items: center;
-      font-size: 12px;
-      font-weight: 700;
-      color: rgba(17, 22, 27, 0.64);
-    }
-
-    .legend {
-      width: auto;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    }
-
-    .legend {
-      gap: 6px;
-      grid-auto-flow: column;
-      font-weight: 650;
-    }
-
-    .legend.is-active {
-      color: var(--ink);
-      border-color: rgba(17, 22, 27, 0.38);
-      background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08)),
-        rgba(255, 252, 244, 0.28);
-      transform: translateY(-1px);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.46),
-        0 12px 28px rgba(17, 22, 27, 0.11);
-    }
-
-    .swatch {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    .readout {
-      position: fixed;
-      right: 20px;
-      bottom: 20px;
-      font-size: 12px;
-      color: rgba(17, 22, 27, 0.58);
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      text-align: right;
-      pointer-events: none;
-      z-index: 3;
-      padding: 10px 12px;
-      border: 1px solid rgba(255, 255, 255, 0.26);
-      border-radius: 8px;
-      background: rgba(255, 252, 244, 0.12);
-      backdrop-filter: blur(20px) saturate(1.3);
-      -webkit-backdrop-filter: blur(20px) saturate(1.3);
-    }
-
-    .tooltip {
-      position: fixed;
-      z-index: 5;
-      width: min(330px, calc(100vw - 28px));
-      padding: 12px 13px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 252, 244, 0.22)),
-        rgba(255, 252, 244, 0.48);
-      box-shadow: 0 18px 44px rgba(17, 22, 27, 0.16);
-      backdrop-filter: blur(20px) saturate(1.35);
-      -webkit-backdrop-filter: blur(20px) saturate(1.35);
-      color: rgba(17, 22, 27, 0.76);
-      font-size: 13px;
-      line-height: 1.42;
-      opacity: 0;
-      transform: translate(-50%, -108%) scale(0.96);
-      transform-origin: center bottom;
-      transition: opacity 120ms ease, transform 120ms ease;
-      pointer-events: none;
-    }
-
-    .tooltip.is-visible {
-      opacity: 1;
-      transform: translate(-50%, -116%) scale(1);
-    }
-
-    .tooltip strong {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--ink);
-      font-size: 15px;
-    }
-
-    .tooltip span {
-      display: block;
-      margin-top: 7px;
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      font-size: 11px;
-      color: rgba(17, 22, 27, 0.54);
-    }
-
-    .atom-preview {
-      display: grid;
-      grid-template-columns: 96px 1fr;
-      gap: 12px;
-      align-items: center;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid rgba(17, 22, 27, 0.12);
-    }
-
-    .atom-model {
-      position: relative;
-      width: 92px;
-      height: 92px;
-    }
-
-    .orbit {
-      position: absolute;
-      inset: calc(var(--i) * 10px);
-      border: 1px solid rgba(17, 22, 27, 0.18);
-      border-radius: 50%;
-    }
-
-    .electron {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--electron-color);
-      box-shadow: 0 0 10px var(--electron-color);
-      transform:
-        rotate(var(--angle))
-        translateX(var(--radius))
-        translate(-50%, -50%);
-      transform-origin: 0 0;
-    }
-
-    .nucleus {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      transform: translate(-50%, -50%);
-      background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.9), var(--nucleus-color));
-      color: #fff;
-      font-size: 11px;
-      font-weight: 800;
-      box-shadow: 0 0 20px var(--nucleus-color);
-    }
-
-    .atom-notes {
-      font-size: 12px;
-      color: rgba(17, 22, 27, 0.68);
-    }
-
-    .atom-notes b {
-      color: var(--ink);
-    }
-
-    @media (max-width: 720px) {
-      .topbar {
-        left: 14px;
-        right: 14px;
-      }
-
-      .buttons {
-        flex-direction: column;
-      }
-
-      .lab-panel {
-        left: 14px;
-        right: 14px;
-        bottom: 14px;
-        width: auto;
-      }
-
-      .readout {
-        display: none;
-      }
-    }
-  </style>
+  <title>Clark Space Lab</title>
+  <link rel="stylesheet" href="css/game.css">
 </head>
 <body>
   <canvas id="field" aria-label="Floating interactive chemistry field"></canvas>
 
   <div class="topbar">
     <section class="brand">
-      <h1>Clark testbed</h1>
-      <p class="subhead">A floating chemistry bench for mixing elements, watching reactions, and catching tiny simulated disasters before they cool down.</p>
+      <h1>Clark Space Lab</h1>
+      <p class="subhead">Repair the UFO. Dodge the monster black hole. Fire elements to trigger reactions.</p>
     </section>
 
     <div class="buttons">
@@ -476,6 +29,38 @@
         <svg id="pauseIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M10 4H6v16h4V4Z"></path>
           <path d="M18 4h-4v16h4V4Z"></path>
+        </svg>
+      </button>
+      <button class="hazard-button is-active" type="button" data-hazard="blackHole" aria-label="Toggle monster black hole" aria-pressed="true" title="Toggle monster black hole">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M3 12c2.5-4 15.5-4 18 0"></path>
+          <path d="M3 12c2.5 4 15.5 4 18 0"></path>
+        </svg>
+      </button>
+      <button class="hazard-button" type="button" data-hazard="tornado" aria-label="Toggle tornado" aria-pressed="false" title="Toggle tornado">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M4 5h16"></path>
+          <path d="M6 9h12"></path>
+          <path d="M8 13h8"></path>
+          <path d="M10 17h4"></path>
+          <path d="M12 17v4"></path>
+        </svg>
+      </button>
+      <button class="hazard-button" type="button" data-hazard="meteor" aria-label="Toggle meteor shower" aria-pressed="false" title="Toggle meteor shower">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="m4 20 8-8"></path>
+          <path d="m3 12 9-9"></path>
+          <path d="m12 21 9-9"></path>
+          <circle cx="16" cy="8" r="4"></circle>
+        </svg>
+      </button>
+      <button class="hazard-button" type="button" data-hazard="tsunami" aria-label="Toggle tsunami" aria-pressed="false" title="Toggle tsunami">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M3 17c3 0 3-2 6-2s3 2 6 2 3-2 6-2"></path>
+          <path d="M3 21c3 0 3-2 6-2s3 2 6 2 3-2 6-2"></path>
+          <path d="M4 12c4-7 13-7 16 0"></path>
+          <path d="M15 8c3 1 5 3 5 7"></path>
         </svg>
       </button>
     </div>
@@ -508,1216 +93,133 @@
     </div>
   </section>
 
+  <section class="game-panel" aria-label="Game mission panel">
+    <div class="game-row">
+      <span class="game-label">Mission</span>
+      <div class="game-score">
+        <span id="scoreReadout">0 pts</span>
+        <span id="levelReadout">L1</span>
+        <span id="streakReadout">x0</span>
+        <span id="timerReadout">90s</span>
+      </div>
+    </div>
+    <div class="level-map" id="levelMap"></div>
+    <div class="mission-card collection-card">
+      <div class="collection-head">
+        <span>Collect for UFO</span>
+        <strong id="missionName">H + O</strong>
+      </div>
+      <div class="target-grid" id="collectionTargets"></div>
+      <div class="mission-hint" id="missionHint">Hold C to pull target elements into the UFO, then dock them at the station.</div>
+      <div class="mission-progress"><span id="missionProgress"></span></div>
+    </div>
+    <div class="rescue-board is-hidden" aria-label="Space rescue repair board">
+      <div class="ship-status" id="shipStatus">Ship repair: 0/3</div>
+      <div class="ship-parts" id="shipParts"></div>
+    </div>
+    <div class="boss-meter" aria-label="Boss black hole meter">
+      <div class="boss-label"><span>Monster Black Hole</span><span id="bossReadout">100%</span></div>
+      <div class="boss-bar"><span id="bossBar"></span></div>
+    </div>
+    <div class="hud-stats" aria-label="UFO status">
+      <div class="hud-stat"><span>Pilot</span><strong id="riderReadout">None</strong></div>
+      <div class="hud-stat"><span>Cargo</span><strong id="cargoReadout">Empty</strong></div>
+      <div class="hud-stat"><span>Weapon</span><strong id="weaponReadout">Bolt</strong></div>
+      <div class="hud-stat"><span>UFO Hull</span><strong id="ufoReadout">100%</strong></div>
+      <div class="hud-stat"><span>Boss Phase</span><strong id="phaseReadout">I</strong></div>
+      <div class="hud-stat"><span>Upgrades</span><strong id="upgradeReadout">Base</strong></div>
+      <div class="hud-stat"><span>Ship Level</span><strong id="evolutionReadout">Lv.1 Scout</strong></div>
+      <div class="hud-stat"><span>Energy</span><strong id="energyReadout">0/80</strong></div>
+      <div class="hud-stat station-stat"><span>Station</span><strong id="stationReadout">Empty</strong></div>
+    </div>
+    <div class="door-state" aria-label="UFO tractor beam">
+      <div class="door-row"><span>Tractor Beam</span><strong id="doorReadout">Off</strong></div>
+      <div class="door-track"><span id="doorTrack"></span></div>
+    </div>
+    <div class="evolution-meter" aria-label="UFO evolution progress">
+      <div class="evolution-label"><span id="evolutionLabel">Lv.1 -> Lv.2</span><span id="evolutionPercent">0%</span></div>
+      <div class="evolution-bar"><span id="evolutionBar"></span></div>
+    </div>
+    <div class="tech-tree" aria-label="UFO tech tree">
+      <div class="tech-head"><span>UFO Tech Tree</span><span id="skillPointReadout">0 pts</span></div>
+      <div class="tech-grid" id="techTree"></div>
+    </div>
+    <div class="hud-message" id="hudMessage"><strong>Objective</strong>Make H2O, NaCl, and CO2 to repair the UFO.</div>
+    <div class="guide-box">
+      <label for="gameGuide">Game Guide</label>
+      <textarea id="gameGuide" readonly>Goal: protect the station. Dock elements there so the station can make H2O, NaCl, and CO2.
+Fly: Arrow keys or drag UFO. Hold C or hold Vacuum: forward tractor beam collects elements.
+Dock: fly near the space station and press D to deposit cargo.
+Storage: the station auto-reacts matching elements and recycles overflow into XP.
+Pilot powers: 1 = Clark laser, 2 or B = Bradley megaboom, E = eject crew.
+XP tip: mission elements and boss-weakness compounds give the most energy.</textarea>
+    </div>
+    <div class="upgrade-line" id="upgradeLine">Weakness: shoot H, O, CO2, or NaCl into the black hole.</div>
+    <div class="game-actions">
+      <button id="startGame" type="button">Start</button>
+      <button id="nextMission" type="button">Next</button>
+      <button id="resetGame" type="button">Reset</button>
+      <button id="vacuumUfo" type="button">Vacuum</button>
+      <button id="fireUfo" type="button">Fire</button>
+    </div>
+    <div class="tool-belt" aria-label="Tools">
+      <button type="button" data-tool="magnet">Magnet</button>
+      <button type="button" data-tool="freeze">Freeze</button>
+      <button type="button" data-tool="shield">Shield</button>
+      <button type="button" data-tool="net">Net</button>
+    </div>
+    <div class="skill-belt" aria-label="Crew skills">
+      <button id="clarkSkill" type="button">Clark Help</button>
+      <button id="bradleySkill" type="button">Bradley Ship</button>
+    </div>
+    <div class="game-actions">
+      <button id="kidsMode" type="button">Kids</button>
+      <button id="soundToggle" type="button">Sound</button>
+      <button id="openCodex" type="button">Codex</button>
+    </div>
+    <div class="control-hint">Drag UFO or arrows: fly · Hold C/Vacuum: tractor beam · Fire/Space · D: deposit · 1/2: crew</div>
+    <div class="discovery-strip" id="discoveryStrip" aria-label="Discovered compounds"></div>
+  </section>
+
+  <section class="codex-modal" id="codexModal" aria-label="Discovery codex" aria-hidden="true">
+    <div class="codex-book">
+      <div class="codex-head">
+        <strong>Discovery Codex</strong>
+        <button id="closeCodex" type="button">Close</button>
+      </div>
+      <div class="codex-grid" id="codexGrid"></div>
+    </div>
+  </section>
+
+  <div class="reward-toast" id="rewardToast" aria-live="polite"></div>
+
+  <div class="lab-buddies" aria-label="Astronaut crew">
+    <div class="buddy" style="--buddy-color: #2aa8d8">
+      <span class="buddy-avatar">C</span>
+      <span class="astronaut-body" aria-hidden="true">
+        <span class="astronaut-limb arm-left"></span>
+        <span class="astronaut-limb arm-right"></span>
+        <span class="astronaut-limb leg-left"></span>
+        <span class="astronaut-limb leg-right"></span>
+      </span>
+      <span><span class="buddy-name">Clark</span>astronaut</span>
+    </div>
+    <div class="buddy" style="--buddy-color: #e85d4f">
+      <span class="buddy-avatar">B</span>
+      <span class="astronaut-body" aria-hidden="true">
+        <span class="astronaut-limb arm-left"></span>
+        <span class="astronaut-limb arm-right"></span>
+        <span class="astronaut-limb leg-left"></span>
+        <span class="astronaut-limb leg-right"></span>
+      </span>
+      <span><span class="buddy-name">Bradley</span>astronaut</span>
+    </div>
+  </div>
+
   <div class="readout" id="readout">elements: 0<br>compounds: 0</div>
   <div class="tooltip" id="tooltip" aria-hidden="true"></div>
 
-  <script>
-    const canvas = document.querySelector("#field");
-    const ctx = canvas.getContext("2d");
-    const message = document.querySelector("#message");
-    const autoMessage = document.querySelector("#autoMessage");
-    const readout = document.querySelector("#readout");
-    const shuffleButton = document.querySelector("#shuffle");
-    const pauseButton = document.querySelector("#pause");
-    const pauseIcon = document.querySelector("#pauseIcon");
-    const slotA = document.querySelector("#slotA");
-    const slotB = document.querySelector("#slotB");
-    const tooltip = document.querySelector("#tooltip");
-    const lookupInput = document.querySelector("#lookupInput");
-    const lookupResult = document.querySelector("#lookupResult");
-    const familyButtons = [...document.querySelectorAll("[data-family]")];
-
-    const elements = [
-      { n: 1, symbol: "H", name: "Hydrogen", family: "reactive", info: "The lightest element. It burns easily and forms water with oxygen." },
-      { n: 2, symbol: "He", name: "Helium", family: "noble", info: "A noble gas that rarely reacts. It is used in balloons and cooling systems." },
-      { n: 3, symbol: "Li", name: "Lithium", family: "metal", info: "A soft, light metal used in batteries and reactive salts." },
-      { n: 4, symbol: "Be", name: "Beryllium", family: "metal", info: "A light, hard alkaline earth metal used in special alloys." },
-      { n: 5, symbol: "B", name: "Boron", family: "metalloid", info: "A metalloid used in borosilicate glass, detergents, and semiconductors." },
-      { n: 6, symbol: "C", name: "Carbon", family: "reactive", info: "The backbone of organic chemistry. It forms diamond, graphite, CO2, and methane." },
-      { n: 7, symbol: "N", name: "Nitrogen", family: "reactive", info: "Most of Earth's air is nitrogen. It forms ammonia with hydrogen." },
-      { n: 8, symbol: "O", name: "Oxygen", family: "reactive", info: "Supports breathing and combustion. It forms water with hydrogen and oxides with metals." },
-      { n: 9, symbol: "F", name: "Fluorine", family: "halogen", info: "A highly reactive halogen. It can react violently with hydrogen." },
-      { n: 10, symbol: "Ne", name: "Neon", family: "noble", info: "A noble gas famous for bright red-orange signs." },
-      { n: 11, symbol: "Na", name: "Sodium", family: "metal", info: "A soft metal that reacts strongly with oxygen and chlorine." },
-      { n: 12, symbol: "Mg", name: "Magnesium", family: "metal", info: "A light metal that burns with a bright white flame to form magnesium oxide." },
-      { n: 13, symbol: "Al", name: "Aluminum", family: "metal", info: "A lightweight metal protected by a thin oxide layer." },
-      { n: 14, symbol: "Si", name: "Silicon", family: "metalloid", info: "A metalloid used in glass, sand, and computer chips." },
-      { n: 15, symbol: "P", name: "Phosphorus", family: "reactive", info: "A reactive element important in DNA, bones, and fertilizers." },
-      { n: 16, symbol: "S", name: "Sulfur", family: "reactive", info: "A yellow nonmetal found in minerals and many strong-smelling compounds." },
-      { n: 17, symbol: "Cl", name: "Chlorine", family: "halogen", info: "A reactive halogen used in disinfectants and table salt." },
-      { n: 18, symbol: "Ar", name: "Argon", family: "noble", info: "A noble gas used in welding and light bulbs because it avoids reacting." },
-      { n: 19, symbol: "K", name: "Potassium", family: "metal", info: "A very reactive metal. It can flare violently when it meets oxygen or water." },
-      { n: 20, symbol: "Ca", name: "Calcium", family: "metal", info: "A metal important in bones, shells, limestone, and quicklime." },
-      { n: 21, symbol: "Sc", name: "Scandium", family: "metal", info: "A transition metal used in lightweight aluminum alloys." },
-      { n: 22, symbol: "Ti", name: "Titanium", family: "metal", info: "A strong, light metal valued for aircraft, implants, and corrosion resistance." },
-      { n: 23, symbol: "V", name: "Vanadium", family: "metal", info: "A transition metal used to strengthen steel and in flow batteries." },
-      { n: 24, symbol: "Cr", name: "Chromium", family: "metal", info: "A shiny transition metal used in stainless steel and chrome plating." },
-      { n: 25, symbol: "Mn", name: "Manganese", family: "metal", info: "A transition metal important in steelmaking and battery chemistry." },
-      { n: 26, symbol: "Fe", name: "Iron", family: "metal", info: "A strong metal that forms rust when it reacts with oxygen." },
-      { n: 27, symbol: "Co", name: "Cobalt", family: "metal", info: "A magnetic metal used in superalloys, pigments, and batteries." },
-      { n: 28, symbol: "Ni", name: "Nickel", family: "metal", info: "A corrosion-resistant metal used in stainless steel and rechargeable batteries." },
-      { n: 29, symbol: "Cu", name: "Copper", family: "metal", info: "A conductive reddish metal used in wires, pipes, and alloys." },
-      { n: 30, symbol: "Zn", name: "Zinc", family: "metal", info: "A metal used for galvanizing steel and making useful sulfide compounds." },
-      { n: 31, symbol: "Ga", name: "Gallium", family: "metal", info: "A soft metal that melts near room temperature and is used in electronics." },
-      { n: 32, symbol: "Ge", name: "Germanium", family: "metalloid", info: "A metalloid used in fiber optics, infrared optics, and semiconductors." },
-      { n: 33, symbol: "As", name: "Arsenic", family: "metalloid", info: "A toxic metalloid found in minerals and some semiconductor materials." },
-      { n: 34, symbol: "Se", name: "Selenium", family: "reactive", info: "A trace element used in glass, electronics, and biology in tiny amounts." },
-      { n: 35, symbol: "Br", name: "Bromine", family: "halogen", info: "A reddish-brown liquid halogen that reacts with many metals." },
-      { n: 36, symbol: "Kr", name: "Krypton", family: "noble", info: "A noble gas used in lighting, lasers, and high-performance windows." },
-      { n: 37, symbol: "Rb", name: "Rubidium", family: "metal", info: "A very reactive alkali metal used in research and atomic clocks." },
-      { n: 38, symbol: "Sr", name: "Strontium", family: "metal", info: "An alkaline earth metal that gives fireworks a red color." },
-      { n: 39, symbol: "Y", name: "Yttrium", family: "metal", info: "A transition metal used in LEDs, lasers, and advanced ceramics." },
-      { n: 40, symbol: "Zr", name: "Zirconium", family: "metal", info: "A corrosion-resistant metal used in ceramics and nuclear reactor materials." },
-      { n: 41, symbol: "Nb", name: "Niobium", family: "metal", info: "A transition metal used in superconducting magnets and strong alloys." },
-      { n: 42, symbol: "Mo", name: "Molybdenum", family: "metal", info: "A heat-resistant metal used in high-strength steels and catalysts." },
-      { n: 43, symbol: "Tc", name: "Technetium", family: "radioactive", info: "The lightest element with no stable isotopes. It is used in medical imaging." },
-      { n: 44, symbol: "Ru", name: "Ruthenium", family: "metal", info: "A rare transition metal used in electronics, catalysts, and alloys." },
-      { n: 45, symbol: "Rh", name: "Rhodium", family: "metal", info: "A rare, reflective metal used in catalytic converters and plating." },
-      { n: 46, symbol: "Pd", name: "Palladium", family: "metal", info: "A precious metal used in catalytic converters, electronics, and hydrogen chemistry." },
-      { n: 47, symbol: "Ag", name: "Silver", family: "metal", info: "A shiny conductive metal. Silver chloride darkens in light." },
-      { n: 48, symbol: "Cd", name: "Cadmium", family: "metal", info: "A toxic metal formerly common in batteries and pigments." },
-      { n: 49, symbol: "In", name: "Indium", family: "metal", info: "A soft metal used in touchscreens, solders, and semiconductors." },
-      { n: 50, symbol: "Sn", name: "Tin", family: "metal", info: "A soft metal used in solder, bronze, and protective coatings." },
-      { n: 51, symbol: "Sb", name: "Antimony", family: "metalloid", info: "A brittle metalloid used in flame retardants, alloys, and semiconductors." },
-      { n: 52, symbol: "Te", name: "Tellurium", family: "metalloid", info: "A brittle metalloid used in solar cells, alloys, and thermoelectrics." },
-      { n: 53, symbol: "I", name: "Iodine", family: "halogen", info: "A purple-black halogen important for thyroid health and antiseptics." },
-      { n: 54, symbol: "Xe", name: "Xenon", family: "noble", info: "A heavy noble gas used in lamps, ion thrusters, and medical imaging." },
-      { n: 55, symbol: "Cs", name: "Cesium", family: "metal", info: "A very reactive alkali metal used in atomic clocks." },
-      { n: 56, symbol: "Ba", name: "Barium", family: "metal", info: "An alkaline earth metal used in medical contrast agents and fireworks." },
-      { n: 57, symbol: "La", name: "Lanthanum", family: "metal", info: "A lanthanide metal used in camera lenses, catalysts, and batteries." },
-      { n: 58, symbol: "Ce", name: "Cerium", family: "metal", info: "A lanthanide used in polishing powders, catalysts, and lighter flints." },
-      { n: 59, symbol: "Pr", name: "Praseodymium", family: "metal", info: "A lanthanide used in magnets, glass coloring, and alloys." },
-      { n: 60, symbol: "Nd", name: "Neodymium", family: "metal", info: "A lanthanide famous for powerful permanent magnets." },
-      { n: 61, symbol: "Pm", name: "Promethium", family: "radioactive", info: "A radioactive lanthanide with no stable isotopes." },
-      { n: 62, symbol: "Sm", name: "Samarium", family: "metal", info: "A lanthanide used in magnets, lasers, and nuclear reactor control rods." },
-      { n: 63, symbol: "Eu", name: "Europium", family: "metal", info: "A lanthanide used in red and blue phosphors for displays and lighting." },
-      { n: 64, symbol: "Gd", name: "Gadolinium", family: "metal", info: "A lanthanide used in MRI contrast agents and magnetic materials." },
-      { n: 65, symbol: "Tb", name: "Terbium", family: "metal", info: "A lanthanide used in green phosphors, magnets, and sensors." },
-      { n: 66, symbol: "Dy", name: "Dysprosium", family: "metal", info: "A lanthanide used in high-performance magnets and lasers." },
-      { n: 67, symbol: "Ho", name: "Holmium", family: "metal", info: "A lanthanide with strong magnetic properties and laser uses." },
-      { n: 68, symbol: "Er", name: "Erbium", family: "metal", info: "A lanthanide used in fiber-optic amplifiers and pink glass coloring." },
-      { n: 69, symbol: "Tm", name: "Thulium", family: "metal", info: "A rare lanthanide used in lasers and portable X-ray sources." },
-      { n: 70, symbol: "Yb", name: "Ytterbium", family: "metal", info: "A lanthanide used in lasers, atomic clocks, and specialty alloys." },
-      { n: 71, symbol: "Lu", name: "Lutetium", family: "metal", info: "A dense lanthanide used in detectors, catalysts, and medical applications." },
-      { n: 72, symbol: "Hf", name: "Hafnium", family: "metal", info: "A corrosion-resistant metal used in superalloys and nuclear control rods." },
-      { n: 73, symbol: "Ta", name: "Tantalum", family: "metal", info: "A corrosion-resistant metal used in electronics and medical implants." },
-      { n: 74, symbol: "W", name: "Tungsten", family: "metal", info: "A very high-melting metal used in tools, filaments, and armor-piercing alloys." },
-      { n: 75, symbol: "Re", name: "Rhenium", family: "metal", info: "A rare metal used in jet engine superalloys and catalysts." },
-      { n: 76, symbol: "Os", name: "Osmium", family: "metal", info: "A very dense transition metal used in hard alloys and research." },
-      { n: 77, symbol: "Ir", name: "Iridium", family: "metal", info: "A dense, corrosion-resistant metal used in spark plugs and crucibles." },
-      { n: 78, symbol: "Pt", name: "Platinum", family: "metal", info: "A precious metal used in catalysts, jewelry, and medical devices." },
-      { n: 79, symbol: "Au", name: "Gold", family: "metal", info: "A dense, stable precious metal that resists corrosion." },
-      { n: 80, symbol: "Hg", name: "Mercury", family: "metal", info: "A liquid metal at room temperature. It is toxic and used only with care." },
-      { n: 81, symbol: "Tl", name: "Thallium", family: "metal", info: "A toxic heavy metal used in specialized electronics and research." },
-      { n: 82, symbol: "Pb", name: "Lead", family: "metal", info: "A dense heavy metal once used widely, now restricted because of toxicity." },
-      { n: 83, symbol: "Bi", name: "Bismuth", family: "metal", info: "A heavy metal used in medicines, low-melting alloys, and cosmetics." },
-      { n: 84, symbol: "Po", name: "Polonium", family: "radioactive", info: "A rare radioactive element discovered by Marie Curie." },
-      { n: 85, symbol: "At", name: "Astatine", family: "radioactive", info: "A very rare radioactive halogen with only tiny natural amounts on Earth." },
-      { n: 86, symbol: "Rn", name: "Radon", family: "radioactive", info: "A radioactive noble gas produced by decay of uranium and radium." },
-      { n: 87, symbol: "Fr", name: "Francium", family: "radioactive", info: "An extremely rare radioactive alkali metal." },
-      { n: 88, symbol: "Ra", name: "Radium", family: "radioactive", info: "A naturally radioactive metal once famous for glowing compounds. It must be handled with strict shielding." },
-      { n: 89, symbol: "Ac", name: "Actinium", family: "radioactive", info: "A radioactive actinide used in research and targeted medical isotope work." },
-      { n: 90, symbol: "Th", name: "Thorium", family: "radioactive", info: "A weakly radioactive actinide studied as a possible nuclear fuel." },
-      { n: 91, symbol: "Pa", name: "Protactinium", family: "radioactive", info: "A rare radioactive actinide found in uranium ores." },
-      { n: 92, symbol: "U", name: "Uranium", family: "radioactive", info: "A heavy radioactive element used as nuclear fuel. Its atoms can release energy through radioactive decay and fission." },
-      { n: 93, symbol: "Np", name: "Neptunium", family: "radioactive", info: "A radioactive actinide produced in nuclear reactors." },
-      { n: 94, symbol: "Pu", name: "Plutonium", family: "radioactive", info: "A synthetic radioactive metal used in nuclear technology. It is highly hazardous and tightly controlled." },
-      { n: 95, symbol: "Am", name: "Americium", family: "radioactive", info: "A radioactive actinide used in some smoke detectors and research sources." },
-      { n: 96, symbol: "Cm", name: "Curium", family: "radioactive", info: "A synthetic radioactive actinide named after Marie and Pierre Curie." },
-      { n: 97, symbol: "Bk", name: "Berkelium", family: "radioactive", info: "A synthetic radioactive actinide made in nuclear reactors." },
-      { n: 98, symbol: "Cf", name: "Californium", family: "radioactive", info: "A radioactive actinide used as a neutron source in specialized applications." },
-      { n: 99, symbol: "Es", name: "Einsteinium", family: "radioactive", info: "A synthetic radioactive element discovered in nuclear test debris." },
-      { n: 100, symbol: "Fm", name: "Fermium", family: "radioactive", info: "A synthetic radioactive element named after physicist Enrico Fermi." },
-      { n: 101, symbol: "Md", name: "Mendelevium", family: "radioactive", info: "A synthetic radioactive element named after Dmitri Mendeleev." },
-      { n: 102, symbol: "No", name: "Nobelium", family: "radioactive", info: "A synthetic radioactive element named after Alfred Nobel." },
-      { n: 103, symbol: "Lr", name: "Lawrencium", family: "radioactive", info: "A synthetic radioactive actinide named after Ernest Lawrence." },
-      { n: 104, symbol: "Rf", name: "Rutherfordium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 105, symbol: "Db", name: "Dubnium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 106, symbol: "Sg", name: "Seaborgium", family: "radioactive", info: "A synthetic superheavy radioactive element named after Glenn Seaborg." },
-      { n: 107, symbol: "Bh", name: "Bohrium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 108, symbol: "Hs", name: "Hassium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 109, symbol: "Mt", name: "Meitnerium", family: "radioactive", info: "A synthetic superheavy radioactive element named after Lise Meitner." },
-      { n: 110, symbol: "Ds", name: "Darmstadtium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 111, symbol: "Rg", name: "Roentgenium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 112, symbol: "Cn", name: "Copernicium", family: "radioactive", info: "A synthetic superheavy radioactive element named after Nicolaus Copernicus." },
-      { n: 113, symbol: "Nh", name: "Nihonium", family: "radioactive", info: "A synthetic superheavy radioactive element discovered by researchers in Japan." },
-      { n: 114, symbol: "Fl", name: "Flerovium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 115, symbol: "Mc", name: "Moscovium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 116, symbol: "Lv", name: "Livermorium", family: "radioactive", info: "A synthetic superheavy radioactive element." },
-      { n: 117, symbol: "Ts", name: "Tennessine", family: "radioactive", info: "A synthetic superheavy radioactive element in the halogen column." },
-      { n: 118, symbol: "Og", name: "Oganesson", family: "radioactive", info: "A synthetic superheavy radioactive element in the noble gas column." }
-    ];
-
-    const familyColors = {
-      reactive: "#e85d4f",
-      metal: "#d49b2a",
-      halogen: "#0f9b8f",
-      noble: "#2e79bd",
-      metalloid: "#8d6ab6",
-      radioactive: "#b7d12a"
-    };
-
-    const reactions = {
-      "H+O": { formula: "H2O", name: "water", note: "H2O is water.", animation: "water" },
-      "C+O": { formula: "CO2", name: "carbon dioxide", note: "CO2 is carbon dioxide, the gas we breathe out.", animation: "gas" },
-      "H+N": { formula: "NH3", name: "ammonia", note: "NH3 is ammonia, a sharp-smelling compound.", animation: "gas" },
-      "H+Cl": { formula: "HCl", name: "hydrogen chloride", note: "HCl is hydrogen chloride; in water it forms hydrochloric acid.", animation: "gas" },
-      "Na+Cl": { formula: "NaCl", name: "salt", note: "NaCl is table salt.", animation: "crystal" },
-      "Mg+O": { formula: "MgO", name: "magnesium oxide", note: "MgO is magnesium oxide, formed by burning magnesium.", animation: "spark" },
-      "Ca+O": { formula: "CaO", name: "calcium oxide", note: "CaO is quicklime.", animation: "spark" },
-      "Fe+O": { formula: "Fe2O3", name: "iron oxide", note: "Fe2O3 is rust.", animation: "crystal" },
-      "Cu+S": { formula: "CuS", name: "copper sulfide", note: "CuS is copper sulfide.", animation: "crystal" },
-      "Ag+Cl": { formula: "AgCl", name: "silver chloride", note: "AgCl is silver chloride, a light-sensitive compound.", animation: "crystal" },
-      "Zn+S": { formula: "ZnS", name: "zinc sulfide", note: "ZnS is zinc sulfide.", animation: "spark" },
-      "Al+O": { formula: "Al2O3", name: "aluminum oxide", note: "Al2O3 is aluminum oxide.", animation: "crystal" },
-      "Li+F": { formula: "LiF", name: "lithium fluoride", note: "LiF is lithium fluoride.", animation: "crystal" },
-      "C+H": { formula: "CH4", name: "methane", note: "CH4 is methane, a flammable gas.", animation: "gas" }
-    };
-
-    const explosiveReactions = {
-      "H+F": { formula: "HF", note: "H + F can react explosively to make hydrogen fluoride.", product: "hydrogen fluoride" },
-      "K+O": { formula: "K2O", note: "Potassium reacts violently with oxygen. Boom: potassium oxide.", product: "potassium oxide" },
-      "Na+O": { formula: "Na2O", note: "Sodium and oxygen can flare violently into sodium oxide.", product: "sodium oxide" },
-      "Al+Cl": { formula: "AlCl3", note: "Aluminum and chlorine can react very violently to form aluminum chloride.", product: "aluminum chloride" },
-      "H+Cl": { formula: "HCl", note: "Hydrogen and chlorine can explode in bright light, forming hydrogen chloride.", product: "hydrogen chloride" }
-    };
-
-    const nonmetals = new Set(["H", "C", "N", "O", "P", "S", "Se"]);
-    const diatomicElements = new Set(["H", "N", "O", "F", "Cl", "Br", "I"]);
-    const commonIons = {
-      Li: 1, Na: 1, K: 1, Rb: 1, Cs: 1, Fr: 1, Ag: 1,
-      Be: 2, Mg: 2, Ca: 2, Sr: 2, Ba: 2, Ra: 2, Zn: 2, Cd: 2,
-      Al: 3, Ga: 3, Sc: 3, Y: 3, La: 3,
-      F: -1, Cl: -1, Br: -1, I: -1, O: -2, S: -2, Se: -2, N: -3, P: -3
-    };
-    const electronegativity = {
-      H: 2.20, Li: 0.98, Be: 1.57, B: 2.04, C: 2.55, N: 3.04, O: 3.44, F: 3.98,
-      Na: 0.93, Mg: 1.31, Al: 1.61, Si: 1.90, P: 2.19, S: 2.58, Cl: 3.16,
-      K: 0.82, Ca: 1.00, Fe: 1.83, Cu: 1.90, Zn: 1.65, Br: 2.96, Ag: 1.93,
-      I: 2.66, Au: 2.54, Hg: 2.00, Pb: 2.33, U: 1.38
-    };
-
-    const substanceLookup = {
-      water: { formula: "H2O", name: "water" },
-      "水": { formula: "H2O", name: "water" },
-      salt: { formula: "NaCl", name: "table salt" },
-      "食盐": { formula: "NaCl", name: "table salt" },
-      "盐": { formula: "NaCl", name: "table salt" },
-      rust: { formula: "Fe2O3", name: "iron oxide / rust" },
-      "铁锈": { formula: "Fe2O3", name: "iron oxide / rust" },
-      "carbon dioxide": { formula: "CO2", name: "carbon dioxide" },
-      "二氧化碳": { formula: "CO2", name: "carbon dioxide" },
-      oxygen: { formula: "O2", name: "oxygen gas" },
-      "氧气": { formula: "O2", name: "oxygen gas" },
-      hydrogen: { formula: "H2", name: "hydrogen gas" },
-      "氢气": { formula: "H2", name: "hydrogen gas" },
-      nitrogen: { formula: "N2", name: "nitrogen gas" },
-      "氮气": { formula: "N2", name: "nitrogen gas" },
-      ammonia: { formula: "NH3", name: "ammonia" },
-      "氨": { formula: "NH3", name: "ammonia" },
-      methane: { formula: "CH4", name: "methane" },
-      "甲烷": { formula: "CH4", name: "methane" },
-      "hydrochloric acid": { formula: "HCl", name: "hydrogen chloride / hydrochloric acid" },
-      "盐酸": { formula: "HCl", name: "hydrogen chloride / hydrochloric acid" },
-      "magnesium oxide": { formula: "MgO", name: "magnesium oxide" },
-      "氧化镁": { formula: "MgO", name: "magnesium oxide" },
-      "calcium oxide": { formula: "CaO", name: "calcium oxide / quicklime" },
-      "生石灰": { formula: "CaO", name: "calcium oxide / quicklime" },
-      "quicklime": { formula: "CaO", name: "calcium oxide / quicklime" },
-      "silver chloride": { formula: "AgCl", name: "silver chloride" },
-      "氯化银": { formula: "AgCl", name: "silver chloride" },
-      "aluminum oxide": { formula: "Al2O3", name: "aluminum oxide" },
-      "氧化铝": { formula: "Al2O3", name: "aluminum oxide" },
-      "zinc sulfide": { formula: "ZnS", name: "zinc sulfide" },
-      "硫化锌": { formula: "ZnS", name: "zinc sulfide" },
-      uranium: { formula: "U", name: "uranium" },
-      "铀": { formula: "U", name: "uranium" },
-      radium: { formula: "Ra", name: "radium" },
-      "镭": { formula: "Ra", name: "radium" },
-      plutonium: { formula: "Pu", name: "plutonium" },
-      "钚": { formula: "Pu", name: "plutonium" }
-    };
-
-    let width = 0;
-    let height = 0;
-    let dpr = 1;
-    let running = true;
-    let nodes = [];
-    let compounds = [];
-    let effects = [];
-    let selected = [];
-    let pointer = { x: 0, y: 0, active: false };
-    let hoveredNode = null;
-    let reactionCooldowns = new Map();
-    let lastAutoReactionAt = 0;
-    let activeFamily = null;
-
-    function randomBetween(min, max) {
-      return min + Math.random() * (max - min);
-    }
-
-    function pairKey(a, b) {
-      const forward = `${a}+${b}`;
-      const backward = `${b}+${a}`;
-      if (explosiveReactions[forward] || reactions[forward]) return forward;
-      if (explosiveReactions[backward] || reactions[backward]) return backward;
-      return forward;
-    }
-
-    function nodePairId(a, b) {
-      return [a.id, b.id].sort().join("|");
-    }
-
-    function gcd(a, b) {
-      return b === 0 ? Math.abs(a) : gcd(b, a % b);
-    }
-
-    function formulaPart(symbol, count) {
-      return `${symbol}${count > 1 ? count : ""}`;
-    }
-
-    function metalLike(element) {
-      return element.family === "metal" || element.family === "radioactive";
-    }
-
-    function oxidationState(element) {
-      return commonIons[element.symbol] || null;
-    }
-
-    function makeIonicFormula(cation, anion) {
-      const cCharge = Math.abs(oxidationState(cation));
-      const aCharge = Math.abs(oxidationState(anion));
-      if (!cCharge || !aCharge) return null;
-      const divisor = gcd(cCharge, aCharge);
-      const cCount = aCharge / divisor;
-      const aCount = cCharge / divisor;
-      return `${formulaPart(cation.symbol, cCount)}${formulaPart(anion.symbol, aCount)}`;
-    }
-
-    function compoundName(a, b, kind) {
-      if (kind === "diatomic") return `${a.name} molecule`;
-      if (kind === "oxide") return `${a.name.toLowerCase()} oxide`;
-      if (kind === "halide") return `${a.name.toLowerCase()} ${b.name.toLowerCase()} compound`;
-      if (kind === "hydride") return `${a.name.toLowerCase()} hydride`;
-      if (kind === "ionic") return `${a.name.toLowerCase()} ${b.name.toLowerCase()} compound`;
-      return `${a.name.toLowerCase()}-${b.name.toLowerCase()} compound`;
-    }
-
-    function inferReaction(a, b) {
-      const key = pairKey(a.symbol, b.symbol);
-      if (reactions[key]) return { ...reactions[key], inferred: false };
-      if (explosiveReactions[key]) return null;
-      if (a.symbol === b.symbol && diatomicElements.has(a.symbol)) {
-        return {
-          formula: `${a.symbol}2`,
-          name: compoundName(a, b, "diatomic"),
-          note: `${a.symbol} commonly exists as a diatomic molecule: ${a.symbol}2.`,
-          animation: "gas",
-          inferred: true
-        };
-      }
-
-      const first = metalLike(a) && !metalLike(b) ? a : metalLike(b) && !metalLike(a) ? b : a;
-      const second = first === a ? b : a;
-      const firstIon = oxidationState(first);
-      const secondIon = oxidationState(second);
-      if (metalLike(first) && secondIon < 0 && firstIon > 0) {
-        const formula = makeIonicFormula(first, second);
-        if (formula) {
-          const kind = second.symbol === "O" ? "oxide" : second.family === "halogen" ? "halide" : second.symbol === "H" ? "hydride" : "ionic";
-          return {
-            formula,
-            name: compoundName(first, second, kind),
-            note: `Rule prediction: ${first.symbol} tends to form ${firstIon}+ ions and ${second.symbol} tends to form ${Math.abs(secondIon)}- ions, giving ${formula}.`,
-            animation: kind === "oxide" ? "spark" : "crystal",
-            inferred: true
-          };
-        }
-      }
-
-      if (nonmetals.has(a.symbol) && nonmetals.has(b.symbol)) {
-        const delta = Math.abs((electronegativity[a.symbol] || 2) - (electronegativity[b.symbol] || 2));
-        if (delta < 1.2) {
-          const formula = a.symbol === "C" && b.symbol === "O" || a.symbol === "O" && b.symbol === "C" ? "CO2" : `${a.symbol}${b.symbol}`;
-          return {
-            formula,
-            name: compoundName(a, b, "covalent"),
-            note: `Rule prediction: two nonmetals usually form covalent compounds by sharing electrons.`,
-            animation: "gas",
-            inferred: true
-          };
-        }
-      }
-
-      return null;
-    }
-
-    function reactionForElements(a, b) {
-      const key = pairKey(a.symbol, b.symbol);
-      if (explosiveReactions[key]) return { ...explosiveReactions[key], explosive: true };
-      return inferReaction(a, b);
-    }
-
-    function setMessage(title, body) {
-      message.innerHTML = `<strong>${title}</strong>${body}`;
-    }
-
-    function setAutoMessage(title, body) {
-      autoMessage.innerHTML = `<strong>${title}</strong>${body}`;
-      autoMessage.classList.remove("is-idle");
-    }
-
-    function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      makeNodes();
-    }
-
-    function makeNodes() {
-      const count = elements.length;
-      nodes = Array.from({ length: count }, (_, index) => {
-        const element = elements[index % elements.length];
-        return {
-          id: `${element.symbol}-${index}-${Math.random().toString(16).slice(2)}`,
-          x: randomBetween(50, Math.max(80, width - 50)),
-          y: randomBetween(110, Math.max(170, height - 110)),
-          size: randomBetween(28, 37),
-          vx: randomBetween(-0.42, 0.42),
-          vy: randomBetween(-0.38, 0.38),
-          phase: randomBetween(0, Math.PI * 2),
-          element,
-          selected: false
-        };
-      });
-      selected = [];
-      compounds = [];
-      effects = [];
-      reactionCooldowns = new Map();
-      lastAutoReactionAt = 0;
-      updateSlots();
-    }
-
-    function updateSlots() {
-      slotA.textContent = selected[0] ? selected[0].element.symbol : "slot A";
-      slotB.textContent = selected[1] ? selected[1].element.symbol : "slot B";
-    }
-
-    function electronShells(atomicNumber) {
-      const capacities = [2, 8, 18, 32, 32, 18, 8];
-      let remaining = atomicNumber;
-      const shells = [];
-      capacities.forEach((capacity) => {
-        if (remaining <= 0) return;
-        const count = Math.min(capacity, remaining);
-        shells.push(count);
-        remaining -= count;
-      });
-      if (remaining > 0) shells.push(remaining);
-      return shells;
-    }
-
-    function atomModelMarkup(element, color) {
-      const shells = electronShells(element.n);
-      const orbitMarkup = shells.map((_, index) => `<i class="orbit" style="--i: ${index}"></i>`).join("");
-      const electronMarkup = shells.map((count, shellIndex) => {
-        const radius = 15 + shellIndex * 10;
-        const visible = Math.min(count, 16);
-        return Array.from({ length: visible }, (_, electronIndex) => {
-          const angle = (360 / visible) * electronIndex + shellIndex * 18;
-          return `<i class="electron" style="--angle: ${angle}deg; --radius: ${radius}px"></i>`;
-        }).join("");
-      }).join("");
-      const shellLabels = shells.map((count, index) => `${["K", "L", "M", "N", "O", "P", "Q"][index] || `S${index + 1}`}:${count}`).join(" · ");
-      return `
-        <div class="atom-preview" style="--electron-color: ${color}; --nucleus-color: ${color}">
-          <div class="atom-model">
-            ${orbitMarkup}
-            ${electronMarkup}
-            <i class="nucleus">${element.symbol}</i>
-          </div>
-          <div class="atom-notes">
-            <b>Atom view</b><br>
-            Protons: ${element.n}<br>
-            Electrons: ${element.n}<br>
-            Shells: ${shellLabels}
-          </div>
-        </div>
-      `;
-    }
-
-    function setActiveFamily(family) {
-      activeFamily = activeFamily === family ? null : family;
-      familyButtons.forEach((button) => {
-        const active = button.dataset.family === activeFamily;
-        button.classList.toggle("is-active", active);
-        button.setAttribute("aria-pressed", String(active));
-      });
-    }
-
-    function elementBySymbol(symbol) {
-      return elements.find((element) => element.symbol.toLowerCase() === symbol.toLowerCase());
-    }
-
-    function parseFormula(formula) {
-      const clean = formula.replace(/\s+/g, "");
-      const parts = [...clean.matchAll(/([A-Z][a-z]?)(\d*)/g)];
-      if (!parts.length || parts.map((part) => part[0]).join("") !== clean) return null;
-      return parts.map((part) => ({
-        symbol: part[1],
-        count: part[2] ? Number(part[2]) : 1,
-        element: elementBySymbol(part[1])
-      }));
-    }
-
-    function prettyElements(parsed) {
-      return parsed.map((item) => {
-        const name = item.element ? item.element.name : "unknown element";
-        return `${item.symbol}${item.count > 1 ? ` x ${item.count}` : ""} (${name})`;
-      }).join(", ");
-    }
-
-    function lookupSubstance(rawValue) {
-      const result = resolveSubstance(rawValue);
-      const value = result.value;
-      if (!value) {
-        lookupResult.textContent = "Enter a substance name or formula to identify its elements.";
-        return;
-      }
-
-      if (result.error === "parse") {
-        lookupResult.innerHTML = `I do not know <strong>${value}</strong> yet. Try water, salt, rust, CO2, NaCl, 氧气, or 二氧化碳.`;
-        return;
-      }
-
-      if (result.unknown.length) {
-        lookupResult.innerHTML = `<strong>${result.formula}</strong> contains symbols I have not loaded yet: ${result.unknown.map((item) => item.symbol).join(", ")}.`;
-        return;
-      }
-
-      const displayName = result.direct ? result.direct.name : "formula input";
-      lookupResult.innerHTML = `<strong>${displayName}: ${result.formula}</strong><br>Elements: ${prettyElements(result.parsed)}.`;
-
-      const firstFamily = result.parsed[0]?.element?.family;
-      if (firstFamily) {
-        activeFamily = firstFamily;
-        familyButtons.forEach((button) => {
-          const active = button.dataset.family === activeFamily;
-          button.classList.toggle("is-active", active);
-          button.setAttribute("aria-pressed", String(active));
-        });
-      }
-    }
-
-    function resolveSubstance(rawValue) {
-      const value = rawValue.trim();
-      if (!value) return { value: "", parsed: null, unknown: [] };
-      const direct = substanceLookup[value.toLowerCase()] || substanceLookup[value];
-      const formula = direct ? direct.formula : value;
-      const parsed = parseFormula(formula);
-      if (!parsed) return { value, direct, formula, parsed: null, unknown: [], error: "parse" };
-      return {
-        value,
-        direct,
-        formula,
-        parsed,
-        unknown: parsed.filter((item) => !item.element)
-      };
-    }
-
-    function parseElementPair(rawValue) {
-      const pieces = rawValue.trim().split(/[\s,+-]+/).filter(Boolean);
-      if (pieces.length !== 2) return null;
-      const a = elementBySymbol(pieces[0]);
-      const b = elementBySymbol(pieces[1]);
-      return a && b ? [a, b] : null;
-    }
-
-    function updateTooltip() {
-      if (!hoveredNode) {
-        tooltip.classList.remove("is-visible");
-        tooltip.setAttribute("aria-hidden", "true");
-        return;
-      }
-
-      const element = hoveredNode.element;
-      const color = familyColors[element.family];
-      tooltip.innerHTML = `<strong>${element.name} (${element.symbol})</strong>${element.info}<span>Atomic number ${element.n} · ${element.family}</span>${atomModelMarkup(element, color)}`;
-      tooltip.style.borderColor = color;
-      tooltip.style.left = `${Math.max(132, Math.min(width - 132, hoveredNode.x))}px`;
-      tooltip.style.top = `${Math.max(118, hoveredNode.y - hoveredNode.size * 0.8)}px`;
-      tooltip.classList.add("is-visible");
-      tooltip.setAttribute("aria-hidden", "false");
-    }
-
-    function roundRect(x, y, w, h, radius) {
-      const r = Math.min(radius, w / 2, h / 2);
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + w - r, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-      ctx.lineTo(x + w, y + h - r);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      ctx.lineTo(x + r, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-      ctx.lineTo(x, y + r);
-      ctx.quadraticCurveTo(x, y, x + r, y);
-      ctx.closePath();
-    }
-
-    function updateNodes(t) {
-      nodes.forEach((node) => {
-        if (hoveredNode && hoveredNode.id === node.id) {
-          node.vx *= 0.78;
-          node.vy *= 0.78;
-          return;
-        }
-
-        node.x += node.vx + Math.sin(t * 0.0008 + node.phase) * 0.08;
-        node.y += node.vy + Math.cos(t * 0.0007 + node.phase) * 0.08;
-
-        if (pointer.active) {
-          const dx = node.x - pointer.x;
-          const dy = node.y - pointer.y;
-          const distance = Math.max(1, Math.hypot(dx, dy));
-          if (distance < 130) {
-            const force = (1 - distance / 130) * 0.75;
-            node.vx += (dx / distance) * force * 0.035;
-            node.vy += (dy / distance) * force * 0.035;
-          }
-        }
-
-        if (node.x < 32 || node.x > width - 32) node.vx *= -1;
-        if (node.y < 86 || node.y > height - 34) node.vy *= -1;
-        node.x = Math.max(32, Math.min(width - 32, node.x));
-        node.y = Math.max(86, Math.min(height - 34, node.y));
-        node.vx *= 0.996;
-        node.vy *= 0.996;
-        if (Math.abs(node.vx) < 0.12) node.vx += Math.sin(t * 0.001 + node.phase) * 0.006;
-        if (Math.abs(node.vy) < 0.12) node.vy += Math.cos(t * 0.001 + node.phase) * 0.006;
-      });
-
-      for (let i = 0; i < nodes.length; i += 1) {
-        for (let j = i + 1; j < nodes.length; j += 1) {
-          const a = nodes[i];
-          const b = nodes[j];
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const distance = Math.max(1, Math.hypot(dx, dy));
-          if (distance < 44) {
-            const push = (44 - distance) * 0.003;
-            a.vx -= dx / distance * push;
-            a.vy -= dy / distance * push;
-            b.vx += dx / distance * push;
-            b.vy += dy / distance * push;
-          } else {
-            const known = reactionForElements(a.element, b.element);
-            if (known && distance < 132 && !a.selected && !b.selected) {
-              const pull = (132 - distance) * 0.00011;
-              a.vx += dx / distance * pull;
-              a.vy += dy / distance * pull;
-              b.vx -= dx / distance * pull;
-              b.vy -= dy / distance * pull;
-            }
-          }
-        }
-      }
-
-      compounds.forEach((compound) => {
-        compound.x += compound.vx;
-        compound.y += compound.vy + Math.sin(t * 0.002 + compound.phase) * 0.06;
-        if (compound.x < 60 || compound.x > width - 60) compound.vx *= -1;
-        if (compound.y < 120 || compound.y > height - 70) compound.vy *= -1;
-      });
-    }
-
-    function autoReactNearby(now) {
-      if (now - lastAutoReactionAt < 520) return;
-      for (let i = 0; i < nodes.length; i += 1) {
-        for (let j = i + 1; j < nodes.length; j += 1) {
-          const a = nodes[i];
-          const b = nodes[j];
-          if (a.selected || b.selected) continue;
-
-          const known = reactionForElements(a.element, b.element);
-          if (!known) continue;
-
-          const distance = Math.hypot(a.x - b.x, a.y - b.y);
-          if (distance > 62) continue;
-
-          const id = nodePairId(a, b);
-          const last = reactionCooldowns.get(id) || 0;
-          if (now - last < 4200) continue;
-
-          reactionCooldowns.set(id, now);
-          lastAutoReactionAt = now;
-          triggerReaction(a, b, now, true);
-          return;
-        }
-      }
-    }
-
-    function drawBackground(t) {
-      ctx.clearRect(0, 0, width, height);
-      ctx.save();
-      ctx.globalAlpha = 0.34;
-      const colors = ["#e85d4f", "#0f9b8f", "#d49b2a", "#2e79bd", "#8067c8"];
-      for (let i = 0; i < 8; i += 1) {
-        const x = width * (0.12 + i * 0.12) + Math.sin(t * 0.0002 + i) * 45;
-        const y = height * (0.18 + (i % 3) * 0.26) + Math.cos(t * 0.00025 + i) * 48;
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, Math.max(width, height) * 0.2);
-        gradient.addColorStop(0, `${colors[i % colors.length]}44`);
-        gradient.addColorStop(1, `${colors[i % colors.length]}00`);
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, Math.max(width, height) * 0.22, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = "rgba(16, 20, 24, 0.22)";
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 5; i += 1) {
-        const x = width * (0.18 + i * 0.18) + Math.sin(t * 0.00035 + i) * 34;
-        const y = height * (0.28 + (i % 2) * 0.32) + Math.cos(t * 0.00032 + i) * 28;
-        const r = 42 + Math.sin(t * 0.001 + i) * 8;
-        ctx.beginPath();
-        ctx.ellipse(x, y, r * 1.9, r * 0.72, t * 0.00025 + i, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.ellipse(x, y, r * 0.72, r * 1.9, -t * 0.00022 + i, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = colors[i % colors.length];
-        ctx.beginPath();
-        ctx.arc(x + Math.cos(t * 0.001 + i) * r, y + Math.sin(t * 0.001 + i) * r * 0.55, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-
-    function drawBonds() {
-      for (let i = 0; i < nodes.length; i += 1) {
-        for (let j = i + 1; j < nodes.length; j += 1) {
-          const a = nodes[i];
-          const b = nodes[j];
-          const known = reactionForElements(a.element, b.element);
-          const distance = Math.hypot(a.x - b.x, a.y - b.y);
-          if (known && distance < 148) {
-            const alpha = (1 - distance / 148) * 0.55;
-            ctx.globalAlpha = alpha;
-            ctx.strokeStyle = known.explosive ? "#e85d4f" : known.inferred ? "#2aa8d8" : "#11161b";
-            ctx.lineWidth = known.explosive ? 2.8 : known.inferred ? 1.4 : 1.8;
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-            ctx.globalAlpha = alpha * 0.8;
-            ctx.fillStyle = known.explosive ? "#e85d4f" : "#2aa8d8";
-            ctx.beginPath();
-            ctx.arc((a.x + b.x) / 2, (a.y + b.y) / 2, known.explosive ? 4 : 3, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    function drawElementTile(node, t) {
-      const color = familyColors[node.element.family];
-      const isHovered = hoveredNode && hoveredNode.id === node.id;
-      const isFamilyMatch = !activeFamily || node.element.family === activeFamily;
-      const pulse = Math.sin(t * 0.003 + node.phase) * 0.04 + 1;
-      const hoverScale = isHovered ? 1.18 : 1;
-      const filterScale = activeFamily && node.element.family === activeFamily ? 1.12 : 1;
-      const size = node.size * pulse * filterScale;
-      const visualSize = size * hoverScale;
-      const x = node.x - visualSize / 2;
-      const y = node.y - visualSize / 2;
-
-      ctx.save();
-      ctx.globalAlpha = isFamilyMatch ? 1 : 0.3;
-      ctx.shadowColor = node.selected || isHovered ? color : "rgba(17, 22, 27, 0.16)";
-      ctx.shadowBlur = node.selected || isHovered || (activeFamily && isFamilyMatch) ? 24 : 8;
-      ctx.shadowOffsetY = node.selected || isHovered ? 0 : 4;
-      roundRect(x, y, visualSize, visualSize, 7);
-      const tileGradient = ctx.createLinearGradient(x, y, x + visualSize, y + visualSize);
-      tileGradient.addColorStop(0, "rgba(255, 255, 255, 0.95)");
-      tileGradient.addColorStop(0.52, "rgba(255, 252, 244, 0.78)");
-      tileGradient.addColorStop(1, `${color}22`);
-      ctx.fillStyle = tileGradient;
-      ctx.fill();
-      ctx.lineWidth = node.selected || isHovered || (activeFamily && isFamilyMatch) ? 3 : 1;
-      ctx.strokeStyle = node.selected || isHovered || (activeFamily && isFamilyMatch) ? color : "rgba(17, 22, 27, 0.25)";
-      ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y, visualSize, 5);
-
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "rgba(17, 22, 27, 0.62)";
-      ctx.font = "600 8px SFMono-Regular, Consolas, monospace";
-      ctx.textAlign = "left";
-      ctx.fillText(String(node.element.n), x + 4, y + 13);
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#11161b";
-      ctx.font = `800 ${visualSize > 36 ? 18 : 16}px Inter, system-ui, sans-serif`;
-      ctx.fillText(node.element.symbol, node.x, y + visualSize * 0.61);
-      if (node.element.family === "radioactive") {
-        ctx.fillStyle = color;
-        ctx.font = "900 9px Inter, system-ui, sans-serif";
-        ctx.fillText("RAD", node.x, y + visualSize * 0.82);
-      }
-      ctx.fillStyle = "rgba(17, 22, 27, 0.52)";
-      ctx.font = "600 7px Inter, system-ui, sans-serif";
-      ctx.fillText(node.element.family, node.x, y + visualSize - 5);
-      ctx.restore();
-    }
-
-    function drawCompound(compound, t) {
-      const age = t - compound.createdAt;
-      const alpha = Math.max(0, 1 - age / 9000);
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.shadowColor = compound.color;
-      ctx.shadowBlur = 28;
-      ctx.font = "800 22px Inter, system-ui, sans-serif";
-      const w = Math.max(74, ctx.measureText(compound.formula).width + 30);
-      roundRect(compound.x - w / 2, compound.y - 22, w, 44, 8);
-      const compoundGradient = ctx.createLinearGradient(compound.x - w / 2, compound.y - 22, compound.x + w / 2, compound.y + 22);
-      compoundGradient.addColorStop(0, "rgba(255, 255, 255, 0.92)");
-      compoundGradient.addColorStop(1, `${compound.color}2f`);
-      ctx.fillStyle = compoundGradient;
-      ctx.fill();
-      ctx.strokeStyle = compound.color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#11161b";
-      ctx.textAlign = "center";
-      ctx.fillText(compound.formula, compound.x, compound.y + 8);
-      ctx.restore();
-    }
-
-    function addWaterEffect(x, y, now) {
-      effects.push({ type: "water", x, y, born: now, drops: Array.from({ length: 34 }, () => ({
-        angle: randomBetween(0, Math.PI * 2),
-        speed: randomBetween(0.45, 2.4),
-        radius: randomBetween(1.8, 5.8),
-        wobble: randomBetween(0, Math.PI * 2)
-      })) });
-    }
-
-    function addExplosionEffect(x, y, now) {
-      effects.push({ type: "explosion", x, y, born: now, particles: Array.from({ length: 76 }, () => ({
-        angle: randomBetween(0, Math.PI * 2),
-        speed: randomBetween(2.1, 7.2),
-        radius: randomBetween(1.8, 7),
-        color: ["#ffcf33", "#ff6b35", "#e85d4f", "#11161b"][Math.floor(randomBetween(0, 4))]
-      })) });
-    }
-
-    function addSimpleEffect(type, x, y, now) {
-      effects.push({ type, x, y, born: now });
-    }
-
-    function addSynthesisEffect(x, y, now, formula, parsed, animation) {
-      const atoms = [];
-      parsed.forEach((item) => {
-        const count = Math.min(item.count, 4);
-        for (let i = 0; i < count; i += 1) {
-          atoms.push({
-            symbol: item.symbol,
-            color: familyColors[item.element.family],
-            angle: randomBetween(0, Math.PI * 2),
-            orbit: randomBetween(72, 138),
-            phase: randomBetween(0, Math.PI * 2)
-          });
-        }
-      });
-      effects.push({ type: "synthesis", x, y, born: now, formula, animation, atoms });
-    }
-
-    function drawWaterEffect(effect, t) {
-      const age = t - effect.born;
-      const p = age / 2200;
-      if (p > 1) return false;
-      ctx.save();
-      ctx.globalAlpha = 1 - p;
-      for (let i = 0; i < 5; i += 1) {
-        ctx.strokeStyle = i % 2 ? "rgba(46, 159, 219, 0.62)" : "rgba(15, 155, 143, 0.46)";
-        ctx.lineWidth = 3 - i * 0.25;
-        ctx.beginPath();
-        ctx.arc(effect.x, effect.y, 12 + p * 126 + i * 18, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-      const pool = ctx.createRadialGradient(effect.x, effect.y, 0, effect.x, effect.y, 72 + p * 28);
-      pool.addColorStop(0, `rgba(46, 159, 219, ${0.32 * (1 - p)})`);
-      pool.addColorStop(1, "rgba(46, 159, 219, 0)");
-      ctx.fillStyle = pool;
-      ctx.beginPath();
-      ctx.arc(effect.x, effect.y, 96, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#2e9fdb";
-      effect.drops.forEach((drop) => {
-        const d = p * drop.speed * 88;
-        ctx.beginPath();
-        ctx.arc(effect.x + Math.cos(drop.angle) * d, effect.y + Math.sin(drop.angle) * d + Math.sin(p * Math.PI + drop.wobble) * 22, drop.radius * (1 - p * 0.35), 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.restore();
-      return true;
-    }
-
-    function drawExplosionEffect(effect, t) {
-      const age = t - effect.born;
-      const p = age / 1500;
-      if (p > 1) return false;
-      ctx.save();
-      const flash = ctx.createRadialGradient(effect.x, effect.y, 0, effect.x, effect.y, 150 * (1 - p + 0.2));
-      flash.addColorStop(0, `rgba(255, 244, 190, ${0.9 * (1 - p)})`);
-      flash.addColorStop(0.45, `rgba(255, 107, 53, ${0.55 * (1 - p)})`);
-      flash.addColorStop(1, "rgba(232, 93, 79, 0)");
-      ctx.fillStyle = flash;
-      ctx.beginPath();
-      ctx.arc(effect.x, effect.y, 190, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 0.7 * (1 - p);
-      ctx.strokeStyle = "#ffcf33";
-      ctx.lineWidth = 5 * (1 - p) + 1;
-      ctx.beginPath();
-      ctx.arc(effect.x, effect.y, 22 + p * 180, 0, Math.PI * 2);
-      ctx.stroke();
-      effect.particles.forEach((particle) => {
-        const d = p * particle.speed * 72;
-        ctx.globalAlpha = 1 - p;
-        ctx.fillStyle = particle.color;
-        ctx.beginPath();
-        ctx.arc(effect.x + Math.cos(particle.angle) * d, effect.y + Math.sin(particle.angle) * d, particle.radius * (1 - p * 0.5), 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.restore();
-      return true;
-    }
-
-    function drawSynthesisEffect(effect, t) {
-      const age = t - effect.born;
-      const p = age / 2600;
-      if (p > 1) return false;
-      const gather = Math.min(1, p / 0.62);
-      const bloom = Math.max(0, (p - 0.48) / 0.52);
-      ctx.save();
-      effect.atoms.forEach((atom, index) => {
-        const orbit = atom.orbit * (1 - gather) + 22 * gather;
-        const angle = atom.angle + p * 7 + index * 0.36;
-        const x = effect.x + Math.cos(angle) * orbit;
-        const y = effect.y + Math.sin(angle) * orbit * 0.62;
-        ctx.globalAlpha = 1 - bloom * 0.45;
-        ctx.strokeStyle = atom.color;
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(effect.x, effect.y);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        ctx.fillStyle = "rgba(255, 252, 244, 0.9)";
-        ctx.shadowColor = atom.color;
-        ctx.shadowBlur = 18;
-        ctx.beginPath();
-        ctx.arc(x, y, 15, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = atom.color;
-        ctx.font = "800 13px Inter, system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(atom.symbol, x, y + 5);
-      });
-
-      ctx.globalAlpha = Math.min(1, bloom * 1.2);
-      ctx.shadowColor = effect.animation === "water" ? "#2e9fdb" : "#d49b2a";
-      ctx.shadowBlur = 30;
-      ctx.font = "900 28px Inter, system-ui, sans-serif";
-      const w = Math.max(86, ctx.measureText(effect.formula).width + 36);
-      roundRect(effect.x - w / 2, effect.y - 26, w, 52, 8);
-      ctx.fillStyle = "rgba(255, 252, 244, 0.86)";
-      ctx.fill();
-      ctx.strokeStyle = effect.animation === "water" ? "#2e9fdb" : "#d49b2a";
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#101418";
-      ctx.textAlign = "center";
-      ctx.fillText(effect.formula, effect.x, effect.y + 10);
-      ctx.restore();
-      return true;
-    }
-
-    function drawSimpleEffect(effect, t) {
-      const age = t - effect.born;
-      const p = age / 1400;
-      if (p > 1) return false;
-      ctx.save();
-      ctx.globalAlpha = 1 - p;
-      ctx.strokeStyle = effect.type === "gas" ? "#2e79bd" : "#d49b2a";
-      ctx.fillStyle = effect.type === "gas" ? "rgba(46, 121, 189, 0.12)" : "rgba(212, 155, 42, 0.16)";
-      for (let i = 0; i < 6; i += 1) {
-        ctx.beginPath();
-        ctx.arc(effect.x + Math.cos(i) * p * 54, effect.y + Math.sin(i * 1.7) * p * 38, 10 + p * 22, 0, Math.PI * 2);
-        if (effect.type === "gas") ctx.stroke();
-        else ctx.fill();
-      }
-      ctx.restore();
-      return true;
-    }
-
-    function drawEffects(t) {
-      effects = effects.filter((effect) => {
-        if (t < effect.born) return true;
-        if (effect.type === "water") return drawWaterEffect(effect, t);
-        if (effect.type === "explosion") return drawExplosionEffect(effect, t);
-        if (effect.type === "synthesis") return drawSynthesisEffect(effect, t);
-        return drawSimpleEffect(effect, t);
-      });
-    }
-
-    function pushApart(a, b, strength) {
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const distance = Math.max(1, Math.hypot(dx, dy));
-      const nx = dx / distance;
-      const ny = dy / distance;
-      a.vx -= nx * strength;
-      a.vy -= ny * strength;
-      b.vx += nx * strength;
-      b.vy += ny * strength;
-    }
-
-    function triggerReaction(a, b, now, automatic = false) {
-      const x = (a.x + b.x) / 2;
-      const y = (a.y + b.y) / 2;
-      const result = reactionForElements(a.element, b.element);
-      const report = automatic ? setAutoMessage : setMessage;
-
-      if (result?.explosive) {
-        addExplosionEffect(x, y, now);
-        compounds.push({
-          formula: result.formula,
-          x,
-          y,
-          vx: randomBetween(-0.18, 0.18),
-          vy: randomBetween(-0.12, 0.12),
-          phase: randomBetween(0, Math.PI * 2),
-          color: "#e85d4f",
-          createdAt: now
-        });
-        report(`${a.element.symbol} + ${b.element.symbol} -> ${result.formula}`, result.note);
-        pushApart(a, b, 1.45);
-        return true;
-      } else if (result) {
-        if (result.animation === "water") addWaterEffect(x, y, now);
-        else addSimpleEffect(result.animation, x, y, now);
-        compounds.push({
-          formula: result.formula,
-          x,
-          y,
-          vx: randomBetween(-0.18, 0.18),
-          vy: randomBetween(-0.12, 0.12),
-          phase: randomBetween(0, Math.PI * 2),
-          color: result.animation === "water" ? "#2e9fdb" : result.inferred ? "#2aa8d8" : "#d49b2a",
-          createdAt: now
-        });
-        report(`${a.element.symbol} + ${b.element.symbol} -> ${result.formula}`, result.note);
-        pushApart(a, b, 0.88);
-        return true;
-      }
-
-      if (!automatic) {
-        addSimpleEffect("gas", x, y, now);
-        setMessage(`${a.element.symbol} + ${b.element.symbol}`, "No stable compound in this mini lab yet. The elements drift apart.");
-        pushApart(a, b, 0.8);
-      }
-      return false;
-    }
-
-    function runLookupReaction(now) {
-      const pairInput = parseElementPair(lookupInput.value);
-      if (pairInput) {
-        const [a, b] = pairInput;
-        const result = reactionForElements(a, b);
-        const x = Math.max(width * 0.56, Math.min(width - 190, width * 0.62));
-        const y = Math.max(160, Math.min(height - 160, height * 0.48));
-        if (!result) {
-          addSimpleEffect("gas", x, y, now);
-          setMessage(`Lookup reaction: ${a.symbol} + ${b.symbol}`, "No simple rule prediction for this pair yet.");
-          return;
-        }
-        const parsed = parseFormula(result.formula).filter((item) => item.element);
-        addSynthesisEffect(x, y, now, result.formula, parsed, result.animation || "crystal");
-        if (result.explosive) addExplosionEffect(x, y, now + 180);
-        else if (result.animation === "water") addWaterEffect(x, y, now + 520);
-        else addSimpleEffect(result.animation || "crystal", x, y, now + 520);
-        setMessage(`Lookup reaction: ${a.symbol} + ${b.symbol} -> ${result.formula}`, result.note);
-        compounds.push({
-          formula: result.formula,
-          x,
-          y: y + 62,
-          vx: randomBetween(-0.12, 0.12),
-          vy: randomBetween(-0.08, 0.08),
-          phase: randomBetween(0, Math.PI * 2),
-          color: result.explosive ? "#e85d4f" : result.inferred ? "#2aa8d8" : "#d49b2a",
-          createdAt: now
-        });
-        return;
-      }
-
-      const result = resolveSubstance(lookupInput.value);
-      if (!result.value || !result.parsed || result.unknown.length) {
-        lookupSubstance(lookupInput.value);
-        return;
-      }
-
-      const unique = result.parsed.map((item) => item.symbol);
-      const x = Math.max(width * 0.56, Math.min(width - 190, width * 0.62));
-      const y = Math.max(160, Math.min(height - 160, height * 0.48));
-      const pair = unique.length >= 2 ? pairKey(unique[0], unique[1]) : `${unique[0]}+${unique[0]}`;
-      const explosive = explosiveReactions[pair];
-      const reaction = reactions[pair];
-      const animation = reaction?.animation || (result.formula.includes("O") ? "spark" : "gas");
-      const displayName = result.direct ? result.direct.name : result.formula;
-
-      addSynthesisEffect(x, y, now, result.formula, result.parsed, animation);
-      if (explosive) {
-        addExplosionEffect(x, y, now + 180);
-        setMessage(`Lookup reaction: ${result.formula}`, `${displayName} uses ${prettyElements(result.parsed)}. ${explosive.note}`);
-      } else {
-        if (animation === "water") addWaterEffect(x, y, now + 520);
-        else addSimpleEffect(animation, x, y, now + 520);
-        setMessage(`Lookup reaction: ${result.formula}`, `${displayName} uses ${prettyElements(result.parsed)}.`);
-      }
-
-      compounds.push({
-        formula: result.formula,
-        x,
-        y: y + 62,
-        vx: randomBetween(-0.12, 0.12),
-        vy: randomBetween(-0.08, 0.08),
-        phase: randomBetween(0, Math.PI * 2),
-        color: animation === "water" ? "#2e9fdb" : explosive ? "#e85d4f" : "#d49b2a",
-        createdAt: now
-      });
-    }
-
-    function combineSelection(now) {
-      if (selected.length < 2) return;
-      const a = selected[0];
-      const b = selected[1];
-      triggerReaction(a, b, now, false);
-      a.selected = false;
-      b.selected = false;
-      selected = [];
-      updateSlots();
-    }
-
-    function nodeAt(x, y) {
-      for (let i = nodes.length - 1; i >= 0; i -= 1) {
-        const node = nodes[i];
-        const half = node.size * (hoveredNode && hoveredNode.id === node.id ? 0.68 : 0.58);
-        if (x >= node.x - half && x <= node.x + half && y >= node.y - half && y <= node.y + half) {
-          return node;
-        }
-      }
-      return null;
-    }
-
-    function chooseNode(node) {
-      if (!node) return;
-      if (node.selected) {
-        node.selected = false;
-        selected = selected.filter((item) => item.id !== node.id);
-        updateSlots();
-        return;
-      }
-      if (selected.length >= 2) {
-        selected.forEach((item) => { item.selected = false; });
-        selected = [];
-      }
-      node.selected = true;
-      selected.push(node);
-      updateSlots();
-      if (selected.length === 1) {
-        setMessage(`${node.element.name} selected`, `Pick one more element to combine with ${node.element.symbol}.`);
-      }
-      if (selected.length === 2) {
-        combineSelection(performance.now());
-      }
-    }
-
-    function loop(t) {
-      drawBackground(t);
-      if (running) {
-        updateNodes(t);
-        autoReactNearby(t);
-      }
-      drawBonds();
-      compounds = compounds.filter((compound) => t - compound.createdAt < 9500);
-      compounds.forEach((compound) => drawCompound(compound, t));
-      nodes.forEach((node) => drawElementTile(node, t));
-      drawEffects(t);
-      updateTooltip();
-      readout.innerHTML = `elements: ${nodes.length}<br>compounds: ${compounds.length}<br>effects: ${effects.length}`;
-      requestAnimationFrame(loop);
-    }
-
-    window.addEventListener("resize", resize);
-    window.addEventListener("pointermove", (event) => {
-      pointer = { x: event.clientX, y: event.clientY, active: true };
-      hoveredNode = nodeAt(event.clientX, event.clientY);
-      canvas.style.cursor = hoveredNode ? "pointer" : "default";
-      updateTooltip();
-    });
-    window.addEventListener("pointerleave", () => {
-      pointer.active = false;
-      hoveredNode = null;
-      canvas.style.cursor = "default";
-      updateTooltip();
-    });
-    canvas.addEventListener("click", (event) => {
-      chooseNode(nodeAt(event.clientX, event.clientY));
-    });
-    familyButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        setActiveFamily(button.dataset.family);
-      });
-    });
-    lookupInput.addEventListener("input", () => {
-      lookupSubstance(lookupInput.value);
-    });
-    lookupInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        runLookupReaction(performance.now());
-      }
-    });
-
-    shuffleButton.addEventListener("click", () => {
-      makeNodes();
-      setMessage("Shuffled.", "New floating elements are ready. Try H + O for water.");
-      autoMessage.innerHTML = "<strong>Auto reaction</strong>Waiting for nearby elements to react.";
-      autoMessage.classList.add("is-idle");
-    });
-    pauseButton.addEventListener("click", () => {
-      running = !running;
-      pauseButton.setAttribute("aria-label", running ? "Pause motion" : "Resume motion");
-      pauseButton.setAttribute("title", running ? "Pause motion" : "Resume motion");
-      pauseIcon.innerHTML = running
-        ? '<path d="M10 4H6v16h4V4Z"></path><path d="M18 4h-4v16h4V4Z"></path>'
-        : '<path d="M8 5v14l11-7L8 5Z"></path>';
-    });
-
-    resize();
-    requestAnimationFrame(loop);
-  </script>
+  <script src="js/game.js"></script>
 </body>
 </html>
+
