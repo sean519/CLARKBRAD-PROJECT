@@ -73,6 +73,10 @@
       height: auto;
       display: block;
       z-index: 0;
+      touch-action: none;            /* prevent default touch scroll/zoom on canvas */
+      -webkit-touch-callout: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .topbar {
@@ -1677,6 +1681,66 @@
       100% { opacity: 0; }
     }
 
+    /* ── MOBILE / TOUCH CONTROLS ────────────────────────────────────── */
+    .touch-controls {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      gap: 18px;
+      z-index: 5;
+      pointer-events: none;
+      align-items: flex-end;
+    }
+    .touch-btn {
+      pointer-events: auto;
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(255,255,255,0.42);
+      background: rgba(8, 14, 38, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: #fff;
+      font-size: 38px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.15);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition: transform 100ms, box-shadow 100ms, background 100ms, border-color 100ms;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .touch-vac {
+      border-color: rgba(103,232,249,0.65);
+      box-shadow: 0 0 24px rgba(103,232,249,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+    .touch-vac.is-active {
+      background: rgba(42,168,216,0.55);
+      transform: scale(1.10);
+      box-shadow: 0 0 38px rgba(103,232,249,0.85);
+    }
+    .touch-fire {
+      border-color: rgba(255,107,53,0.7);
+      background: linear-gradient(135deg, rgba(255,107,53,0.42), rgba(255,59,110,0.4));
+      box-shadow: 0 0 28px rgba(255,80,60,0.5), inset 0 1px 0 rgba(255,255,255,0.18);
+      animation: firePulse 1.4s ease-in-out infinite;
+    }
+    .touch-fire:active {
+      transform: scale(0.92);
+    }
+    /* Show only on coarse pointer (touch) devices */
+    @media (pointer: coarse) {
+      .touch-controls { display: flex; }
+      /* Make the right sidebar smaller / scroll-friendly on small touch screens */
+      .game-panel { right: 6px; max-height: calc(100vh - 12px); }
+    }
+
     /* ── LIVES HUD ── */
     .hud-lives .lives-row {
       display: flex !important;
@@ -2178,6 +2242,12 @@
     </div>
   </section>
 
+  <!-- Mobile floating controls (visible on touch devices only) -->
+  <div class="touch-controls" id="touchControls" aria-hidden="true">
+    <button class="touch-btn touch-vac"  id="touchVacuum" type="button" aria-label="Vacuum (hold)">🧲</button>
+    <button class="touch-btn touch-fire" id="touchFire"   type="button" aria-label="Fire">🔥</button>
+  </div>
+
   <!-- Boss health bar -->
   <div class="boss-bar" id="bossBar">
     <span class="boss-label">👾 VOID BOSS</span>
@@ -2443,10 +2513,26 @@
       CO2:  { ingredients: { C: 1, O: 2 }, color: "#9be09b", glow: "#d0ffd0", power: 8,  label: "🫧 CO2" }
     };
 
-    function ufoMaxSpeed()    { return 7.2  * (1 + 0.30 * (game.upgrades.speed  || 0)); }
-    function ufoCollectRange(){ return 58   * (1 + 0.35 * (game.upgrades.range  || 0)); }
+    // ── Power-up definitions (dropped by the boss) ──
+    const POWERUP_DEFS = {
+      rapidFire:  { icon: "🔥", name: "Rapid Fire",  desc: "All weapons cooldown −60%",      duration: 8000,  color: "#ff6b35", glow: "#ffaa55" },
+      doubleDmg:  { icon: "💥", name: "Double Damage", desc: "All damage ×2",                duration: 10000, color: "#ffd75e", glow: "#ffe89a" },
+      shield:     { icon: "🛡",  name: "Shield",      desc: "Immune to black-hole damage",   duration: 7000,  color: "#67e8f9", glow: "#a5f0ff" },
+      timeSlow:   { icon: "❄",  name: "Time Slow",    desc: "Elements & boss move ×0.4",    duration: 7500,  color: "#a5d8ff", glow: "#d9eeff" },
+      magnetize:  { icon: "🧲", name: "Mega Magnet",  desc: "Auto-vacuum everything",        duration: 6000,  color: "#c084fc", glow: "#e0c0ff" },
+      heal:       { icon: "💖", name: "Repair Kit",   desc: "Restore UFO health",            duration: 0,     color: "#ff7eb9", glow: "#ffb3d6" }
+    };
+    const POWERUP_KEYS = Object.keys(POWERUP_DEFS);
+
+    function hasBuff(type) {
+      const now = (typeof performance !== "undefined") ? performance.now() : Date.now();
+      return activeBuffs.some((b) => b.type === type && b.until > now);
+    }
+
+    function ufoMaxSpeed()    { return 7.2  * (1 + 0.30 * (game.upgrades.speed  || 0)) * (hasBuff("magnetize") ? 1.2 : 1); }
+    function ufoCollectRange(){ return 58   * (1 + 0.35 * (game.upgrades.range  || 0)) * (hasBuff("magnetize") ? 3.5 : 1); }
     function maxCargoSize()   { return 3    + 2  * (game.upgrades.cargo || 0); }
-    function weaponPowerMult(){ return 1    + 0.35 * (game.upgrades.power || 0); }
+    function weaponPowerMult(){ return (1   + 0.35 * (game.upgrades.power || 0)) * (hasBuff("doubleDmg") ? 2 : 1); }
     function scoreMult()      { return 1    + 0.60 * (game.upgrades.score || 0); }
     function missionTime()    { return 90   + 15  * (game.upgrades.time  || 0); }
     function isBossWave(lvl)  { return lvl % 3 === 0; }
@@ -2540,6 +2626,8 @@
     let astronauts = [];
 
     let blackHole = null;
+    let powerups = [];          // floating power-up orbs dropped by the boss
+    let activeBuffs = [];       // active buff list — { type, until, ... }
     let tornado = null;
     let tsunami = null;
     let meteors = [];
@@ -2885,6 +2973,8 @@
       makeNodes();
       makeSpaceship();
       makeBlackHole();
+      powerups = [];
+      activeBuffs = [];
       updateGamePanel();
       setMessage("New game", `${currentMission().hint}`);
       playTone(520, 0.08);
@@ -2952,24 +3042,130 @@
     function toggleKidsMode() { /* removed */ }
     function updateCodex() { /* removed */ }
 
-    function playTone(frequency, duration = 0.08) {
-      if (!game.sound) return;
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const audio = playTone.audio || new AudioContext();
-      playTone.audio = audio;
-      if (audio.state === "suspended") audio.resume();
-      const oscillator = audio.createOscillator();
+    // ── AUDIO ENGINE ───────────────────────────────────────────────
+    function getAudio() {
+      if (!game.sound) return null;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!playTone.audio) {
+        const ac = new AC();
+        const master = ac.createGain();
+        master.gain.value = 0.65;
+        master.connect(ac.destination);
+        playTone.audio = ac;
+        playTone.master = master;
+      }
+      if (playTone.audio.state === "suspended") playTone.audio.resume();
+      return playTone.audio;
+    }
+
+    function playTone(frequency, duration = 0.08, opts = {}) {
+      const audio = getAudio();
+      if (!audio) return;
+      const master = playTone.master;
+      const osc = audio.createOscillator();
       const gain = audio.createGain();
-      oscillator.frequency.value = frequency;
-      oscillator.type = "sine";
-      gain.gain.setValueAtTime(0.0001, audio.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.08, audio.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + duration);
-      oscillator.connect(gain);
-      gain.connect(audio.destination);
-      oscillator.start();
-      oscillator.stop(audio.currentTime + duration + 0.02);
+      osc.type = opts.type || "sine";
+      osc.frequency.value = frequency;
+      const peak = (opts.volume != null ? opts.volume : 0.08);
+      const now = audio.currentTime;
+      const attack = opts.attack || 0.012;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), now + attack);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(now);
+      osc.stop(now + duration + 0.04);
+    }
+
+    // White-noise burst — used for explosions / void pulse / impact thuds.
+    function playNoise(duration = 0.25, opts = {}) {
+      const audio = getAudio();
+      if (!audio) return;
+      const master = playTone.master;
+      const sampleCount = Math.floor(audio.sampleRate * duration);
+      const buffer = audio.createBuffer(1, sampleCount, audio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < sampleCount; i += 1) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / sampleCount);
+      }
+      const src = audio.createBufferSource();
+      src.buffer = buffer;
+      const filter = audio.createBiquadFilter();
+      filter.type = opts.filterType || "lowpass";
+      filter.frequency.value = opts.cutoff || 1200;
+      filter.Q.value = opts.q || 0.6;
+      const gain = audio.createGain();
+      gain.gain.value = opts.volume != null ? opts.volume : 0.18;
+      src.connect(filter); filter.connect(gain); gain.connect(master);
+      src.start();
+    }
+
+    // Multi-note fanfare for mission/wave-clear and powerup pickups.
+    function playFanfare(notes, baseDur = 0.13, gap = 0.08, vol = 0.09) {
+      const audio = getAudio();
+      if (!audio) return;
+      notes.forEach((freq, i) => {
+        setTimeout(() => playTone(freq, baseDur, { type: "triangle", volume: vol }), i * gap * 1000);
+      });
+    }
+
+    // ── Continuous ambient sources (engine hum, boss drone) ──
+    function ensureAmbient() {
+      const audio = getAudio();
+      if (!audio || playTone.engine) return;
+      // Engine hum — low triangle, gain modulated by ship speed each frame
+      const engOsc = audio.createOscillator();
+      const engGain = audio.createGain();
+      engOsc.type = "sawtooth";
+      engOsc.frequency.value = 70;
+      engGain.gain.value = 0;
+      engOsc.connect(engGain); engGain.connect(playTone.master);
+      engOsc.start();
+      playTone.engine = { osc: engOsc, gain: engGain };
+      // Boss drone — sub-bass sine with detuned partner, only audible during boss
+      const droneOsc1 = audio.createOscillator();
+      const droneOsc2 = audio.createOscillator();
+      const droneGain = audio.createGain();
+      droneOsc1.type = "sine"; droneOsc1.frequency.value = 48;
+      droneOsc2.type = "sine"; droneOsc2.frequency.value = 51;
+      droneGain.gain.value = 0;
+      droneOsc1.connect(droneGain); droneOsc2.connect(droneGain);
+      droneGain.connect(playTone.master);
+      droneOsc1.start(); droneOsc2.start();
+      playTone.drone = { osc1: droneOsc1, osc2: droneOsc2, gain: droneGain };
+    }
+
+    function updateAmbientAudio() {
+      if (!game.sound) {
+        // Mute if user toggled sound off
+        if (playTone.engine) playTone.engine.gain.gain.value = 0;
+        if (playTone.drone)  playTone.drone.gain.gain.value = 0;
+        return;
+      }
+      ensureAmbient();
+      if (!playTone.audio) return;
+      // Engine: louder when moving fast
+      if (playTone.engine && spaceship) {
+        const sp = Math.hypot(spaceship.vx, spaceship.vy);
+        const target = Math.min(0.06, sp * 0.012);
+        const cur = playTone.engine.gain.gain.value || 0;
+        playTone.engine.gain.gain.value = cur + (target - cur) * 0.12;
+        // Pitch slightly with speed
+        playTone.engine.osc.frequency.value = 70 + sp * 4;
+      }
+      // Boss drone: louder when boss alive AND closer to UFO
+      if (playTone.drone) {
+        let target = 0;
+        if (game.phase === "boss" && blackHole && spaceship) {
+          const d = Math.hypot(blackHole.x - spaceship.x, blackHole.y - spaceship.y);
+          const close = Math.max(0, 1 - d / 600);
+          target = 0.04 + close * 0.10;
+        }
+        const cur = playTone.drone.gain.gain.value || 0;
+        playTone.drone.gain.gain.value = cur + (target - cur) * 0.06;
+      }
     }
 
     function updateGameTimer(t) {
@@ -3020,8 +3216,8 @@
         game.repairedParts = new Set();
         game.active = false;
         game.phase = "levelup";
-        playTone(880, 0.12);
-        playTone(1180, 0.14);
+        // Wave-clear fanfare: ascending C-E-G-C-E
+        playFanfare([523, 659, 784, 1047, 1319], 0.16, 0.085, 0.10);
         window.setTimeout(() => showUpgradeModal(false), 320);
       } else {
         setAutoMessage(`${mission.partLabel} ✓`, `Made ${formula}! Next: ${currentMission().hint}`);
@@ -3373,6 +3569,13 @@
       const shielded = game.shieldUntil > t;
       if (hazards.blackHole && !shielded) updateBlackHole(t);
       const blockedRects = uiBlockRects(0);
+      const slowMo = hasBuff("timeSlow");
+
+      // Time-Slow buff: damp BH velocity too
+      if (slowMo && blackHole) {
+        blackHole.vx *= 0.4;
+        blackHole.vy *= 0.4;
+      }
 
       nodes.forEach((node) => {
         if (node.trappedByTsunami || node.heldByAstronaut || node.swallowedByBlackHole) {
@@ -3380,6 +3583,11 @@
           node.vy *= 0.4;
           keepNodeOutOfUi(node, blockedRects);
           return;
+        }
+        // Time-Slow buff: globally slow free elements
+        if (slowMo) {
+          node.vx *= 0.4;
+          node.vy *= 0.4;
         }
         // Frozen state from Ice Gun / Plasma freeze
         if (node._frozenUntil && t < node._frozenUntil) {
@@ -3483,7 +3691,13 @@
         const defeatedY = blackHole.y;
         releaseSwallowedElements(t, true);
         addExplosionEffect(defeatedX, defeatedY, t);
-        playTone(980, 0.12);
+        playNoise(0.4, { cutoff: 900, volume: 0.18 });
+        if (game.phase === "boss") {
+          // Triumphant boss-defeat fanfare
+          playFanfare([523, 784, 1047, 1319, 1568, 2093], 0.18, 0.09, 0.11);
+        } else {
+          playTone(980, 0.12);
+        }
         if (game.phase === "boss") {
           const bonus = Math.round((1500 + game.level * 200) * scoreMult());
           game.score += bonus;
@@ -3558,7 +3772,7 @@
             const sdx = spaceship.x - blackHole.x;
             const sdy = spaceship.y - blackHole.y;
             const sd = Math.hypot(sdx, sdy);
-            if (sd < pulseR && t - spaceship.lastDamageAt > 520) {
+            if (sd < pulseR && t - spaceship.lastDamageAt > 520 && !hasBuff("shield")) {
               spaceship.lastDamageAt = t;
               spaceship.health = Math.max(0, spaceship.health - 35);
               addScoreEffect(spaceship.x, spaceship.y - 18, "-35", t);
@@ -3653,6 +3867,14 @@
 
       if (distance < blackHole.radius + spaceship.radius * 0.62 && t - spaceship.lastDamageAt > 520) {
         spaceship.lastDamageAt = t;
+        // Shield buff: immune, just bounce off and flash
+        if (hasBuff("shield")) {
+          spaceship.vx -= (dx / distance) * 6;
+          spaceship.vy -= (dy / distance) * 6;
+          effects.push({ type: "bump", x: spaceship.x, y: spaceship.y, born: t });
+          addScoreEffect(spaceship.x, spaceship.y - 18, "🛡 BLOCKED", t);
+          return;
+        }
         spaceship.health = Math.max(0, spaceship.health - 25);
         spaceship.vx -= (dx / distance) * 4.8;
         spaceship.vy -= (dy / distance) * 4.8;
@@ -3889,7 +4111,8 @@
 
       const wid = game.weapon || "bolt";
       const wdef = weapons[wid];
-      if (t - spaceship.lastShotAt < wdef.cooldown) return;
+      const cdMult = hasBuff("rapidFire") ? 0.4 : 1;
+      if (t - spaceship.lastShotAt < wdef.cooldown * cdMult) return;
       const angle = Math.atan2(spaceship.vy, spaceship.vx);
 
       if (wid === "scatter") {
@@ -3946,8 +4169,11 @@
         node.vy += dy / distance * blast;
       });
       addScoreEffect(x, y - 30, "☢️ MEGA BOMB!", t);
-      playTone(80, 0.20);
-      playTone(140, 0.16);
+      // Layered nuclear blast SFX: low rumble + filtered noise burst + high crackle
+      playTone(55, 0.6, { type: "sawtooth", volume: 0.12 });
+      playTone(95, 0.35, { type: "triangle", volume: 0.10 });
+      playNoise(0.55, { cutoff: 700, q: 0.8, volume: 0.22 });
+      setTimeout(() => playNoise(0.30, { cutoff: 2200, q: 0.4, volume: 0.10 }), 90);
     }
 
     // Brief full-screen color flash (used by the atomic blast)
@@ -4336,6 +4562,177 @@
       setAutoMessage(`⚗️ Made ${mission.formula}!`, "Press Fire to launch the compound at the Black Hole!");
       playTone(880, 0.1);
       playTone(1320, 0.12);
+    }
+
+    // ── POWER-UP SYSTEM (boss drops) ─────────────────────────────────
+    // Boss drops a power-up at every 25% of max HP lost.
+    function checkBossPowerupDrop(t) {
+      if (!blackHole || game.phase !== "boss") return;
+      const max = blackHole.maxHealth;
+      const healthLost = max - blackHole.health;
+      const tier = Math.floor(healthLost / (max * 0.25));
+      // 4 thresholds total (25/50/75/100). 100% drops only matter if boss isn't yet dead.
+      if (tier > (blackHole.lastPowerupTier || 0) && tier <= 4) {
+        blackHole.lastPowerupTier = tier;
+        spawnPowerup(blackHole.x, blackHole.y, t);
+      }
+    }
+
+    function spawnPowerup(x, y, t) {
+      const type = POWERUP_KEYS[Math.floor(Math.random() * POWERUP_KEYS.length)];
+      const def  = POWERUP_DEFS[type];
+      const angle = randomBetween(0, Math.PI * 2);
+      const speed = randomBetween(2.6, 4.2);
+      powerups.push({
+        type,
+        def,
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        born: t,
+        phase: randomBetween(0, Math.PI * 2),
+        bornEffectAt: t
+      });
+      addScoreEffect(x, y - 30, `${def.icon} ${def.name} dropped!`, t);
+      effects.push({ type: "plasmaWave", x, y, born: t, color: def.glow });
+      playTone(880, 0.10);
+      playTone(1320, 0.08);
+    }
+
+    function updatePowerups(t) {
+      if (!powerups.length) return;
+      powerups.forEach((p) => {
+        // float gently with damping
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.985;
+        p.vy *= 0.985;
+        // soft attraction toward UFO if it's in vacuum range
+        if (spaceship && suctionActive) {
+          const dx = spaceship.x - p.x, dy = spaceship.y - p.y;
+          const d = Math.max(1, Math.hypot(dx, dy));
+          if (d < ufoCollectRange() * 6) {
+            const pull = (1 - d / (ufoCollectRange() * 6)) * 0.6 + 0.2;
+            p.vx += (dx / d) * pull;
+            p.vy += (dy / d) * pull;
+          }
+        }
+        // bounce off play-area edges
+        if (p.x < 30) { p.x = 30; p.vx = Math.abs(p.vx); }
+        if (p.x > width - 30) { p.x = width - 30; p.vx = -Math.abs(p.vx); }
+        if (p.y < 100) { p.y = 100; p.vy = Math.abs(p.vy); }
+        if (p.y > height - 30) { p.y = height - 30; p.vy = -Math.abs(p.vy); }
+      });
+      // Pickup detection
+      if (spaceship) {
+        powerups = powerups.filter((p) => {
+          const d = Math.hypot(p.x - spaceship.x, p.y - spaceship.y);
+          if (d < spaceship.radius + 18) {
+            applyPowerup(p, t);
+            return false;
+          }
+          // Lifetime cap (24s)
+          return (t - p.born) < 24000;
+        });
+      }
+    }
+
+    function drawActiveBuffs(t) {
+      if (!activeBuffs.length || !spaceship) return;
+      const baseX = spaceship.x;
+      const baseY = spaceship.y - 92;
+      const itemW = 38;
+      const totalW = activeBuffs.length * itemW;
+      activeBuffs.forEach((b, i) => {
+        const x = baseX - totalW / 2 + i * itemW + itemW / 2;
+        const remain = Math.max(0, b.until - t);
+        const dur = b.def.duration || 1;
+        const pct = Math.max(0, remain / dur);
+        ctx.save();
+        // Background pill
+        ctx.fillStyle = "rgba(8, 14, 38, 0.78)";
+        ctx.strokeStyle = b.def.glow;
+        ctx.lineWidth = 1.5;
+        roundRect(x - 16, baseY - 12, 32, 24, 6);
+        ctx.fill(); ctx.stroke();
+        // Time fill bar
+        ctx.fillStyle = `${b.def.glow}55`;
+        roundRect(x - 14, baseY - 10, 28 * pct, 20, 4);
+        ctx.fill();
+        // Icon
+        ctx.font = "13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(b.def.icon, x, baseY);
+        ctx.restore();
+      });
+    }
+
+    function drawPowerups(t) {
+      powerups.forEach((p) => {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        const pulse = 0.85 + Math.sin(t * 0.008 + p.phase) * 0.15;
+        const bob = Math.sin(t * 0.005 + p.phase) * 4;
+        ctx.translate(0, bob);
+        // Outer halo
+        ctx.shadowColor = p.def.glow;
+        ctx.shadowBlur = 30 * pulse;
+        const halo = ctx.createRadialGradient(0, 0, 4, 0, 0, 28 * pulse);
+        halo.addColorStop(0, `${p.def.glow}cc`);
+        halo.addColorStop(1, `${p.def.glow}00`);
+        ctx.fillStyle = halo;
+        ctx.beginPath(); ctx.arc(0, 0, 28 * pulse, 0, Math.PI * 2); ctx.fill();
+        // Core orb
+        ctx.shadowBlur = 0;
+        const core = ctx.createRadialGradient(-3, -3, 0, 0, 0, 14);
+        core.addColorStop(0, "#ffffff");
+        core.addColorStop(0.4, p.def.glow);
+        core.addColorStop(1, p.def.color);
+        ctx.fillStyle = core;
+        ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.8)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Rotating ring
+        ctx.strokeStyle = p.def.glow;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 6]);
+        ctx.lineDashOffset = -t * 0.05;
+        ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+        // Icon
+        ctx.font = "bold 14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(p.def.icon, 0, 1);
+        ctx.restore();
+      });
+    }
+
+    function applyPowerup(p, t) {
+      const def = p.def;
+      // Special case: heal — instant, no duration
+      if (p.type === "heal") {
+        if (spaceship) spaceship.health = spaceship.maxHealth;
+        addScoreEffect(spaceship.x, spaceship.y - 50, `💖 +HP RESTORED`, t);
+        playTone(660, 0.08);
+        playTone(990, 0.10);
+        return;
+      }
+      // Otherwise: timed buff (replaces if already active)
+      activeBuffs = activeBuffs.filter((b) => b.type !== p.type);
+      activeBuffs.push({ type: p.type, def, until: t + def.duration, started: t });
+      addScoreEffect(spaceship ? spaceship.x : p.x, (spaceship ? spaceship.y : p.y) - 50, `${def.icon} ${def.name}!`, t);
+      playTone(880, 0.10);
+      playTone(1180, 0.08);
+      playTone(1480, 0.08);
+    }
+
+    function pruneBuffs(t) {
+      activeBuffs = activeBuffs.filter((b) => b.until > t);
     }
 
     function spawnReplacementElement(preferSymbol) {
@@ -5689,6 +6086,9 @@
         updateNodes(t);
         updateShots(t);
         autoReactNearby(t);
+        updatePowerups(t);
+        pruneBuffs(t);
+        if (game.phase === "boss") checkBossPowerupDrop(t);
       }
       refreshNeededCache();
       drawBonds();
@@ -5697,12 +6097,15 @@
       if (hazards.blackHole) drawBlackHole(t);
       nodes.forEach((node) => drawElementTile(node, t));
       drawCompoundCargo(t);
+      drawPowerups(t);
       drawShots(t);
       drawSpaceship(t);
+      drawActiveBuffs(t);
       drawEffects(t);
       updateGameTimer(t);
       updateTooltip();
       updateGamePanel();
+      updateAmbientAudio();
       requestAnimationFrame(loop);
     }
 
@@ -5775,6 +6178,28 @@
     resetGameButton.addEventListener("click", resetGame);
     const gameOverRestartBtn = document.getElementById("gameOverRestart");
     if (gameOverRestartBtn) gameOverRestartBtn.addEventListener("click", resetGame);
+
+    // ── Mobile touch buttons (Vacuum hold + Fire) ──
+    const touchVacBtn  = document.getElementById("touchVacuum");
+    const touchFireBtn = document.getElementById("touchFire");
+    if (touchVacBtn) {
+      const startVac = (e) => { e.preventDefault(); suctionActive = true; touchVacBtn.classList.add("is-active"); };
+      const stopVac  = (e) => { e.preventDefault(); suctionActive = false; touchVacBtn.classList.remove("is-active"); };
+      touchVacBtn.addEventListener("touchstart", startVac, { passive: false });
+      touchVacBtn.addEventListener("touchend",   stopVac,  { passive: false });
+      touchVacBtn.addEventListener("touchcancel",stopVac,  { passive: false });
+      touchVacBtn.addEventListener("mousedown",  startVac);
+      touchVacBtn.addEventListener("mouseup",    stopVac);
+      touchVacBtn.addEventListener("mouseleave", stopVac);
+    }
+    if (touchFireBtn) {
+      const fireFn = (e) => {
+        e.preventDefault();
+        shootUfo(performance.now());
+      };
+      touchFireBtn.addEventListener("touchstart", fireFn, { passive: false });
+      touchFireBtn.addEventListener("click", fireFn);
+    }
 
 
     const weaponButtons = [...document.querySelectorAll("[data-weapon]")];

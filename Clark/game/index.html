@@ -112,17 +112,16 @@
         <span id="timerReadout">90s</span>
       </div>
     </div>
-    <details class="command-menu">
-      <summary>Command Menu</summary>
-      <div class="menu-actions">
-        <button id="startGame" type="button">Start</button>
-        <button id="nextMission" type="button">Next</button>
-        <button id="resetGame" type="button">Reset</button>
-        <button id="kidsMode" type="button">Kids</button>
-        <button id="soundToggle" type="button">Sound</button>
-        <button id="openCodex" type="button">Codex</button>
-      </div>
-    </details>
+    <div class="quick-actions" aria-label="Game commands">
+      <button id="startGame" type="button">Start</button>
+      <button id="resetGame" type="button">Reset</button>
+    </div>
+    <div class="utility-actions" hidden>
+      <button id="nextMission" type="button">Next</button>
+      <button id="kidsMode" type="button">Kids</button>
+      <button id="soundToggle" type="button">Sound</button>
+      <button id="openCodex" type="button">Codex</button>
+    </div>
     <div class="level-map" id="levelMap"></div>
     <div class="mission-card collection-card">
       <div class="collection-head">

@@ -3208,18 +3208,18 @@
       ctx.clearRect(0, 0, width, height);
       ctx.save();
       const low = lowPowerMode();
-      ctx.globalAlpha = low ? 0.18 : 0.34;
-      const colors = ["#e85d4f", "#0f9b8f", "#d49b2a", "#2e79bd", "#8067c8"];
-      const glowCount = low ? 2 : 8;
+      ctx.globalAlpha = low ? 0.1 : 0.18;
+      const colors = ["#2aa8d8", "#0f9b8f", "#8067c8"];
+      const glowCount = low ? 1 : 4;
       for (let i = 0; i < glowCount; i += 1) {
-        const x = width * (0.12 + i * 0.12) + Math.sin(t * 0.0002 + i) * 45;
-        const y = height * (0.18 + (i % 3) * 0.26) + Math.cos(t * 0.00025 + i) * 48;
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, Math.max(width, height) * 0.2);
-        gradient.addColorStop(0, `${colors[i % colors.length]}44`);
+        const x = width * (0.18 + i * 0.2) + Math.sin(t * 0.00016 + i) * 28;
+        const y = height * (0.2 + (i % 2) * 0.42) + Math.cos(t * 0.00018 + i) * 30;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, Math.max(width, height) * 0.18);
+        gradient.addColorStop(0, `${colors[i % colors.length]}22`);
         gradient.addColorStop(1, `${colors[i % colors.length]}00`);
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(x, y, Math.max(width, height) * 0.22, 0, Math.PI * 2);
+        ctx.arc(x, y, Math.max(width, height) * 0.18, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -3228,12 +3228,12 @@
         return;
       }
 
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = "rgba(16, 20, 24, 0.22)";
+      ctx.globalAlpha = 0.11;
+      ctx.strokeStyle = "rgba(135, 218, 255, 0.2)";
       ctx.lineWidth = 1;
-      for (let i = 0; i < 5; i += 1) {
-        const x = width * (0.18 + i * 0.18) + Math.sin(t * 0.00035 + i) * 34;
-        const y = height * (0.28 + (i % 2) * 0.32) + Math.cos(t * 0.00032 + i) * 28;
+      for (let i = 0; i < 3; i += 1) {
+        const x = width * (0.22 + i * 0.24) + Math.sin(t * 0.00025 + i) * 26;
+        const y = height * (0.3 + (i % 2) * 0.3) + Math.cos(t * 0.00022 + i) * 22;
         const r = 42 + Math.sin(t * 0.001 + i) * 8;
         ctx.beginPath();
         ctx.ellipse(x, y, r * 1.9, r * 0.72, t * 0.00025 + i, 0, Math.PI * 2);
@@ -3241,7 +3241,7 @@
         ctx.beginPath();
         ctx.ellipse(x, y, r * 0.72, r * 1.9, -t * 0.00022 + i, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillStyle = "rgba(135, 218, 255, 0.28)";
         ctx.beginPath();
         ctx.arc(x + Math.cos(t * 0.001 + i) * r, y + Math.sin(t * 0.001 + i) * r * 0.55, 3, 0, Math.PI * 2);
         ctx.fill();
