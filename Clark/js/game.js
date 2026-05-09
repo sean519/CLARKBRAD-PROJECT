@@ -15,6 +15,7 @@
     const gamePanel = document.querySelector(".game-panel");
     const familyButtons = [...document.querySelectorAll("[data-family]")];
     const hazardButtons = [...document.querySelectorAll("[data-hazard]")];
+    const weaponButtons = [...document.querySelectorAll("[data-weapon]")];
     const scoreReadout = document.querySelector("#scoreReadout");
     const levelReadout = document.querySelector("#levelReadout");
     const streakReadout = document.querySelector("#streakReadout");
@@ -24,10 +25,17 @@
     const missionHint = document.querySelector("#missionHint");
     const missionProgress = document.querySelector("#missionProgress");
     const collectionTargets = document.querySelector("#collectionTargets");
+    const missionTimerReadout = document.querySelector("#missionTimerReadout");
+    const bestTimeReadout = document.querySelector("#bestTimeReadout");
+    const rankingList = document.querySelector("#rankingList");
     const shipStatus = document.querySelector("#shipStatus");
     const shipParts = document.querySelector("#shipParts");
     const bossReadout = document.querySelector("#bossReadout");
     const bossBar = document.querySelector("#bossBar");
+    const bossTopbar = document.querySelector("#bossTopbar");
+    const bossTopName = document.querySelector("#bossTopName");
+    const bossTopReadout = document.querySelector("#bossTopReadout");
+    const bossTopBar = document.querySelector("#bossTopBar");
     const riderReadout = document.querySelector("#riderReadout");
     const cargoReadout = document.querySelector("#cargoReadout");
     const weaponReadout = document.querySelector("#weaponReadout");
@@ -353,12 +361,15 @@
     let shots = [];
     let spaceshipPressed = false;
     let suppressCanvasClick = false;
+    let processingStation = false;
     const arrowKeys = {
       ArrowUp: false,
       ArrowDown: false,
       ArrowLeft: false,
       ArrowRight: false
     };
+    const MISSION_TIME_LIMIT = 90;
+    const RANKING_STORAGE_KEY = "clark-space-lab-best-times-v1";
     let game = {
       active: false,
       score: 0,
@@ -377,13 +388,19 @@
       rewardCards: new Set(),
       discovered: new Set(),
       levelGoal: 3,
-      timeLeft: 90,
+      timeLeft: MISSION_TIME_LIMIT,
+      missionStartedAt: 0,
+      missionElapsed: 0,
+      rankings: loadMissionRankings(),
+      lastRankingId: "",
+      rankingRenderKey: "",
       lastTick: 0,
       kidsMode: false,
       sound: false,
       activeTool: null,
       shieldUntil: 0
     };
+    let selectedWeapon = "bolt";
     const hazards = {
       blackHole: true,
       tornado: false,
@@ -575,6 +592,85 @@
       return missions[game.missionIndex % missions.length];
     }
 
+    function loadMissionRankings() {
+      try {
+        const saved = window.localStorage?.getItem(RANKING_STORAGE_KEY);
+        const parsed = saved ? JSON.parse(saved) : [];
+        return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.seconds === "number") : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveMissionRankings() {
+      try {
+        window.localStorage?.setItem(RANKING_STORAGE_KEY, JSON.stringify((game.rankings || []).slice(0, 30)));
+      } catch {
+        // Rankings are nice to have; the game should keep running if storage is blocked.
+      }
+    }
+
+    function formatMissionTime(seconds) {
+      const safeSeconds = Math.max(0, seconds || 0);
+      const mins = Math.floor(safeSeconds / 60);
+      const secs = Math.floor(safeSeconds % 60).toString().padStart(2, "0");
+      const tenths = Math.floor((safeSeconds % 1) * 10);
+      return `${mins}:${secs}.${tenths}`;
+    }
+
+    function currentMissionElapsed(t = performance.now()) {
+      if (!game.missionStartedAt) return game.missionElapsed || 0;
+      return Math.max(0, (t - game.missionStartedAt) / 1000);
+    }
+
+    function startMissionClock(t = performance.now()) {
+      game.missionStartedAt = t;
+      game.missionElapsed = 0;
+      game.timeLeft = MISSION_TIME_LIMIT;
+      game.lastTick = t;
+    }
+
+    function bestTimeForFormula(formula) {
+      return (game.rankings || [])
+        .filter((item) => item.formula === formula)
+        .sort((a, b) => a.seconds - b.seconds)[0] || null;
+    }
+
+    function recordMissionRanking(mission, seconds) {
+      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const entry = {
+        id,
+        formula: mission.formula,
+        title: mission.title,
+        seconds,
+        completedAt: new Date().toISOString()
+      };
+      const rankings = [...(game.rankings || []), entry]
+        .sort((a, b) => a.seconds - b.seconds)
+        .slice(0, 30);
+      game.rankings = rankings;
+      game.lastRankingId = id;
+      saveMissionRankings();
+      return rankings.findIndex((item) => item.id === id) + 1;
+    }
+
+    function renderRankings() {
+      if (!rankingList) return;
+      const top = [...(game.rankings || [])].sort((a, b) => a.seconds - b.seconds).slice(0, 5);
+      const key = top.map((item) => `${item.id}:${item.seconds}`).join("|") + `:${game.lastRankingId}`;
+      if (game.rankingRenderKey === key) return;
+      game.rankingRenderKey = key;
+      rankingList.innerHTML = top.length
+        ? top.map((item, index) => `<li class="${item.id === game.lastRankingId ? "is-new" : ""}"><span>#${index + 1} ${item.formula}</span><em>${formatMissionTime(item.seconds)}</em></li>`).join("")
+        : "<li>No completed missions yet</li>";
+    }
+
+    function setCachedHtml(element, html) {
+      if (!element || element.__lastHtml === html) return;
+      element.__lastHtml = html;
+      element.innerHTML = html;
+    }
+
     function currentBossWeaknessKeys() {
       const phase = blackHole?.phaseIndex || 0;
       if (phase === 0) return ["H", "O"];
@@ -664,20 +760,28 @@
       const levelIndex = Math.min(levelNames.length - 1, shipLevel - 1);
       const targets = collectionTargetItems();
       missionName.textContent = targets.filter((item) => item.type === "mission").map((item) => item.label).join(" + ") || mission.formula;
-      collectionTargets.innerHTML = targets.map((item) => `<span class="target-chip ${item.collected ? "is-collected" : ""} ${item.type}"><strong>${item.label}</strong><small>${item.type === "mission" ? "mission" : item.type === "compound" ? "combo" : "weak"}</small></span>`).join("");
+      setCachedHtml(collectionTargets, targets.map((item) => `<span class="target-chip ${item.collected ? "is-collected" : ""} ${item.type}"><strong>${item.label}</strong><small>${item.type === "mission" ? "mission" : item.type === "compound" ? "combo" : "weak"}</small></span>`).join(""));
       const missionText = mission.hint.replace(new RegExp(`^Make\\s+${mission.formula}:\\s*`, "i"), "").replace(/[.。]\s*$/, "");
       missionHint.textContent = `Dock these at the station to make ${mission.formula}: ${missionText}. Weakness: ${currentBossWeaknessText()}.`;
       scoreReadout.textContent = `${game.score} pts`;
       levelReadout.textContent = `L${shipLevel}`;
       streakReadout.textContent = `x${game.streak}`;
       timerReadout.textContent = `${Math.ceil(game.timeLeft)}s`;
+      missionTimerReadout.textContent = formatMissionTime(currentMissionElapsed());
+      const bestTime = bestTimeForFormula(mission.formula);
+      bestTimeReadout.textContent = bestTime ? formatMissionTime(bestTime.seconds) : "--";
       missionProgress.style.width = `${Math.min(100, game.repairedParts.size / missions.length * 100)}%`;
-      levelMap.innerHTML = levelNames.map((name, index) => `<span class="level-node ${index === levelIndex ? "is-active" : ""}" title="${name}">L${index + 1}</span>`).join("");
+      setCachedHtml(levelMap, levelNames.map((name, index) => `<span class="level-node ${index === levelIndex ? "is-active" : ""}" title="${name}">L${index + 1}</span>`).join(""));
       shipStatus.textContent = `Ship repair: ${game.repairedParts.size}/${missions.length} · rescues ${game.shipRescues}`;
-      shipParts.innerHTML = missions.map((item) => `<span class="ship-part ${game.repairedParts.has(item.part) ? "is-fixed" : ""}">${item.partLabel}<br>${item.formula}</span>`).join("");
+      setCachedHtml(shipParts, missions.map((item) => `<span class="ship-part ${game.repairedParts.has(item.part) ? "is-fixed" : ""}">${item.partLabel}<br>${item.formula}</span>`).join(""));
       const bossHp = blackHole ? Math.max(0, Math.round(blackHole.health / blackHole.maxHealth * 100)) : 0;
       bossReadout.textContent = `${bossHp}%`;
       bossBar.style.width = `${bossHp}%`;
+      const bossActive = !!blackHole?.enraged;
+      bossTopbar?.classList.toggle("is-hidden", !bossActive);
+      if (bossTopReadout) bossTopReadout.textContent = `${bossHp}%`;
+      if (bossTopBar) bossTopBar.style.width = `${bossHp}%`;
+      if (bossTopName) bossTopName.textContent = bossActive ? "Monster Black Hole" : "";
       const riderName = spaceship?.rider?.name || "None";
       riderReadout.textContent = riderName;
       const cargo = spaceship?.cargo?.map((node) => node.element.symbol).join(" ") || "";
@@ -691,10 +795,13 @@
       stationReadout.textContent = `${stationHealthPercent()}% | ${stationSummary || productSummary || "Empty"}`;
       doorReadout.textContent = spaceship?.tractorActive ? "On" : "Off";
       doorTrack.style.width = `${Math.round((spaceship?.tractorAnim ?? 0) * 100)}%`;
-      weaponReadout.textContent = riderName === "Clark" ? "Laser" : riderName === "Bradley" ? "Megaboom" : "Bolt";
+      const weaponLabel = selectedWeapon === "megaboom" ? "Boom" : selectedWeapon === "spread" ? "Spread" : selectedWeapon === "laser" ? "Laser" : "Bolt";
+      weaponReadout.textContent = riderName === "Clark" && selectedWeapon === "laser" ? "Clark Laser" : riderName === "Bradley" && selectedWeapon === "megaboom" ? "Bradley Boom" : weaponLabel;
       const ufoHp = spaceship ? Math.max(0, Math.round(spaceship.health / spaceship.maxHealth * 100)) : 0;
       ufoReadout.textContent = `${ufoHp}%`;
-      phaseReadout.textContent = blackHole ? `${blackHole.phaseIndex + 1}: ${bossPhaseNames[blackHole.phaseIndex]}` : "I";
+      phaseReadout.textContent = blackHole
+        ? blackHole.enraged ? "BOSS: Chase" : `${blackHole.phaseIndex + 1}: ${bossPhaseNames[blackHole.phaseIndex]}`
+        : "I";
       const upgrades = game.upgrades || { cargo: 0, hull: 0, weapon: 0, engine: 0 };
       upgradeReadout.textContent = `C${upgrades.cargo || 0} H${upgrades.hull || 0} W${upgrades.weapon || 0} E${upgrades.engine || 0} A${upgrades.magnet || 0} S${upgrades.shield || 0}`;
       skillPointReadout.textContent = `${game.skillPoints || 0} pts`;
@@ -708,16 +815,18 @@
       evolutionPercent.textContent = tier >= evolutionNames.length - 1 ? "MAX" : `${Math.floor(energyPct)}%`;
       evolutionBar.style.width = `${energyPct}%`;
       upgradeLine.textContent = game.lastUpgrade || `Current weakness: ${currentBossWeaknessText()}.`;
-      discoveryStrip.innerHTML = [...game.discovered].slice(-8).map((formula) => `<span class="discovery-chip">${formula}</span>`).join("");
+      setCachedHtml(discoveryStrip, [...game.discovered].slice(-8).map((formula) => `<span class="discovery-chip">${formula}</span>`).join(""));
       kidsModeButton.classList.toggle("is-active", game.kidsMode);
       soundToggleButton.classList.toggle("is-active", game.sound);
       toolButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.tool === game.activeTool));
+      weaponButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.weapon === selectedWeapon));
+      renderRankings();
     }
 
     function startGame() {
       game.active = true;
-      game.lastTick = performance.now();
-      game.timeLeft = 90;
+      game.lastRankingId = "";
+      startMissionClock(performance.now());
       updateGamePanel();
       setMessage("Mission started", `${currentMission().hint}`);
       playTone(660, 0.08);
@@ -744,13 +853,19 @@
         rewardCards: new Set(),
         discovered: new Set(),
         levelGoal: 3,
-        timeLeft: 90,
-        lastTick: performance.now(),
+        timeLeft: MISSION_TIME_LIMIT,
+        missionStartedAt: 0,
+        missionElapsed: 0,
+        rankings: game.rankings || loadMissionRankings(),
+        lastRankingId: game.lastRankingId || "",
+        rankingRenderKey: "",
+        lastTick: 0,
         kidsMode: game.kidsMode,
         sound: game.sound,
         activeTool: null,
         shieldUntil: 0
       };
+      startMissionClock(performance.now());
       spaceStation = null;
       makeNodes();
       makeSpaceship();
@@ -766,7 +881,8 @@
     function nextMissionCard() {
       game.missionIndex = (game.missionIndex + 1) % missions.length;
       game.streak = 0;
-      game.timeLeft = 90;
+      game.lastRankingId = "";
+      startMissionClock(performance.now());
       updateGamePanel();
       setMessage("New mission", `${currentMission().hint}`);
     }
@@ -844,17 +960,52 @@
 
     function updateGameTimer(t) {
       if (!game.active) return;
-      if (!game.lastTick) game.lastTick = t;
-      const delta = Math.min(1, (t - game.lastTick) / 1000);
-      game.lastTick = t;
-      game.timeLeft -= delta;
+      if (!game.missionStartedAt) startMissionClock(t);
+      game.missionElapsed = currentMissionElapsed(t);
+      game.timeLeft = Math.max(0, MISSION_TIME_LIMIT - game.missionElapsed);
       if (game.timeLeft <= 0) {
-        game.timeLeft = 90;
         game.streak = 0;
+        startMissionClock(t);
         setAutoMessage("Try again", "Time ran out, but nothing bad happens. Same mission, fresh timer.");
         playTone(240, 0.12);
       }
       if (game.activeTool === "shield" && game.shieldUntil <= t) game.activeTool = null;
+    }
+
+    function completeStationMission(mission, formula, x, y, wasNew) {
+      const now = performance.now();
+      const elapsed = currentMissionElapsed(now);
+      const rank = recordMissionRanking(mission, elapsed);
+      game.streak += 1;
+      game.completed += 1;
+      game.repairedParts.add(mission.part);
+      const speedBonus = Math.max(0, Math.round((MISSION_TIME_LIMIT - elapsed) * 1.5));
+      const earned = mission.points + game.streak * 25 + speedBonus + (wasNew ? 50 : 0);
+      game.score += earned;
+
+      if (x != null && y != null) {
+        addSimpleEffect("spark", x, y, now);
+        addScoreEffect(x, y - 20, `+${earned}`, now);
+        addScoreEffect(x, y - 42, formatMissionTime(elapsed), now);
+        grantEnergy(reactionEnergyForFormula(formula, wasNew), "target reaction", x, y, now);
+      }
+
+      game.missionIndex = (game.missionIndex + 1) % missions.length;
+      startMissionClock(now);
+
+      const resultText = `${mission.partLabel} fixed in ${formatMissionTime(elapsed)}. Rank #${rank}.`;
+      if (game.repairedParts.size >= missions.length) {
+        game.shipRescues += 1;
+        game.level = Math.min(levelNames.length, (game.evolutionTier || 0) + 1);
+        game.repairedParts = new Set();
+        awardUfoUpgrade();
+        setAutoMessage("Ship rescued", `${resultText} Clark and Bradley repaired the UFO. Next: ${currentMission().hint}`);
+        playTone(880, 0.12);
+        playTone(1180, 0.14);
+      } else {
+        setAutoMessage("Mission complete", `${resultText} Next mission: ${currentMission().hint}`);
+        playTone(880, 0.1);
+      }
     }
 
     function recordCompound(formula, x, y, source = "field") {
@@ -875,31 +1026,7 @@
 
       const mission = currentMission();
       if (formula === mission.formula && source === "station") {
-        game.streak += 1;
-        game.completed += 1;
-        game.repairedParts.add(mission.part);
-        const earned = mission.points + game.streak * 25 + (wasNew ? 50 : 0);
-        game.score += earned;
-        game.missionIndex = (game.missionIndex + 1) % missions.length;
-        game.timeLeft = 90;
-        if (x != null && y != null) {
-          const now = performance.now();
-          addSimpleEffect("spark", x, y, now);
-          addScoreEffect(x, y - 20, `+${earned}`, now);
-          grantEnergy(reactionEnergyForFormula(formula, wasNew), "target reaction", x, y, now);
-        }
-        if (game.repairedParts.size >= missions.length) {
-          game.shipRescues += 1;
-          game.level = Math.min(levelNames.length, (game.evolutionTier || 0) + 1);
-          game.repairedParts = new Set();
-          awardUfoUpgrade();
-          setAutoMessage("Ship rescued", `Clark and Bradley repaired the UFO. Next rescue: ${currentMission().hint}`);
-          playTone(880, 0.12);
-          playTone(1180, 0.14);
-        } else {
-          setAutoMessage("Part fixed", `${mission.partLabel} repaired with ${formula}. Next: ${currentMission().hint}`);
-          playTone(880, 0.1);
-        }
+        completeStationMission(mission, formula, x, y, wasNew);
       } else if (formula === mission.formula) {
         game.score += wasNew ? 25 : 5;
         if (x != null && y != null) addScoreEffect(x, y - 20, wasNew ? "+25" : "+5", performance.now());
@@ -1029,7 +1156,7 @@
 
     function renderTechTree() {
       const points = game.skillPoints || 0;
-      techTree.innerHTML = techCatalog.map((tech) => {
+      const html = techCatalog.map((tech) => {
         const level = game.upgrades[tech.type] || 0;
         const maxed = level >= tech.max;
         const locked = isTechLocked(tech);
@@ -1040,6 +1167,7 @@
           `<strong>${tech.title} ${level}/${tech.max}</strong><span>${body}</span></button>`
         );
       }).join("");
+      setCachedHtml(techTree, html);
     }
 
     function spendTechPoint(type) {
@@ -1123,8 +1251,8 @@
         cargoCapacity: 4 + (game.upgrades?.cargo || 0) + (game.evolutionTier || 0) + (game.upgrades?.magnet || 0),
         tractorActive: false,
         tractorAnim: 0,
-        tractorRange: 280,
-        tractorAngle: Math.PI * 0.22,
+        tractorRange: 350,
+        tractorAngle: Math.PI * 0.32,
         lastBumpAt: 0,
         lastShotAt: 0,
         health: 100,
@@ -1226,7 +1354,12 @@
         lastEatAt: 0,
         phaseIndex: 0,
         lastPhaseAt: 0,
-        lastMiniSpawnAt: 0
+        lastMiniSpawnAt: 0,
+        enraged: false,
+        enrageThreshold: 8,
+        enrageAt: 0,
+        lastEnrageMessageAt: 0,
+        maxTrapped: 30
       };
     }
 
@@ -2111,7 +2244,7 @@
         unlockAchievement("bossDefeat", t);
         addScoreEffect(defeatedX, defeatedY - 18, "+100", t);
         addExplosionEffect(defeatedX, defeatedY, t);
-        setAutoMessage("Defense success", "The UFO destroyed the monster black hole. A new one appeared somewhere else.");
+        setAutoMessage("Elements rescued", "The UFO destroyed the boss and released every trapped element. A new black hole appeared somewhere else.");
         playTone(980, 0.08);
         respawnBlackHoleAwayFrom(defeatedX, defeatedY);
         return;
@@ -2120,10 +2253,25 @@
       growBlackHoleFromMeals();
       updateBossPhase(t);
 
-      blackHole.vx += Math.cos(t * 0.00041 + blackHole.phase) * 0.012;
-      blackHole.vy += Math.sin(t * 0.00047 + blackHole.phase) * 0.012;
+      if (blackHole.enraged && spaceship) {
+        const chaseDx = spaceship.x - blackHole.x;
+        const chaseDy = spaceship.y - blackHole.y;
+        const chaseDistance = Math.max(1, Math.hypot(chaseDx, chaseDy));
+        const chasePower = 0.07 + blackHole.phaseIndex * 0.018;
+        blackHole.vx += chaseDx / chaseDistance * chasePower;
+        blackHole.vy += chaseDy / chaseDistance * chasePower;
+        blackHole.vx += -chaseDy / chaseDistance * Math.sin(t * 0.006) * 0.018;
+        blackHole.vy += chaseDx / chaseDistance * Math.sin(t * 0.006) * 0.018;
+        if (t - blackHole.lastEnrageMessageAt > 3600) {
+          blackHole.lastEnrageMessageAt = t;
+          setAutoMessage("Boss chase", "The black hole is hunting the UFO. Destroy it to release the trapped elements.");
+        }
+      } else {
+        blackHole.vx += Math.cos(t * 0.00041 + blackHole.phase) * 0.012;
+        blackHole.vy += Math.sin(t * 0.00047 + blackHole.phase) * 0.012;
+      }
       const speed = Math.max(0.01, Math.hypot(blackHole.vx, blackHole.vy));
-      const maxSpeed = 1.12;
+      const maxSpeed = blackHole.enraged ? 2.55 + blackHole.phaseIndex * 0.22 : 1.12;
       if (speed > maxSpeed) {
         blackHole.vx = blackHole.vx / speed * maxSpeed;
         blackHole.vy = blackHole.vy / speed * maxSpeed;
@@ -2137,7 +2285,6 @@
       blackHole.x = Math.max(margin, Math.min(width - margin, blackHole.x));
       blackHole.y = Math.max(126, Math.min(height - margin, blackHole.y));
 
-      ejectSwallowedElements(t);
       updateBlackHoleUfoThreat(t);
       updateBlackHoleStationThreat(t);
       updateMiniBlackHoles(t);
@@ -2161,7 +2308,8 @@
             node.vy -= (dy / distance) * 7.5;
             return;
           }
-          if (t - blackHole.lastEatAt > Math.max(140, 260 - blackHole.phaseIndex * 34) && blackHole.swallowed.length < 5 + blackHole.phaseIndex) {
+          const trappedLimit = blackHole.enraged ? blackHole.maxTrapped : blackHole.enrageThreshold;
+          if (t - blackHole.lastEatAt > Math.max(140, 260 - blackHole.phaseIndex * 34) && blackHole.swallowed.length < trappedLimit) {
             swallowElement(node, t);
           } else {
             node.vx -= (dx / distance) * 1.25;
@@ -2190,7 +2338,9 @@
         playTone(220 + nextPhase * 120, 0.12);
       }
 
-      if (blackHole.phaseIndex >= 2 && t - blackHole.lastMiniSpawnAt > 4200 && miniBlackHoles.length < blackHole.phaseIndex) {
+      const miniLimit = blackHole.enraged ? Math.min(4, 2 + blackHole.phaseIndex) : blackHole.phaseIndex;
+      const miniDelay = blackHole.enraged ? 3600 : 4200;
+      if ((blackHole.phaseIndex >= 2 || blackHole.enraged) && t - blackHole.lastMiniSpawnAt > miniDelay && miniBlackHoles.length < miniLimit) {
         spawnMiniBlackHole(t);
         blackHole.lastMiniSpawnAt = t;
       }
@@ -2308,11 +2458,11 @@
       const dx = blackHole.x - spaceship.x;
       const dy = blackHole.y - spaceship.y;
       const distance = Math.max(1, Math.hypot(dx, dy));
-      const threatRange = blackHole.influence * 0.9;
+      const threatRange = blackHole.influence * (blackHole.enraged ? 1.14 : 0.9);
       if (distance > threatRange) return;
 
-      const pull = (1 - distance / threatRange) * 0.13;
-      const swirl = (1 - distance / threatRange) * 0.045;
+      const pull = (1 - distance / threatRange) * (blackHole.enraged ? 0.2 : 0.13);
+      const swirl = (1 - distance / threatRange) * (blackHole.enraged ? 0.07 : 0.045);
       spaceship.vx += (dx / distance) * pull - (dy / distance) * swirl;
       spaceship.vy += (dy / distance) * pull + (dx / distance) * swirl;
 
@@ -2328,13 +2478,13 @@
       if (distance < blackHole.radius + spaceship.radius * 0.62 && t - spaceship.lastDamageAt > 520) {
         spaceship.lastDamageAt = t;
         const shieldBonus = game.upgrades?.shield || 0;
-        const damage = Math.max(8, 25 - shieldBonus * 5);
+        const damage = Math.max(8, (blackHole.enraged ? 34 : 25) - shieldBonus * 5);
         spaceship.health = Math.max(0, spaceship.health - damage);
         spaceship.vx -= (dx / distance) * 4.8;
         spaceship.vy -= (dy / distance) * 4.8;
         effects.push({ type: "bump", x: spaceship.x, y: spaceship.y, born: t });
         addScoreEffect(spaceship.x, spaceship.y - 18, `-${damage}`, t);
-        setAutoMessage("UFO danger", "The monster black hole is eating the UFO. Dodge away or shoot it.");
+        setAutoMessage("UFO danger", blackHole.enraged ? "Boss chase impact. Dodge hard, then shoot it to rescue the trapped elements." : "The monster black hole is eating the UFO. Dodge away or shoot it.");
         playTone(180, 0.08);
         if (spaceship.health <= 0) {
           addExplosionEffect(spaceship.x, spaceship.y, t);
@@ -2400,57 +2550,44 @@
         spin: randomBetween(0, Math.PI * 2)
       });
       effects.push({ type: "bump", x: node.x, y: node.y, born: t });
-      setAutoMessage("Black hole snack", `${node.element.symbol} got swallowed. The monster is growing bigger.`);
+      if (!blackHole.enraged && blackHole.eatenCount >= blackHole.enrageThreshold) {
+        enrageBlackHole(t);
+      } else {
+        const remaining = Math.max(0, blackHole.enrageThreshold - blackHole.eatenCount);
+        setAutoMessage("Black hole snack", `${node.element.symbol} got swallowed. ${remaining ? `${remaining} more before boss mode.` : "The monster is growing bigger."}`);
+      }
     }
 
-    function ejectSwallowedElements(t) {
-      if (!blackHole.swallowed.length) return;
-      blackHole.swallowed = blackHole.swallowed.filter((item, index) => {
-        const age = t - item.eatenAt;
-        const orbit = Math.max(6, 26 - age * 0.006);
-        item.node.x = blackHole.x + Math.cos(t * 0.018 + item.spin) * orbit;
-        item.node.y = blackHole.y + Math.sin(t * 0.018 + item.spin) * orbit;
-        item.node.vx = 0;
-        item.node.vy = 0;
-        if (age < 2100 + index * 420) return true;
-
-        const angle = blackHoleBackAngle() + randomBetween(-0.38, 0.38);
-        const speed = randomBetween(1.8, 2.8);
-        item.node.swallowedByBlackHole = false;
-        item.node.x = blackHole.x + Math.cos(angle) * (blackHole.radius + item.node.size * 0.9);
-        item.node.y = blackHole.y + Math.sin(angle) * (blackHole.radius + item.node.size * 0.9);
-        item.node.vx = Math.cos(angle) * speed + blackHole.vx * 0.5;
-        item.node.vy = Math.sin(angle) * speed + blackHole.vy * 0.5;
-        item.node.blackHoleEjection = {
-          angle,
-          born: t,
-          until: t + 1150,
-          accel: randomBetween(0.16, 0.24)
-        };
-        if (blackHole.phaseIndex >= 1) item.node.dangerousUntil = t + 4200;
-        effects.push({ type: "bump", x: item.node.x, y: item.node.y, born: t });
-        return false;
-      });
+    function enrageBlackHole(t) {
+      blackHole.enraged = true;
+      blackHole.enrageAt = t;
+      blackHole.lastEnrageMessageAt = t;
+      blackHole.baseRadius += 16;
+      blackHole.baseInfluence += 82;
+      blackHole.maxHealth = Math.max(blackHole.maxHealth, 260);
+      blackHole.health = Math.max(blackHole.health, blackHole.maxHealth);
+      blackHole.vx *= 1.45;
+      blackHole.vy *= 1.45;
+      addExplosionEffect(blackHole.x, blackHole.y, t);
+      spawnEnergyOrbs(blackHole.x, blackHole.y, 6, 3, t);
+      setAutoMessage("Boss awakened", `The black hole trapped ${blackHole.swallowed.length} elements and is chasing the UFO. Destroy it to release them.`);
+      playTone(132, 0.2);
     }
 
     function releaseSwallowedElements(t, scatter) {
       if (!blackHole || !blackHole.swallowed.length) return;
       blackHole.swallowed.forEach((item, index) => {
         const angle = scatter ? index * 2.399 + randomBetween(-0.3, 0.3) : blackHoleBackAngle();
-        const speed = scatter ? randomBetween(4.5, 7.5) : randomBetween(4.2, 6.4);
+        const speed = scatter ? randomBetween(2.8, 4.8) : randomBetween(2.2, 3.8);
         item.node.swallowedByBlackHole = false;
         item.node.x = blackHole.x + Math.cos(angle) * (blackHole.radius + item.node.size);
         item.node.y = blackHole.y + Math.sin(angle) * (blackHole.radius + item.node.size);
         item.node.vx = Math.cos(angle) * speed;
         item.node.vy = Math.sin(angle) * speed;
-        item.node.blackHoleEjection = {
-          angle,
-          born: t,
-          until: t + 900,
-          accel: randomBetween(0.18, 0.28)
-        };
-        if (blackHole.phaseIndex >= 1) item.node.dangerousUntil = t + 3600;
+        item.node.blackHoleEjection = null;
+        item.node.dangerousUntil = 0;
         effects.push({ type: "bump", x: item.node.x, y: item.node.y, born: t });
+        addScoreEffect(item.node.x, item.node.y - 12, item.node.element.symbol, t);
       });
       blackHole.swallowed = [];
     }
@@ -2473,24 +2610,35 @@
       if (!spaceship) makeSpaceship();
       if (shootCargoElement(t)) return;
       const riderName = spaceship.rider?.name;
-      const cooldown = riderName === "Clark" ? 90 : riderName === "Bradley" ? 330 : 220;
+      const weapon = selectedWeapon || "bolt";
+      const cooldownByWeapon = { bolt: 190, laser: 95, megaboom: 360, spread: 280 };
+      const cooldown = cooldownByWeapon[weapon] || 220;
       if (t - spaceship.lastShotAt < cooldown) return;
       const angle = Math.atan2(spaceship.vy, spaceship.vx);
-      const speed = (riderName === "Clark" ? 17.2 : riderName === "Bradley" ? 8.4 : 9.4) + (game.evolutionTier || 0) * 0.6;
+      const speedByWeapon = { bolt: 10.5, laser: 17.4, megaboom: 8.2, spread: 10.2 };
+      const speed = (speedByWeapon[weapon] || 9.4) + (game.evolutionTier || 0) * 0.6;
       const upgradePower = 1 + (game.upgrades?.weapon || 0) * 0.16 + (game.evolutionTier || 0) * 0.08;
-      shots.push({
-        x: spaceship.x + Math.cos(angle) * 68,
-        y: spaceship.y + Math.sin(angle) * 42,
-        vx: Math.cos(angle) * speed + spaceship.vx * 0.2,
-        vy: Math.sin(angle) * speed + spaceship.vy * 0.2,
+      const riderPower = riderName === "Clark" && weapon === "laser" ? 1.22 : riderName === "Bradley" && weapon === "megaboom" ? 1.32 : 1;
+      const colorByWeapon = { bolt: "#fff4b8", laser: "#2aa8d8", megaboom: "#e85d4f", spread: "#ffcf33" };
+      const powerByWeapon = { bolt: 1, laser: 0.9, megaboom: 2.35, spread: 0.78 };
+      const makeShot = (shotAngle, powerScale = 1) => ({
+        x: spaceship.x + Math.cos(shotAngle) * 68,
+        y: spaceship.y + Math.sin(shotAngle) * 42,
+        vx: Math.cos(shotAngle) * speed + spaceship.vx * 0.2,
+        vy: Math.sin(shotAngle) * speed + spaceship.vy * 0.2,
         born: t,
-        power: (riderName === "Clark" ? 1.15 : riderName === "Bradley" ? 2.4 : 1) * upgradePower,
-        kind: riderName === "Clark" ? "laser" : riderName === "Bradley" ? "megaboom" : "bolt",
-        color: riderName === "Clark" ? "#2aa8d8" : riderName === "Bradley" ? "#e85d4f" : "#fff4b8",
+        power: (powerByWeapon[weapon] || 1) * upgradePower * riderPower * powerScale,
+        kind: weapon,
+        color: colorByWeapon[weapon] || "#fff4b8",
         hitNodes: new Set()
       });
+      if (weapon === "spread") {
+        [-0.22, 0, 0.22].forEach((offset, index) => shots.push(makeShot(angle + offset, index === 1 ? 1 : 0.82)));
+      } else {
+        shots.push(makeShot(angle));
+      }
       spaceship.lastShotAt = t;
-      playTone(riderName === "Bradley" ? 180 : 920, riderName === "Bradley" ? 0.12 : 0.04);
+      playTone(weapon === "megaboom" ? 180 : weapon === "laser" ? 980 : weapon === "spread" ? 640 : 860, weapon === "megaboom" ? 0.12 : 0.04);
     }
 
     function shootCargoElement(t = performance.now()) {
@@ -2665,6 +2813,8 @@
         const dy = node.y - spaceship.y;
         const distance = Math.max(1, Math.hypot(dx, dy));
         const hitRange = spaceship.radius + node.size * 0.58;
+        applyTractorBeamToNode(node, dx, dy, distance, t);
+        if (node.heldByUfo) return;
         if (distance > hitRange) return;
 
         if (node.dangerousUntil > t && t - spaceship.lastDamageAt > 520) {
@@ -2672,10 +2822,8 @@
           const damage = Math.max(4, 12 - (game.upgrades?.shield || 0) * 2);
           spaceship.health = Math.max(0, spaceship.health - damage);
           addScoreEffect(spaceship.x, spaceship.y - 18, `-${damage}`, t);
-          setAutoMessage("Danger element", "The black hole ejected a dangerous element. Dodge or collect carefully.");
+          setAutoMessage("Danger element", "This charged element is dangerous. Dodge or collect carefully.");
         }
-
-        applyTractorBeamToNode(node, dx, dy, distance, t);
 
         if (spaceStation && node.dangerousUntil > t) {
           const stationDistance = Math.hypot(node.x - spaceStation.x, node.y - spaceStation.y);
@@ -2716,16 +2864,19 @@
       if (distance > range) return;
       const targetAngle = Math.atan2(dy, dx);
       const facing = spaceship.angle;
-      const cone = spaceship.tractorAngle * (0.78 + spaceship.tractorAnim * 0.22);
+      const cone = spaceship.tractorAngle * (0.86 + spaceship.tractorAnim * 0.24);
       if (Math.abs(angleDifference(targetAngle, facing)) > cone * 0.5) return;
 
       const aimFactor = 1 - Math.abs(angleDifference(targetAngle, facing)) / (cone * 0.5);
-      const pullStrength = ((1 - distance / range) * 2.1 + 0.55) * (0.75 + spaceship.tractorAnim * 0.9) * Math.max(0.35, aimFactor);
+      const closeBoost = distance < spaceship.radius + node.size * 2.8 ? 1.85 : 1;
+      const pullStrength = ((1 - distance / range) * 4.4 + 1.15) * (0.9 + spaceship.tractorAnim * 1.15) * Math.max(0.45, aimFactor) * closeBoost;
       node.vx -= (dx / distance) * pullStrength;
       node.vy -= (dy / distance) * pullStrength;
+      node.vx *= 0.92;
+      node.vy *= 0.92;
       node.vx += Math.cos(facing) * 0.05;
       node.vy += Math.sin(facing) * 0.05;
-      if (distance < spaceship.radius + node.size * 0.58) {
+      if (distance < spaceship.radius + node.size * 1.18) {
         collectElementWithUfo(node, t);
       }
     }
@@ -2737,7 +2888,7 @@
       spaceship.lastTractorToggleAt = t;
       if (active) {
         effects.push({ type: "bump", x: spaceship.x + Math.cos(spaceship.angle) * 62, y: spaceship.y + Math.sin(spaceship.angle) * 62, born: t });
-        setAutoMessage("Tractor beam on", "Aim the UFO at an element while holding C to pull it into cargo.");
+        setAutoMessage("Tractor beam on", "Hold C or Vacuum and point the UFO near an element. The beam will pull it into cargo.");
         playTone(720, 0.05);
       } else {
         setAutoMessage("Tractor beam off", "Release C to stop collecting elements.");
@@ -2797,41 +2948,47 @@
 
     function processStationReactions(t = performance.now()) {
       if (!spaceStation) return;
-      let reacted = false;
-      const missionPair = findStationReactionPair(currentMission().formula);
-      if (missionPair) {
-        reactStationPair(missionPair, t);
-        reacted = true;
-      }
-
-      const weaknessFormula = currentBossWeaknessKeys().find((key) => key.length > 1);
-      const weaknessPair = weaknessFormula ? findStationReactionPair(weaknessFormula) : null;
-      if (weaknessPair) {
-        reactStationPair(weaknessPair, t + 80);
-        reacted = true;
-      }
-
-      while (spaceStation.stored.length > spaceStation.capacity) {
-        let index = 0;
-        let bestPriority = Infinity;
-        spaceStation.stored.forEach((item, itemIndex) => {
-          const priority = storedItemPriority(item);
-          if (priority < bestPriority) {
-            bestPriority = priority;
-            index = itemIndex;
+      if (processingStation) return;
+      processingStation = true;
+      try {
+        let reacted = false;
+        const missionPair = findStationReactionPair(currentMission().formula);
+        if (missionPair) {
+          reactStationPair(missionPair, t);
+          reacted = true;
+        } else {
+          const weaknessFormula = currentBossWeaknessKeys().find((key) => key.length > 1);
+          const weaknessPair = weaknessFormula ? findStationReactionPair(weaknessFormula) : null;
+          if (weaknessPair) {
+            reactStationPair(weaknessPair, t + 80);
+            reacted = true;
           }
-        });
-        const recycled = removeStoredItemAt(index);
-        grantEnergy(bestPriority > 1 ? 4 : 2, "station recycle", spaceStation.x, spaceStation.y, t);
-        addScoreEffect(spaceStation.x, spaceStation.y + 82, `recycled ${recycled.symbol}`, t);
-      }
-
-      if (!reacted && spaceStation.stored.length > Math.floor(spaceStation.capacity * 0.72)) {
-        const overflowPair = findStationReactionPair();
-        if (overflowPair) {
-          reactStationPair(overflowPair, t + 120);
-          setAutoMessage("Station lab", "The station auto-combined stored elements to free storage space.");
         }
+
+        while (spaceStation.stored.length > spaceStation.capacity) {
+          let index = 0;
+          let bestPriority = Infinity;
+          spaceStation.stored.forEach((item, itemIndex) => {
+            const priority = storedItemPriority(item);
+            if (priority < bestPriority) {
+              bestPriority = priority;
+              index = itemIndex;
+            }
+          });
+          const recycled = removeStoredItemAt(index);
+          grantEnergy(bestPriority > 1 ? 4 : 2, "station recycle", spaceStation.x, spaceStation.y, t);
+          addScoreEffect(spaceStation.x, spaceStation.y + 82, `recycled ${recycled.symbol}`, t);
+        }
+
+        if (!reacted && spaceStation.stored.length > Math.floor(spaceStation.capacity * 0.72)) {
+          const overflowPair = findStationReactionPair();
+          if (overflowPair) {
+            reactStationPair(overflowPair, t + 120);
+            setAutoMessage("Station lab", "The station auto-combined stored elements to free storage space.");
+          }
+        }
+      } finally {
+        processingStation = false;
       }
     }
 
@@ -3798,11 +3955,12 @@
       ctx.translate(blackHole.x, blackHole.y);
       ctx.rotate(t * 0.0011 + blackHole.phase);
 
+      const bossGlow = blackHole.enraged;
       const halo = ctx.createRadialGradient(0, 0, 8, 0, 0, blackHole.influence * 0.72);
-      halo.addColorStop(0, "rgba(16, 20, 24, 0.7)");
-      halo.addColorStop(0.28, "rgba(128, 103, 200, 0.24)");
-      halo.addColorStop(0.62, "rgba(42, 168, 216, 0.12)");
-      halo.addColorStop(1, "rgba(42, 168, 216, 0)");
+      halo.addColorStop(0, bossGlow ? "rgba(28, 8, 8, 0.82)" : "rgba(16, 20, 24, 0.7)");
+      halo.addColorStop(0.28, bossGlow ? "rgba(232, 93, 79, 0.28)" : "rgba(128, 103, 200, 0.24)");
+      halo.addColorStop(0.62, bossGlow ? "rgba(255, 206, 45, 0.14)" : "rgba(42, 168, 216, 0.12)");
+      halo.addColorStop(1, bossGlow ? "rgba(232, 93, 79, 0)" : "rgba(42, 168, 216, 0)");
       ctx.fillStyle = halo;
       ctx.beginPath();
       ctx.arc(0, 0, blackHole.influence * 0.72, 0, Math.PI * 2);
@@ -3812,10 +3970,10 @@
       for (let i = 0; i < 3; i += 1) {
         ctx.save();
         ctx.rotate(i * Math.PI / 3 + t * (0.0018 + i * 0.00045));
-        ctx.strokeStyle = i === 0 ? "rgba(232, 93, 79, 0.8)" : i === 1 ? "rgba(212, 155, 42, 0.72)" : "rgba(42, 168, 216, 0.7)";
-        ctx.lineWidth = 5 - i;
+        ctx.strokeStyle = bossGlow ? i === 0 ? "rgba(255, 70, 54, 0.95)" : i === 1 ? "rgba(255, 206, 45, 0.82)" : "rgba(232, 93, 79, 0.72)" : i === 0 ? "rgba(232, 93, 79, 0.8)" : i === 1 ? "rgba(212, 155, 42, 0.72)" : "rgba(42, 168, 216, 0.7)";
+        ctx.lineWidth = (bossGlow ? 6 : 5) - i;
         ctx.beginPath();
-        ctx.ellipse(0, 0, 74 + i * 15, 20 + i * 5, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, 74 + i * 15 + (bossGlow ? 18 : 0), 20 + i * 5 + (bossGlow ? 4 : 0), 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
@@ -3880,6 +4038,13 @@
       ctx.beginPath();
       ctx.arc(0, 0, blackHole.radius + 4 + Math.sin(t * 0.004) * 2, 0, Math.PI * 2);
       ctx.stroke();
+      if (blackHole.enraged) {
+        ctx.strokeStyle = "rgba(255, 206, 45, 0.42)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, blackHole.radius + 14 + Math.sin(t * 0.014) * 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
 
       ctx.save();
@@ -3894,7 +4059,7 @@
       ctx.fillStyle = "rgba(17, 22, 27, 0.72)";
       ctx.font = "900 10px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("monster black hole", 0, -66);
+      ctx.fillText(blackHole.enraged ? "BOSS MODE: release trapped elements" : "monster black hole", 0, -66);
       ctx.restore();
     }
 
@@ -4365,6 +4530,13 @@
     resetGameButton.addEventListener("click", resetGame);
     toolButtons.forEach((button) => {
       button.addEventListener("click", () => setTool(button.dataset.tool));
+    });
+    weaponButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        selectedWeapon = button.dataset.weapon || "bolt";
+        setAutoMessage("Weapon selected", `UFO weapon: ${button.textContent}.`);
+        updateGamePanel();
+      });
     });
     clarkSkillButton.addEventListener("click", useClarkHelp);
     bradleySkillButton.addEventListener("click", useBradleyShip);

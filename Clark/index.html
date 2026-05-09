@@ -12,7 +12,7 @@
   <div class="topbar">
     <section class="brand">
       <h1>Clark Space Lab</h1>
-      <p class="subhead">Repair the UFO. Dodge the monster black hole. Fire elements to trigger reactions.</p>
+      <p class="subhead">Repair the UFO. Protect the station. Stop the black hole boss before it catches you.</p>
     </section>
 
     <div class="buttons">
@@ -66,6 +66,15 @@
     </div>
   </div>
 
+  <div class="boss-topbar is-hidden" id="bossTopbar" aria-label="Boss health bar">
+    <div class="boss-topbar-head">
+      <span>Boss Fight</span>
+      <strong id="bossTopName">Monster Black Hole</strong>
+      <em id="bossTopReadout">100%</em>
+    </div>
+    <div class="boss-topbar-track"><span id="bossTopBar"></span></div>
+  </div>
+
   <section class="lab-panel" aria-label="Reaction panel">
     <div class="message" id="message">
       <strong>Manual reaction</strong>
@@ -112,6 +121,16 @@
       <div class="target-grid" id="collectionTargets"></div>
       <div class="mission-hint" id="missionHint">Hold C to pull target elements into the UFO, then dock them at the station.</div>
       <div class="mission-progress"><span id="missionProgress"></span></div>
+      <div class="mission-meta">
+        <span>Time <strong id="missionTimerReadout">0:00</strong></span>
+        <span>Best <strong id="bestTimeReadout">--</strong></span>
+      </div>
+    </div>
+    <div class="ranking-card" aria-label="Mission best time ranking">
+      <div class="ranking-head"><span>Best Times</span><strong>fastest wins</strong></div>
+      <ol id="rankingList">
+        <li>No completed missions yet</li>
+      </ol>
     </div>
     <div class="rescue-board is-hidden" aria-label="Space rescue repair board">
       <div class="ship-status" id="shipStatus">Ship repair: 0/3</div>
@@ -150,7 +169,10 @@
       <textarea id="gameGuide" readonly>Goal: protect the station. Dock elements there so the station can make H2O, NaCl, and CO2.
 Fly: Arrow keys or drag UFO. Hold C or hold Vacuum: forward tractor beam collects elements.
 Dock: fly near the space station and press D to deposit cargo.
+Mission timer: finish faster to climb the Best Times ranking.
 Storage: the station auto-reacts matching elements and recycles overflow into XP.
+Black hole: it traps eaten elements. After 8 elements it becomes a chasing boss. Destroy it to release them.
+Weapons: choose Bolt, Laser, Boom, or Spread, then press Fire/Space.
 Pilot powers: 1 = Clark laser, 2 or B = Bradley megaboom, E = eject crew.
 XP tip: mission elements and boss-weakness compounds give the most energy.</textarea>
     </div>
@@ -161,6 +183,12 @@ XP tip: mission elements and boss-weakness compounds give the most energy.</text
       <button id="resetGame" type="button">Reset</button>
       <button id="vacuumUfo" type="button">Vacuum</button>
       <button id="fireUfo" type="button">Fire</button>
+    </div>
+    <div class="weapon-picker" aria-label="Weapon choice">
+      <button class="is-active" type="button" data-weapon="bolt">Bolt</button>
+      <button type="button" data-weapon="laser">Laser</button>
+      <button type="button" data-weapon="megaboom">Boom</button>
+      <button type="button" data-weapon="spread">Spread</button>
     </div>
     <div class="tool-belt" aria-label="Tools">
       <button type="button" data-tool="magnet">Magnet</button>
