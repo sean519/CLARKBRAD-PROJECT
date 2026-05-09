@@ -1,0 +1,225 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clark Space Lab</title>
+  <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+  <canvas id="field" aria-label="Floating interactive chemistry field"></canvas>
+
+  <div class="topbar">
+    <section class="brand">
+      <h1>Clark Space Lab</h1>
+      <p class="subhead">Repair the UFO. Dodge the monster black hole. Fire elements to trigger reactions.</p>
+    </section>
+
+    <div class="buttons">
+      <button id="shuffle" type="button" aria-label="Shuffle elements" title="Shuffle elements">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M16 3h5v5"></path>
+          <path d="M4 20 21 3"></path>
+          <path d="M21 16v5h-5"></path>
+          <path d="m15 15 6 6"></path>
+          <path d="m4 4 5 5"></path>
+        </svg>
+      </button>
+      <button id="pause" type="button" aria-label="Pause motion" title="Pause motion">
+        <svg id="pauseIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M10 4H6v16h4V4Z"></path>
+          <path d="M18 4h-4v16h4V4Z"></path>
+        </svg>
+      </button>
+      <button class="hazard-button is-active" type="button" data-hazard="blackHole" aria-label="Toggle monster black hole" aria-pressed="true" title="Toggle monster black hole">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M3 12c2.5-4 15.5-4 18 0"></path>
+          <path d="M3 12c2.5 4 15.5 4 18 0"></path>
+        </svg>
+      </button>
+      <button class="hazard-button" type="button" data-hazard="tornado" aria-label="Toggle tornado" aria-pressed="false" title="Toggle tornado">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M4 5h16"></path>
+          <path d="M6 9h12"></path>
+          <path d="M8 13h8"></path>
+          <path d="M10 17h4"></path>
+          <path d="M12 17v4"></path>
+        </svg>
+      </button>
+      <button class="hazard-button" type="button" data-hazard="meteor" aria-label="Toggle meteor shower" aria-pressed="false" title="Toggle meteor shower">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="m4 20 8-8"></path>
+          <path d="m3 12 9-9"></path>
+          <path d="m12 21 9-9"></path>
+          <circle cx="16" cy="8" r="4"></circle>
+        </svg>
+      </button>
+      <button class="hazard-button" type="button" data-hazard="tsunami" aria-label="Toggle tsunami" aria-pressed="false" title="Toggle tsunami">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M3 17c3 0 3-2 6-2s3 2 6 2 3-2 6-2"></path>
+          <path d="M3 21c3 0 3-2 6-2s3 2 6 2 3-2 6-2"></path>
+          <path d="M4 12c4-7 13-7 16 0"></path>
+          <path d="M15 8c3 1 5 3 5 7"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <section class="lab-panel" aria-label="Reaction panel">
+    <div class="message" id="message">
+      <strong>Manual reaction</strong>
+      Pick any two elements. Try H + O, C + O, Na + Cl, H + F, or K + O.
+      <div class="manual-slots">
+        <span class="slot" id="slotA">slot A</span>
+        <span class="slot" id="slotB">slot B</span>
+      </div>
+    </div>
+    <div class="message auto-message is-idle" id="autoMessage">
+      <strong>Auto reaction</strong>
+      Waiting for nearby elements to react.
+    </div>
+    <div class="lookup" aria-label="Chemical lookup">
+      <input id="lookupInput" type="text" autocomplete="off" placeholder="Type water, CO2, or a pair like Na+Cl / Fe O">
+      <div class="lookup-result" id="lookupResult">Enter a substance, formula, or two element symbols to predict a reaction.</div>
+    </div>
+    <div class="tray">
+      <button class="legend" type="button" data-family="reactive" aria-pressed="false"><span class="swatch" style="background: var(--reactive)"></span>reactive</button>
+      <button class="legend" type="button" data-family="metal" aria-pressed="false"><span class="swatch" style="background: var(--metal)"></span>metal</button>
+      <button class="legend" type="button" data-family="halogen" aria-pressed="false"><span class="swatch" style="background: var(--halogen)"></span>halogen</button>
+      <button class="legend" type="button" data-family="noble" aria-pressed="false"><span class="swatch" style="background: var(--gas)"></span>noble gas</button>
+      <button class="legend" type="button" data-family="metalloid" aria-pressed="false"><span class="swatch" style="background: var(--metalloid)"></span>metalloid</button>
+      <button class="legend" type="button" data-family="radioactive" aria-pressed="false"><span class="swatch" style="background: var(--radioactive)"></span>radioactive</button>
+    </div>
+  </section>
+
+  <section class="game-panel" aria-label="Game mission panel">
+    <div class="game-row">
+      <span class="game-label">Mission</span>
+      <div class="game-score">
+        <span id="scoreReadout">0 pts</span>
+        <span id="levelReadout">L1</span>
+        <span id="streakReadout">x0</span>
+        <span id="timerReadout">90s</span>
+      </div>
+    </div>
+    <div class="level-map" id="levelMap"></div>
+    <div class="mission-card collection-card">
+      <div class="collection-head">
+        <span>Collect for UFO</span>
+        <strong id="missionName">H + O</strong>
+      </div>
+      <div class="target-grid" id="collectionTargets"></div>
+      <div class="mission-hint" id="missionHint">Hold C to pull target elements into the UFO, then dock them at the station.</div>
+      <div class="mission-progress"><span id="missionProgress"></span></div>
+    </div>
+    <div class="rescue-board is-hidden" aria-label="Space rescue repair board">
+      <div class="ship-status" id="shipStatus">Ship repair: 0/3</div>
+      <div class="ship-parts" id="shipParts"></div>
+    </div>
+    <div class="boss-meter" aria-label="Boss black hole meter">
+      <div class="boss-label"><span>Monster Black Hole</span><span id="bossReadout">100%</span></div>
+      <div class="boss-bar"><span id="bossBar"></span></div>
+    </div>
+    <div class="hud-stats" aria-label="UFO status">
+      <div class="hud-stat"><span>Pilot</span><strong id="riderReadout">None</strong></div>
+      <div class="hud-stat"><span>Cargo</span><strong id="cargoReadout">Empty</strong></div>
+      <div class="hud-stat"><span>Weapon</span><strong id="weaponReadout">Bolt</strong></div>
+      <div class="hud-stat"><span>UFO Hull</span><strong id="ufoReadout">100%</strong></div>
+      <div class="hud-stat"><span>Boss Phase</span><strong id="phaseReadout">I</strong></div>
+      <div class="hud-stat"><span>Upgrades</span><strong id="upgradeReadout">Base</strong></div>
+      <div class="hud-stat"><span>Ship Level</span><strong id="evolutionReadout">Lv.1 Scout</strong></div>
+      <div class="hud-stat"><span>Energy</span><strong id="energyReadout">0/80</strong></div>
+      <div class="hud-stat station-stat"><span>Station</span><strong id="stationReadout">Empty</strong></div>
+    </div>
+    <div class="door-state" aria-label="UFO tractor beam">
+      <div class="door-row"><span>Tractor Beam</span><strong id="doorReadout">Off</strong></div>
+      <div class="door-track"><span id="doorTrack"></span></div>
+    </div>
+    <div class="evolution-meter" aria-label="UFO evolution progress">
+      <div class="evolution-label"><span id="evolutionLabel">Lv.1 -> Lv.2</span><span id="evolutionPercent">0%</span></div>
+      <div class="evolution-bar"><span id="evolutionBar"></span></div>
+    </div>
+    <div class="tech-tree" aria-label="UFO tech tree">
+      <div class="tech-head"><span>UFO Tech Tree</span><span id="skillPointReadout">0 pts</span></div>
+      <div class="tech-grid" id="techTree"></div>
+    </div>
+    <div class="hud-message" id="hudMessage"><strong>Objective</strong>Make H2O, NaCl, and CO2 to repair the UFO.</div>
+    <div class="guide-box">
+      <label for="gameGuide">Game Guide</label>
+      <textarea id="gameGuide" readonly>Goal: protect the station. Dock elements there so the station can make H2O, NaCl, and CO2.
+Fly: Arrow keys or drag UFO. Hold C or hold Vacuum: forward tractor beam collects elements.
+Dock: fly near the space station and press D to deposit cargo.
+Storage: the station auto-reacts matching elements and recycles overflow into XP.
+Pilot powers: 1 = Clark laser, 2 or B = Bradley megaboom, E = eject crew.
+XP tip: mission elements and boss-weakness compounds give the most energy.</textarea>
+    </div>
+    <div class="upgrade-line" id="upgradeLine">Weakness: shoot H, O, CO2, or NaCl into the black hole.</div>
+    <div class="game-actions">
+      <button id="startGame" type="button">Start</button>
+      <button id="nextMission" type="button">Next</button>
+      <button id="resetGame" type="button">Reset</button>
+      <button id="vacuumUfo" type="button">Vacuum</button>
+      <button id="fireUfo" type="button">Fire</button>
+    </div>
+    <div class="tool-belt" aria-label="Tools">
+      <button type="button" data-tool="magnet">Magnet</button>
+      <button type="button" data-tool="freeze">Freeze</button>
+      <button type="button" data-tool="shield">Shield</button>
+      <button type="button" data-tool="net">Net</button>
+    </div>
+    <div class="skill-belt" aria-label="Crew skills">
+      <button id="clarkSkill" type="button">Clark Help</button>
+      <button id="bradleySkill" type="button">Bradley Ship</button>
+    </div>
+    <div class="game-actions">
+      <button id="kidsMode" type="button">Kids</button>
+      <button id="soundToggle" type="button">Sound</button>
+      <button id="openCodex" type="button">Codex</button>
+    </div>
+    <div class="control-hint">Drag UFO or arrows: fly · Hold C/Vacuum: tractor beam · Fire/Space · D: deposit · 1/2: crew</div>
+    <div class="discovery-strip" id="discoveryStrip" aria-label="Discovered compounds"></div>
+  </section>
+
+  <section class="codex-modal" id="codexModal" aria-label="Discovery codex" aria-hidden="true">
+    <div class="codex-book">
+      <div class="codex-head">
+        <strong>Discovery Codex</strong>
+        <button id="closeCodex" type="button">Close</button>
+      </div>
+      <div class="codex-grid" id="codexGrid"></div>
+    </div>
+  </section>
+
+  <div class="reward-toast" id="rewardToast" aria-live="polite"></div>
+
+  <div class="lab-buddies" aria-label="Astronaut crew">
+    <div class="buddy" style="--buddy-color: #2aa8d8">
+      <span class="buddy-avatar">C</span>
+      <span class="astronaut-body" aria-hidden="true">
+        <span class="astronaut-limb arm-left"></span>
+        <span class="astronaut-limb arm-right"></span>
+        <span class="astronaut-limb leg-left"></span>
+        <span class="astronaut-limb leg-right"></span>
+      </span>
+      <span><span class="buddy-name">Clark</span>astronaut</span>
+    </div>
+    <div class="buddy" style="--buddy-color: #e85d4f">
+      <span class="buddy-avatar">B</span>
+      <span class="astronaut-body" aria-hidden="true">
+        <span class="astronaut-limb arm-left"></span>
+        <span class="astronaut-limb arm-right"></span>
+        <span class="astronaut-limb leg-left"></span>
+        <span class="astronaut-limb leg-right"></span>
+      </span>
+      <span><span class="buddy-name">Bradley</span>astronaut</span>
+    </div>
+  </div>
+
+  <div class="readout" id="readout">elements: 0<br>compounds: 0</div>
+  <div class="tooltip" id="tooltip" aria-hidden="true"></div>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
+
