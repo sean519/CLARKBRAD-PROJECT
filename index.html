@@ -1,253 +1,304 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Clark Space Lab</title>
-  <link rel="stylesheet" href="css/game.css">
+  <title>Clark &amp; Bradley's Universe</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700;800&family=Audiowide&display=swap');
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      min-height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at 12% 8%,  rgba(90, 40, 200, 0.45), transparent 38%),
+        radial-gradient(ellipse at 88% 16%, rgba(20, 70, 210, 0.38), transparent 36%),
+        radial-gradient(ellipse at 55% 92%, rgba(10, 90, 160, 0.32), transparent 42%),
+        radial-gradient(ellipse at 28% 72%, rgba(130, 20, 130, 0.28), transparent 34%),
+        radial-gradient(ellipse at 75% 52%, rgba(10, 60, 120, 0.20), transparent 30%),
+        #05081a;
+      color: #e8f0fe;
+      font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* Twinkling stars */
+    .stars {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+    }
+    .stars::before, .stars::after {
+      content: ""; position: absolute; inset: -50%;
+      background-image:
+        radial-gradient(1.5px 1.5px at 13% 22%, #fff, transparent 60%),
+        radial-gradient(1px 1px   at 27% 78%, #cfe6ff, transparent 60%),
+        radial-gradient(2px 2px   at 41% 14%, #fff, transparent 60%),
+        radial-gradient(1px 1px   at 58% 64%, #fce8a8, transparent 60%),
+        radial-gradient(1.5px 1.5px at 72% 36%, #fff, transparent 60%),
+        radial-gradient(1px 1px   at 84% 82%, #d4c2ff, transparent 60%),
+        radial-gradient(1.2px 1.2px at 92% 12%, #fff, transparent 60%),
+        radial-gradient(1px 1px   at  6% 56%, #aee0ff, transparent 60%);
+      background-size: 100% 100%;
+      animation: twinkle 4s ease-in-out infinite alternate, drift 140s linear infinite;
+      opacity: 0.75;
+    }
+    .stars::after {
+      animation: twinkle 6s ease-in-out 0.8s infinite alternate, drift 220s linear reverse infinite;
+      opacity: 0.5;
+      filter: blur(0.4px);
+    }
+    @keyframes twinkle { from { opacity: 0.3; } to { opacity: 0.95; } }
+    @keyframes drift   { from { transform: translate3d(0,0,0); } to { transform: translate3d(-3%, -2%, 0); } }
+
+    /* Soft nebula blobs */
+    .nebula { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .nebula b {
+      position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.32;
+      animation: nebulaFloat 18s ease-in-out infinite alternate;
+    }
+    .nebula b:nth-child(1) { width: 420px; height: 420px; top: -60px; left: -80px;
+      background: radial-gradient(circle, #8b5cf6, transparent 70%); }
+    .nebula b:nth-child(2) { width: 480px; height: 480px; bottom: -120px; right: 8%;
+      background: radial-gradient(circle, #06b6d4, transparent 70%); animation-delay: -6s; }
+    .nebula b:nth-child(3) { width: 360px; height: 360px; top: 36%; left: 28%;
+      background: radial-gradient(circle, #ec4899, transparent 70%); animation-delay: -12s; opacity: 0.22; }
+    @keyframes nebulaFloat { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,-30px) scale(1.12); } }
+
+    /* Layout */
+    .frame {
+      position: relative; z-index: 2;
+      max-width: 1100px; width: 100%;
+      display: flex; flex-direction: column; align-items: center; gap: 40px;
+    }
+
+    .title {
+      font-family: 'Audiowide', 'Orbitron', sans-serif;
+      font-size: clamp(36px, 6vw, 72px);
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffffff 0%, #a5c8ff 32%, #c084fc 62%, #67e8f9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+      margin: 0;
+      line-height: 1;
+      animation: titleFloat 5s ease-in-out infinite;
+    }
+    @keyframes titleFloat {
+      0%, 100% { filter: drop-shadow(0 0 22px rgba(120,180,255,0.55)) drop-shadow(0 0 38px rgba(192,132,252,0.25)); }
+      50%      { filter: drop-shadow(0 0 32px rgba(180,220,255,0.85)) drop-shadow(0 0 60px rgba(192,132,252,0.45)); }
+    }
+
+    .subtitle {
+      font-size: clamp(13px, 1.4vw, 17px);
+      color: rgba(180, 210, 255, 0.7);
+      letter-spacing: 0.06em;
+      text-align: center;
+      margin: -22px 0 0;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      width: 100%;
+    }
+    @media (max-width: 720px) {
+      .cards { grid-template-columns: 1fr; gap: 18px; }
+    }
+
+    .card {
+      position: relative;
+      display: block;
+      padding: 36px 28px;
+      border-radius: 24px;
+      border: 2px solid rgba(255, 255, 255, 0.10);
+      background: rgba(8, 14, 38, 0.78);
+      backdrop-filter: blur(22px) saturate(1.3);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 24px 56px rgba(0,0,0,0.4);
+      color: #e8f0fe;
+      text-decoration: none;
+      transition: transform 220ms cubic-bezier(.2,.8,.2,1.05), border-color 220ms, box-shadow 220ms, background 220ms;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: var(--card-glow);
+      opacity: 0; transition: opacity 220ms;
+      pointer-events: none;
+    }
+    .card:hover {
+      transform: translateY(-8px) scale(1.02);
+      border-color: var(--card-color);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 30px 72px rgba(0,0,0,0.5), 0 0 48px var(--card-color);
+    }
+    .card:hover::before { opacity: 0.85; }
+
+    .card-icon {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      width: 78px; height: 78px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--card-color), var(--card-color-2));
+      color: #fff;
+      font-size: 34px;
+      margin-bottom: 18px;
+      box-shadow: 0 0 32px var(--card-color);
+      transition: transform 220ms;
+    }
+    .card:hover .card-icon { transform: rotate(-8deg) scale(1.08); }
+
+    .card-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(24px, 2.6vw, 34px);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      margin: 0 0 6px;
+      color: #fff;
+    }
+    .card-tag {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--card-color);
+      font-weight: 800;
+      margin: 0 0 16px;
+    }
+    .card-desc {
+      font-size: 14px;
+      line-height: 1.55;
+      color: rgba(220, 232, 255, 0.78);
+      margin: 0 0 22px;
+      min-height: 64px;
+    }
+    .card-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--card-color);
+      transition: background 220ms, transform 220ms;
+    }
+    .card:hover .card-cta {
+      background: var(--card-color);
+      color: #06091a;
+      transform: translateX(4px);
+    }
+    .card-cta i { transition: transform 220ms; }
+    .card:hover .card-cta i { transform: translateX(3px); }
+
+    /* Per-card themes */
+    .card-clark {
+      --card-color:   #67e8f9;
+      --card-color-2: #2aa8d8;
+      --card-glow: radial-gradient(circle at 30% 20%, rgba(103,232,249,0.30), transparent 60%);
+    }
+    .card-bradley {
+      --card-color:   #ff9a55;
+      --card-color-2: #e85d4f;
+      --card-glow: radial-gradient(circle at 30% 20%, rgba(255,154,85,0.30), transparent 60%);
+    }
+
+    .footer {
+      position: fixed;
+      bottom: 14px; left: 0; right: 0;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(180, 210, 255, 0.4);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* Subtle keyboard hint */
+    .keys {
+      display: flex; gap: 12px; justify-content: center; margin-top: 10px;
+      font-size: 11px; color: rgba(180,210,255,0.55);
+      letter-spacing: 0.06em;
+    }
+    .keys kbd {
+      display: inline-block;
+      min-width: 22px; padding: 2px 6px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.04);
+      font-family: 'Orbitron', monospace;
+      font-size: 10px;
+      color: rgba(220,235,255,0.85);
+    }
+  </style>
 </head>
 <body>
-  <canvas id="field" aria-label="Floating interactive chemistry field"></canvas>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="nebula" aria-hidden="true"><b></b><b></b><b></b></div>
 
-  <div class="topbar">
-    <section class="brand">
-      <h1>Clark Space Lab</h1>
-      <p class="subhead">Repair the UFO. Protect the station. Stop the black hole boss before it catches you.</p>
-    </section>
+  <main class="frame">
+    <h1 class="title">Clark &amp; Bradley</h1>
+    <p class="subtitle">Pick a universe to explore</p>
 
-    <div class="buttons">
-      <button id="shuffle" type="button" aria-label="Shuffle elements" title="Shuffle elements">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M16 3h5v5"></path>
-          <path d="M4 20 21 3"></path>
-          <path d="M21 16v5h-5"></path>
-          <path d="m15 15 6 6"></path>
-          <path d="m4 4 5 5"></path>
-        </svg>
-      </button>
-      <button id="pause" type="button" aria-label="Pause motion" title="Pause motion">
-        <svg id="pauseIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M10 4H6v16h4V4Z"></path>
-          <path d="M18 4h-4v16h4V4Z"></path>
-        </svg>
-      </button>
-      <button class="hazard-button is-active" type="button" data-hazard="blackHole" aria-label="Toggle monster black hole" aria-pressed="true" title="Toggle monster black hole">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="4"></circle>
-          <path d="M3 12c2.5-4 15.5-4 18 0"></path>
-          <path d="M3 12c2.5 4 15.5 4 18 0"></path>
-        </svg>
-      </button>
-      <button class="hazard-button" type="button" data-hazard="tornado" aria-label="Toggle tornado" aria-pressed="false" title="Toggle tornado">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M4 5h16"></path>
-          <path d="M6 9h12"></path>
-          <path d="M8 13h8"></path>
-          <path d="M10 17h4"></path>
-          <path d="M12 17v4"></path>
-        </svg>
-      </button>
-      <button class="hazard-button" type="button" data-hazard="meteor" aria-label="Toggle meteor shower" aria-pressed="false" title="Toggle meteor shower">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="m4 20 8-8"></path>
-          <path d="m3 12 9-9"></path>
-          <path d="m12 21 9-9"></path>
-          <circle cx="16" cy="8" r="4"></circle>
-        </svg>
-      </button>
-      <button class="hazard-button" type="button" data-hazard="tsunami" aria-label="Toggle tsunami" aria-pressed="false" title="Toggle tsunami">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M3 17c3 0 3-2 6-2s3 2 6 2 3-2 6-2"></path>
-          <path d="M3 21c3 0 3-2 6-2s3 2 6 2 3-2 6-2"></path>
-          <path d="M4 12c4-7 13-7 16 0"></path>
-          <path d="M15 8c3 1 5 3 5 7"></path>
-        </svg>
-      </button>
-    </div>
-  </div>
+    <nav class="cards">
+      <a class="card card-clark" href="Clark/index.html" aria-label="Enter Clark's page">
+        <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-flask-vial"></i></span>
+        <p class="card-tag">Space Lab</p>
+        <h2 class="card-name">Clark</h2>
+        <p class="card-desc">Float through the chemistry lab. Discover reactions, repair the UFO, and outsmart the monster black hole.</p>
+        <span class="card-cta">Enter Clark's Page <i class="fa-solid fa-arrow-right"></i></span>
+      </a>
 
-  <div class="boss-topbar is-hidden" id="bossTopbar" aria-label="Boss health bar">
-    <div class="boss-topbar-head">
-      <span>Boss Fight</span>
-      <strong id="bossTopName">Monster Black Hole</strong>
-      <em id="bossTopReadout">100%</em>
-    </div>
-    <div class="boss-topbar-track"><span id="bossTopBar"></span></div>
-  </div>
+      <a class="card card-bradley" href="Bradley/index.html" aria-label="Enter Bradley's page">
+        <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-ufo"></i><i class="fa-solid fa-rocket" style="display:none"></i></span>
+        <p class="card-tag">Arcade Universe</p>
+        <h2 class="card-name">Bradley</h2>
+        <p class="card-desc">Save the elements! Vacuum them into your UFO, synthesize compounds, and blast the void boss across endless waves.</p>
+        <span class="card-cta">Enter Bradley's Page <i class="fa-solid fa-arrow-right"></i></span>
+      </a>
+    </nav>
 
-  <section class="lab-panel" aria-label="Reaction panel">
-    <div class="message" id="message">
-      <strong>Manual reaction</strong>
-      Pick any two elements. Try H + O, C + O, Na + Cl, H + F, or K + O.
-      <div class="manual-slots">
-        <span class="slot" id="slotA">slot A</span>
-        <span class="slot" id="slotB">slot B</span>
-      </div>
-    </div>
-    <div class="message auto-message is-idle" id="autoMessage">
-      <strong>Auto reaction</strong>
-      Waiting for nearby elements to react.
-    </div>
-    <div class="lookup" aria-label="Chemical lookup">
-      <input id="lookupInput" type="text" autocomplete="off" placeholder="Type water, CO2, or a pair like Na+Cl / Fe O">
-      <div class="lookup-result" id="lookupResult">Enter a substance, formula, or two element symbols to predict a reaction.</div>
-    </div>
-    <div class="tray">
-      <button class="legend" type="button" data-family="reactive" aria-pressed="false"><span class="swatch" style="background: var(--reactive)"></span>reactive</button>
-      <button class="legend" type="button" data-family="metal" aria-pressed="false"><span class="swatch" style="background: var(--metal)"></span>metal</button>
-      <button class="legend" type="button" data-family="halogen" aria-pressed="false"><span class="swatch" style="background: var(--halogen)"></span>halogen</button>
-      <button class="legend" type="button" data-family="noble" aria-pressed="false"><span class="swatch" style="background: var(--gas)"></span>noble gas</button>
-      <button class="legend" type="button" data-family="metalloid" aria-pressed="false"><span class="swatch" style="background: var(--metalloid)"></span>metalloid</button>
-      <button class="legend" type="button" data-family="radioactive" aria-pressed="false"><span class="swatch" style="background: var(--radioactive)"></span>radioactive</button>
-    </div>
-  </section>
+    <p class="keys" aria-hidden="true">
+      <span><kbd>1</kbd> Clark</span>
+      <span><kbd>2</kbd> Bradley</span>
+    </p>
+  </main>
 
-  <section class="game-panel" aria-label="Game mission panel">
-    <div class="game-row">
-      <span class="game-label">Mission</span>
-      <div class="game-score">
-        <span id="scoreReadout">0 pts</span>
-        <span id="levelReadout">L1</span>
-        <span id="streakReadout">x0</span>
-        <span id="timerReadout">90s</span>
-      </div>
-    </div>
-    <div class="level-map" id="levelMap"></div>
-    <div class="mission-card collection-card">
-      <div class="collection-head">
-        <span>Collect for UFO</span>
-        <strong id="missionName">H + O</strong>
-      </div>
-      <div class="target-grid" id="collectionTargets"></div>
-      <div class="mission-hint" id="missionHint">Hold C to pull target elements into the UFO, then dock them at the station.</div>
-      <div class="mission-progress"><span id="missionProgress"></span></div>
-      <div class="mission-meta">
-        <span>Time <strong id="missionTimerReadout">0:00</strong></span>
-        <span>Best <strong id="bestTimeReadout">--</strong></span>
-      </div>
-    </div>
-    <div class="ranking-card" aria-label="Mission best time ranking">
-      <div class="ranking-head"><span>Best Times</span><strong>fastest wins</strong></div>
-      <ol id="rankingList">
-        <li>No completed missions yet</li>
-      </ol>
-    </div>
-    <div class="rescue-board is-hidden" aria-label="Space rescue repair board">
-      <div class="ship-status" id="shipStatus">Ship repair: 0/3</div>
-      <div class="ship-parts" id="shipParts"></div>
-    </div>
-    <div class="boss-meter" aria-label="Boss black hole meter">
-      <div class="boss-label"><span>Monster Black Hole</span><span id="bossReadout">100%</span></div>
-      <div class="boss-bar"><span id="bossBar"></span></div>
-    </div>
-    <div class="hud-stats" aria-label="UFO status">
-      <div class="hud-stat"><span>Pilot</span><strong id="riderReadout">None</strong></div>
-      <div class="hud-stat"><span>Cargo</span><strong id="cargoReadout">Empty</strong></div>
-      <div class="hud-stat"><span>Weapon</span><strong id="weaponReadout">Bolt</strong></div>
-      <div class="hud-stat"><span>UFO Hull</span><strong id="ufoReadout">100%</strong></div>
-      <div class="hud-stat"><span>Boss Phase</span><strong id="phaseReadout">I</strong></div>
-      <div class="hud-stat"><span>Upgrades</span><strong id="upgradeReadout">Base</strong></div>
-      <div class="hud-stat"><span>Ship Level</span><strong id="evolutionReadout">Lv.1 Scout</strong></div>
-      <div class="hud-stat"><span>Energy</span><strong id="energyReadout">0/80</strong></div>
-      <div class="hud-stat station-stat"><span>Station</span><strong id="stationReadout">Empty</strong></div>
-    </div>
-    <div class="door-state" aria-label="UFO tractor beam">
-      <div class="door-row"><span>Tractor Beam</span><strong id="doorReadout">Off</strong></div>
-      <div class="door-track"><span id="doorTrack"></span></div>
-    </div>
-    <div class="evolution-meter" aria-label="UFO evolution progress">
-      <div class="evolution-label"><span id="evolutionLabel">Lv.1 -> Lv.2</span><span id="evolutionPercent">0%</span></div>
-      <div class="evolution-bar"><span id="evolutionBar"></span></div>
-    </div>
-    <div class="tech-tree" aria-label="UFO tech tree">
-      <div class="tech-head"><span>UFO Tech Tree</span><span id="skillPointReadout">0 pts</span></div>
-      <div class="tech-grid" id="techTree"></div>
-    </div>
-    <div class="hud-message" id="hudMessage"><strong>Objective</strong>Make H2O, NaCl, and CO2 to repair the UFO.</div>
-    <div class="guide-box">
-      <label for="gameGuide">Game Guide</label>
-      <textarea id="gameGuide" readonly>Goal: protect the station. Dock elements there so the station can make H2O, NaCl, and CO2.
-Fly: Arrow keys or drag UFO. Hold C or hold Vacuum: forward tractor beam collects elements.
-Dock: fly near the space station and press D to deposit cargo.
-Mission timer: finish faster to climb the Best Times ranking.
-Storage: the station auto-reacts matching elements and recycles overflow into XP.
-Black hole: it traps eaten elements. After 8 elements it becomes a chasing boss. Destroy it to release them.
-Weapons: choose Bolt, Laser, Boom, or Spread, then press Fire/Space.
-Pilot powers: 1 = Clark laser, 2 or B = Bradley megaboom, E = eject crew.
-XP tip: mission elements and boss-weakness compounds give the most energy.</textarea>
-    </div>
-    <div class="upgrade-line" id="upgradeLine">Weakness: shoot H, O, CO2, or NaCl into the black hole.</div>
-    <div class="game-actions">
-      <button id="startGame" type="button">Start</button>
-      <button id="nextMission" type="button">Next</button>
-      <button id="resetGame" type="button">Reset</button>
-      <button id="vacuumUfo" type="button">Vacuum</button>
-      <button id="fireUfo" type="button">Fire</button>
-    </div>
-    <div class="weapon-picker" aria-label="Weapon choice">
-      <button class="is-active" type="button" data-weapon="bolt">Bolt</button>
-      <button type="button" data-weapon="laser">Laser</button>
-      <button type="button" data-weapon="megaboom">Boom</button>
-      <button type="button" data-weapon="spread">Spread</button>
-    </div>
-    <div class="tool-belt" aria-label="Tools">
-      <button type="button" data-tool="magnet">Magnet</button>
-      <button type="button" data-tool="freeze">Freeze</button>
-      <button type="button" data-tool="shield">Shield</button>
-      <button type="button" data-tool="net">Net</button>
-    </div>
-    <div class="skill-belt" aria-label="Crew skills">
-      <button id="clarkSkill" type="button">Clark Help</button>
-      <button id="bradleySkill" type="button">Bradley Ship</button>
-    </div>
-    <div class="game-actions">
-      <button id="kidsMode" type="button">Kids</button>
-      <button id="soundToggle" type="button">Sound</button>
-      <button id="openCodex" type="button">Codex</button>
-    </div>
-    <div class="control-hint">Drag UFO or arrows: fly · Hold C/Vacuum: tractor beam · Fire/Space · D: deposit · 1/2: crew</div>
-    <div class="discovery-strip" id="discoveryStrip" aria-label="Discovered compounds"></div>
-  </section>
+  <p class="footer">made with stardust 🌌</p>
 
-  <section class="codex-modal" id="codexModal" aria-label="Discovery codex" aria-hidden="true">
-    <div class="codex-book">
-      <div class="codex-head">
-        <strong>Discovery Codex</strong>
-        <button id="closeCodex" type="button">Close</button>
-      </div>
-      <div class="codex-grid" id="codexGrid"></div>
-    </div>
-  </section>
+  <script>
+    // Keyboard shortcuts: 1 → Clark, 2 → Bradley
+    document.addEventListener("keydown", (e) => {
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+      if (e.key === "1") window.location.href = "Clark/index.html";
+      if (e.key === "2") window.location.href = "Bradley/index.html";
+    });
 
-  <div class="reward-toast" id="rewardToast" aria-live="polite"></div>
-
-  <div class="lab-buddies" aria-label="Astronaut crew">
-    <div class="buddy" style="--buddy-color: #2aa8d8">
-      <span class="buddy-avatar">C</span>
-      <span class="astronaut-body" aria-hidden="true">
-        <span class="astronaut-limb arm-left"></span>
-        <span class="astronaut-limb arm-right"></span>
-        <span class="astronaut-limb leg-left"></span>
-        <span class="astronaut-limb leg-right"></span>
-      </span>
-      <span><span class="buddy-name">Clark</span>astronaut</span>
-    </div>
-    <div class="buddy" style="--buddy-color: #e85d4f">
-      <span class="buddy-avatar">B</span>
-      <span class="astronaut-body" aria-hidden="true">
-        <span class="astronaut-limb arm-left"></span>
-        <span class="astronaut-limb arm-right"></span>
-        <span class="astronaut-limb leg-left"></span>
-        <span class="astronaut-limb leg-right"></span>
-      </span>
-      <span><span class="buddy-name">Bradley</span>astronaut</span>
-    </div>
-  </div>
-
-  <div class="readout" id="readout">elements: 0<br>compounds: 0</div>
-  <div class="tooltip" id="tooltip" aria-hidden="true"></div>
-
-  <script src="js/game.js"></script>
+    // Fallback for the UFO icon — Font Awesome 6 free doesn't include "fa-ufo".
+    // If the UFO glyph fails to render (zero-width), swap to the rocket icon.
+    window.addEventListener("load", () => {
+      const ufoIcon = document.querySelector(".card-bradley .card-icon i.fa-ufo");
+      const rocket = document.querySelector(".card-bradley .card-icon i.fa-rocket");
+      if (ufoIcon && rocket) {
+        const w = ufoIcon.getBoundingClientRect().width;
+        if (w < 4) { ufoIcon.style.display = "none"; rocket.style.display = "inline-block"; }
+      }
+    });
+  </script>
 </body>
 </html>
-
