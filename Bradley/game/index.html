@@ -3850,8 +3850,8 @@
         const comp = spaceship.cargo.splice(compoundIndex, 1)[0];
         const angle = Math.atan2(spaceship.vy, spaceship.vx);
         shots.push({
-          x: spaceship.x + Math.cos(angle) * 68,
-          y: spaceship.y + Math.sin(angle) * 42,
+          x: spaceship.x + Math.cos(angle) * 76,
+          y: spaceship.y + Math.sin(angle) * 76,
           vx: Math.cos(angle) * 11 + spaceship.vx * 0.4,
           vy: Math.sin(angle) * 11 + spaceship.vy * 0.4,
           born: t,
@@ -3896,8 +3896,8 @@
         [-0.3, -0.15, 0, 0.15, 0.3].forEach((offset) => {
           const a = angle + offset;
           shots.push({
-            x: spaceship.x + Math.cos(a) * 68,
-            y: spaceship.y + Math.sin(a) * 42,
+            x: spaceship.x + Math.cos(a) * 76,
+            y: spaceship.y + Math.sin(a) * 76,
             vx: Math.cos(a) * wdef.speed + spaceship.vx * 0.18,
             vy: Math.sin(a) * wdef.speed + spaceship.vy * 0.18,
             born: t, power: wdef.power * weaponPowerMult(), kind: "scatter",
@@ -3906,8 +3906,8 @@
         });
       } else {
         shots.push({
-          x: spaceship.x + Math.cos(angle) * 68,
-          y: spaceship.y + Math.sin(angle) * 42,
+          x: spaceship.x + Math.cos(angle) * 76,
+          y: spaceship.y + Math.sin(angle) * 76,
           vx: Math.cos(angle) * wdef.speed + spaceship.vx * 0.2,
           vy: Math.sin(angle) * wdef.speed + spaceship.vy * 0.2,
           born: t, power: wdef.power * weaponPowerMult(), kind: wid,
@@ -4986,73 +4986,190 @@
         ctx.restore();
       }
 
+      // ── SPACESHIP fighter with forward gun ──
+      // Local frame: +X = forward (nose), −X = rear (engines), Y = lateral
+
+      // Engine exhaust plume behind the ship
       ctx.save();
-      ctx.globalAlpha = 0.32 * glow;
-      const beam = ctx.createRadialGradient(0, 34, 0, 0, 86, 86);
-      beam.addColorStop(0, "rgba(42, 168, 216, 0.48)");
-      beam.addColorStop(1, "rgba(42, 168, 216, 0)");
-      ctx.fillStyle = beam;
+      const enginePulse = 0.85 + Math.sin(t * 0.022) * 0.15;
+      ctx.globalAlpha = 0.55 * glow;
+      const plume = ctx.createRadialGradient(-58, 0, 0, -90, 0, 60);
+      plume.addColorStop(0,    `rgba(180, 240, 255, ${0.85 * enginePulse})`);
+      plume.addColorStop(0.35, `rgba(103, 232, 249, ${0.5 * enginePulse})`);
+      plume.addColorStop(0.75, "rgba(42, 168, 216, 0.18)");
+      plume.addColorStop(1,    "rgba(42, 168, 216, 0)");
+      ctx.fillStyle = plume;
       ctx.beginPath();
-      ctx.ellipse(0, 62, 76, 44, 0, 0, Math.PI * 2);
+      ctx.ellipse(-78, 0, 56 * enginePulse, 18 * enginePulse, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Twin side thruster trails
+      ctx.globalAlpha = 0.45 * glow;
+      const sideTrail = ctx.createRadialGradient(-50, 0, 0, -78, 0, 30);
+      sideTrail.addColorStop(0, "rgba(255, 200, 120, 0.7)");
+      sideTrail.addColorStop(1, "rgba(232, 93, 79, 0)");
+      ctx.fillStyle = sideTrail;
+      ctx.beginPath(); ctx.ellipse(-66, -28, 22 * enginePulse, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-66,  28, 22 * enginePulse, 7, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
       ctx.shadowBlur = 0;
-      const hull = ctx.createLinearGradient(0, -24, 0, 30);
-      hull.addColorStop(0, "rgba(255, 252, 244, 0.98)");
-      hull.addColorStop(0.5, "rgba(184, 208, 216, 0.96)");
-      hull.addColorStop(1, "rgba(88, 112, 124, 0.92)");
-      ctx.fillStyle = hull;
-      ctx.strokeStyle = "rgba(17, 22, 27, 0.34)";
-      ctx.lineWidth = 2.4;
+
+      // Wings (drawn first, behind hull) — angular delta wings
+      const wing = ctx.createLinearGradient(-44, 0, -10, 0);
+      wing.addColorStop(0, "rgba(60, 80, 100, 0.95)");
+      wing.addColorStop(1, "rgba(120, 150, 175, 0.95)");
+      ctx.fillStyle = wing;
+      ctx.strokeStyle = "rgba(17, 22, 27, 0.45)";
+      ctx.lineWidth = 1.8;
+      // Top wing
       ctx.beginPath();
-      ctx.ellipse(0, 10, 70, 24, 0, 0, Math.PI * 2);
+      ctx.moveTo(-8, -14);
+      ctx.lineTo(-30, -42);
+      ctx.lineTo(-46, -36);
+      ctx.lineTo(-32, -14);
       ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "rgba(16, 20, 24, 0.18)";
+      ctx.fill(); ctx.stroke();
+      // Bottom wing
       ctx.beginPath();
-      ctx.ellipse(0, 17, 54, 10, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      const dome = ctx.createLinearGradient(0, -44, 0, 6);
-      dome.addColorStop(0, "rgba(255, 255, 255, 0.92)");
-      dome.addColorStop(0.42, "rgba(109, 193, 235, 0.72)");
-      dome.addColorStop(1, "rgba(46, 121, 189, 0.64)");
-      ctx.fillStyle = dome;
-      ctx.strokeStyle = "rgba(17, 22, 27, 0.28)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-34, 3);
-      ctx.quadraticCurveTo(-22, -36, 0, -40);
-      ctx.quadraticCurveTo(27, -36, 34, 3);
+      ctx.moveTo(-8, 14);
+      ctx.lineTo(-30, 42);
+      ctx.lineTo(-46, 36);
+      ctx.lineTo(-32, 14);
       ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-      ctx.beginPath();
-      ctx.ellipse(-10, -22, 11, 5, -0.35, 0, Math.PI * 2);
-      ctx.fill();
-
-      const lights = ["#e85d4f", "#d49b2a", "#0f9b8f", "#2aa8d8", "#8d6ab6"];
-      lights.forEach((color, index) => {
-        const x = -42 + index * 21;
-        const pulse = 0.7 + Math.sin(t * 0.008 + index) * 0.25;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 14 * pulse;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(x, 18, 4.8, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
+      // Wing tip running lights
+      ctx.shadowColor = "#e85d4f";
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = "#e85d4f";
+      ctx.beginPath(); ctx.arc(-38, -38, 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowColor = "#0f9b8f";
+      ctx.fillStyle = "#0f9b8f";
+      ctx.beginPath(); ctx.arc(-38,  38, 2.6, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
-      ctx.fillStyle = "rgba(17, 22, 27, 0.5)";
-      ctx.font = "900 10px Inter, system-ui, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("UFO", 0, 15);
+
+      // Main hull — pointed fighter body
+      const hull = ctx.createLinearGradient(0, -16, 0, 16);
+      hull.addColorStop(0,   "rgba(220, 235, 250, 0.98)");
+      hull.addColorStop(0.45,"rgba(150, 175, 200, 0.96)");
+      hull.addColorStop(1,   "rgba(70, 90, 110, 0.95)");
+      ctx.fillStyle = hull;
+      ctx.strokeStyle = "rgba(17, 22, 27, 0.55)";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(52, 0);     // nose tip
+      ctx.lineTo(34, -10);
+      ctx.lineTo(8, -16);
+      ctx.lineTo(-32, -14);
+      ctx.lineTo(-44, -6);
+      ctx.lineTo(-44, 6);
+      ctx.lineTo(-32, 14);
+      ctx.lineTo(8, 16);
+      ctx.lineTo(34, 10);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+
+      // Center panel line
+      ctx.strokeStyle = "rgba(0,0,0,0.28)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(48, 0); ctx.lineTo(-40, 0);
+      ctx.stroke();
+
+      // Cockpit canopy (cyan glass dome on top)
+      const canopy = ctx.createLinearGradient(0, -16, 0, 0);
+      canopy.addColorStop(0,    "rgba(255, 255, 255, 0.92)");
+      canopy.addColorStop(0.45, "rgba(120, 200, 240, 0.78)");
+      canopy.addColorStop(1,    "rgba(40, 110, 180, 0.85)");
+      ctx.fillStyle = canopy;
+      ctx.strokeStyle = "rgba(17, 22, 27, 0.45)";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(22, -2);
+      ctx.quadraticCurveTo(20, -14, 6, -14);
+      ctx.quadraticCurveTo(-8, -14, -10, -2);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      // canopy highlight
+      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+      ctx.beginPath();
+      ctx.ellipse(8, -10, 7, 2.2, -0.25, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── GUN — forward-mounted cannon ──
+      // Mount block at nose
+      ctx.fillStyle = "rgba(60, 70, 80, 0.95)";
+      ctx.strokeStyle = "rgba(17, 22, 27, 0.7)";
+      ctx.lineWidth = 1.4;
+      roundRect(20, -5.5, 14, 11, 2);
+      ctx.fill(); ctx.stroke();
+      // Barrel
+      const barrel = ctx.createLinearGradient(34, -4, 34, 4);
+      barrel.addColorStop(0, "rgba(150, 165, 180, 1)");
+      barrel.addColorStop(0.5, "rgba(80, 95, 110, 1)");
+      barrel.addColorStop(1, "rgba(40, 50, 60, 1)");
+      ctx.fillStyle = barrel;
+      roundRect(34, -3.6, 38, 7.2, 1.5);
+      ctx.fill(); ctx.stroke();
+      // Barrel ring detail
+      ctx.strokeStyle = "rgba(255,255,255,0.32)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(48, -3.6); ctx.lineTo(48, 3.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(58, -3.6); ctx.lineTo(58, 3.6); ctx.stroke();
+      // Muzzle
+      ctx.fillStyle = "rgba(15, 18, 24, 1)";
+      ctx.beginPath(); ctx.arc(72, 0, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(40, 50, 60, 0.9)";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Muzzle flash if recently fired
+      const sinceShot = t - (spaceship.lastShotAt || 0);
+      if (sinceShot < 120) {
+        const fp = 1 - sinceShot / 120;
+        ctx.save();
+        ctx.shadowColor = "#fff4b8";
+        ctx.shadowBlur = 22;
+        ctx.fillStyle = `rgba(255, 240, 180, ${fp})`;
+        ctx.beginPath(); ctx.arc(76, 0, 4 + fp * 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(255, 200, 80, ${fp * 0.7})`;
+        ctx.beginPath();
+        ctx.moveTo(76, 0);
+        ctx.lineTo(76 + fp * 22, -fp * 6);
+        ctx.lineTo(76 + fp * 30, 0);
+        ctx.lineTo(76 + fp * 22, fp * 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Engine glow at the back of the hull
+      ctx.save();
+      ctx.shadowColor = "#67e8f9";
+      ctx.shadowBlur = 18;
+      const eGlow = 0.85 + Math.sin(t * 0.018) * 0.18;
+      ctx.fillStyle = "rgba(180, 240, 255, 0.95)";
+      ctx.beginPath(); ctx.ellipse(-44, 0, 5 * eGlow, 5 * eGlow, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.beginPath(); ctx.arc(-44, 0, 2.5 * eGlow, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // Hull running-lights (small)
+      const runLights = [
+        { x: -26, y: -14, c: "#67e8f9" },
+        { x:  -2, y: -16, c: "#fff4b8" },
+        { x:  20, y: -10, c: "#67e8f9" }
+      ];
+      runLights.forEach((L, i) => {
+        const blink = 0.65 + Math.sin(t * 0.01 + i * 1.4) * 0.35;
+        ctx.shadowColor = L.c;
+        ctx.shadowBlur = 8 * blink;
+        ctx.fillStyle = L.c;
+        ctx.beginPath(); ctx.arc(L.x, L.y, 1.6, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+
       ctx.restore();
 
       ctx.save();

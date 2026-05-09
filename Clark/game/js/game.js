@@ -365,6 +365,7 @@
     let processingStation = false;
     let stationReactionQueued = false;
     let stationCompletionQueued = false;
+    let stationCompletionKey = "";
     let energyGrantDepth = 0;
     let lastPanelUpdateAt = 0;
     let lastReadoutUpdateAt = 0;
@@ -375,11 +376,12 @@
       ArrowRight: false
     };
     const MISSION_TIME_LIMIT = 90;
+    const BLACK_HOLE_BOSS_EATEN_THRESHOLD = 24;
     const RANKING_STORAGE_KEY = "clark-space-lab-best-times-v1";
     const lowPowerMode = () => window.matchMedia("(pointer: coarse), (max-width: 900px), (prefers-reduced-motion: reduce)").matches
       || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
     let game = {
-      active: false,
+      active: true,
       score: 0,
       level: 1,
       streak: 0,
@@ -845,6 +847,10 @@
     function resetGame() {
       shots = [];
       energyOrbs = [];
+      processingStation = false;
+      stationReactionQueued = false;
+      stationCompletionQueued = false;
+      stationCompletionKey = "";
       game = {
         active: true,
         score: 0,
@@ -1019,10 +1025,14 @@
     }
 
     function scheduleStationMissionCompletion(mission, formula, x, y, wasNew) {
-      if (stationCompletionQueued) return;
+      const key = `${game.missionIndex}:${formula}`;
+      if (stationCompletionQueued && stationCompletionKey === key) return;
       stationCompletionQueued = true;
+      stationCompletionKey = key;
       window.setTimeout(() => {
         stationCompletionQueued = false;
+        stationCompletionKey = "";
+        if (currentMission().formula !== formula) return;
         if (wasNew) showRewardCard(formula);
         if (achievementDefs[formula]) unlockAchievement(formula, performance.now());
         completeStationMission(mission, formula, x, y, wasNew);
@@ -1388,8 +1398,8 @@
         eatenCount: 0,
         phase: randomBetween(0, Math.PI * 2),
         lastSparkAt: 0,
-        health: 100,
-        maxHealth: 100,
+        health: 180,
+        maxHealth: 180,
         hurtUntil: 0,
         swallowed: [],
         lastEatAt: 0,
@@ -1397,7 +1407,7 @@
         lastPhaseAt: 0,
         lastMiniSpawnAt: 0,
         enraged: false,
-        enrageThreshold: 8,
+        enrageThreshold: BLACK_HOLE_BOSS_EATEN_THRESHOLD,
         enrageAt: 0,
         lastEnrageMessageAt: 0,
         maxTrapped: 100
@@ -2604,12 +2614,12 @@
       blackHole.enraged = true;
       blackHole.enrageAt = t;
       blackHole.lastEnrageMessageAt = t;
-      blackHole.baseRadius += 16;
-      blackHole.baseInfluence += 82;
-      blackHole.maxHealth = Math.max(blackHole.maxHealth, 260);
+      blackHole.baseRadius += 18;
+      blackHole.baseInfluence += 92;
+      blackHole.maxHealth = Math.max(blackHole.maxHealth, 520);
       blackHole.health = Math.max(blackHole.health, blackHole.maxHealth);
-      blackHole.vx *= 1.45;
-      blackHole.vy *= 1.45;
+      blackHole.vx *= 1.55;
+      blackHole.vy *= 1.55;
       addExplosionEffect(blackHole.x, blackHole.y, t);
       spawnEnergyOrbs(blackHole.x, blackHole.y, 6, 3, t);
       setAutoMessage("Boss awakened", `The black hole trapped ${blackHole.swallowed.length} elements and is chasing the UFO. Destroy it to release them.`);
@@ -2738,7 +2748,7 @@
       if (blackHole && hazards.blackHole) {
         const distance = Math.hypot(x - blackHole.x, y - blackHole.y);
         if (distance < radius + blackHole.radius) {
-          blackHole.health = Math.max(0, blackHole.health - 34 * power);
+          blackHole.health = Math.max(0, blackHole.health - 24 * power);
           blackHole.hurtUntil = t + 260;
           spurtSwallowedElements(t, 6 + power * 2, 1.2);
           spawnEnergyOrbs(x, y, 4, 5, t);
@@ -2776,7 +2786,7 @@
               detonateMegaboom(shot.x, shot.y, t, shot.power || 1);
             } else {
               if (shot.kind !== "laser") shot.hit = true;
-              blackHole.health = Math.max(0, blackHole.health - 18 * (shot.power || 1));
+              blackHole.health = Math.max(0, blackHole.health - 11 * (shot.power || 1));
               blackHole.hurtUntil = t + 180;
               if (shot.kind !== "laser" || t - (shot.lastSpurtAt || 0) > 240) {
                 shot.lastSpurtAt = t;
@@ -3018,7 +3028,9 @@
       spaceStation.pulseUntil = t + 1100;
       addSimpleEffect(pair.reaction.animation || "spark", spaceStation.x, spaceStation.y, t);
       addScoreEffect(spaceStation.x, spaceStation.y - 96, `${first.symbol}+${second.symbol}->${formula}`, t);
-      recordCompound(formula, spaceStation.x, spaceStation.y, "station");
+      window.setTimeout(() => {
+        recordCompound(formula, spaceStation?.x ?? null, spaceStation?.y ?? null, "station");
+      }, 0);
       return formula;
     }
 
@@ -3357,7 +3369,13 @@
       ctx.globalAlpha = 1;
     }
 
-    function drawElementTile(node, t) {
+    function shouldHighlightMissionElement(node, missionSymbols) {
+      if (!node?.element || !missionSymbols?.has(node.element.symbol)) return false;
+      if (node.heldByUfo || node.heldByAstronaut || node.swallowedByBlackHole || node.trappedByTsunami) return false;
+      return !stationHasSymbol(node.element.symbol);
+    }
+
+    function drawElementTile(node, t, missionSymbols) {
       if (node.swallowedByBlackHole) return;
       const color = familyColors[node.element.family];
       const isHovered = hoveredNode && hoveredNode.id === node.id;
@@ -3365,10 +3383,11 @@
       const isHeld = Boolean(node.heldByAstronaut);
       const isCargo = Boolean(node.heldByUfo);
       const isDanger = node.dangerousUntil > t;
+      const isMissionTarget = shouldHighlightMissionElement(node, missionSymbols);
       const isFamilyMatch = !activeFamily || node.element.family === activeFamily;
       const pulse = Math.sin(t * 0.003 + node.phase) * 0.04 + 1;
       const hoverScale = isHovered ? 1.18 : 1;
-      const filterScale = activeFamily && node.element.family === activeFamily ? 1.12 : 1;
+      const filterScale = isMissionTarget ? 1.16 : activeFamily && node.element.family === activeFamily ? 1.12 : 1;
       const size = node.size * pulse * filterScale;
       const visualSize = size * hoverScale;
       const x = node.x - visualSize / 2;
@@ -3377,8 +3396,27 @@
 
       ctx.save();
       ctx.globalAlpha = isFamilyMatch ? 1 : 0.3;
-      ctx.shadowColor = isDanger ? "#e85d4f" : isCargo ? "#ffcf33" : isHeld ? "#d49b2a" : isTrapped ? "#2aa8d8" : node.selected || isHovered ? color : "rgba(17, 22, 27, 0.16)";
-      ctx.shadowBlur = low ? (isDanger || isCargo || isHeld || isTrapped || node.selected || isHovered ? 10 : 0) : isDanger || isCargo || isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 24 : 8;
+      if (isMissionTarget) {
+        const beacon = 0.62 + Math.sin(t * 0.006 + node.phase) * 0.22;
+        ctx.globalAlpha = isFamilyMatch ? 1 : 0.55;
+        ctx.shadowColor = "#ffdf5f";
+        ctx.shadowBlur = low ? 14 : 28;
+        ctx.strokeStyle = `rgba(255, 223, 95, ${beacon})`;
+        ctx.lineWidth = low ? 2 : 3;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, visualSize * (low ? 0.78 : 0.9), 0, Math.PI * 2);
+        ctx.stroke();
+        if (!low) {
+          ctx.setLineDash([6, 8]);
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, visualSize * 1.15, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+      ctx.shadowColor = isMissionTarget ? "#ffdf5f" : isDanger ? "#e85d4f" : isCargo ? "#ffcf33" : isHeld ? "#d49b2a" : isTrapped ? "#2aa8d8" : node.selected || isHovered ? color : "rgba(17, 22, 27, 0.16)";
+      ctx.shadowBlur = low ? (isMissionTarget || isDanger || isCargo || isHeld || isTrapped || node.selected || isHovered ? 10 : 0) : isMissionTarget || isDanger || isCargo || isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 24 : 8;
       ctx.shadowOffsetY = low ? 0 : isCargo || isHeld || isTrapped || node.selected || isHovered ? 0 : 4;
       roundRect(x, y, visualSize, visualSize, 7);
       const tileGradient = ctx.createLinearGradient(x, y, x + visualSize, y + visualSize);
@@ -3387,10 +3425,10 @@
       tileGradient.addColorStop(1, `${color}22`);
       ctx.fillStyle = tileGradient;
       ctx.fill();
-      ctx.lineWidth = isCargo || isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 3 : 1;
-      ctx.strokeStyle = isDanger ? "#e85d4f" : isCargo ? "#ffcf33" : isHeld ? "#d49b2a" : isTrapped ? "#2aa8d8" : node.selected || isHovered || (activeFamily && isFamilyMatch) ? color : "rgba(17, 22, 27, 0.25)";
+      ctx.lineWidth = isMissionTarget || isCargo || isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 3 : 1;
+      ctx.strokeStyle = isMissionTarget ? "#ffdf5f" : isDanger ? "#e85d4f" : isCargo ? "#ffcf33" : isHeld ? "#d49b2a" : isTrapped ? "#2aa8d8" : node.selected || isHovered || (activeFamily && isFamilyMatch) ? color : "rgba(17, 22, 27, 0.25)";
       ctx.stroke();
-      ctx.fillStyle = color;
+      ctx.fillStyle = isMissionTarget ? "#ffdf5f" : color;
       ctx.fillRect(x, y, visualSize, 5);
 
       ctx.shadowBlur = 0;
@@ -3410,6 +3448,18 @@
       ctx.fillStyle = "rgba(17, 22, 27, 0.52)";
       ctx.font = "600 7px Inter, system-ui, sans-serif";
       ctx.fillText(node.element.family, node.x, y + visualSize - 5);
+      if (isMissionTarget) {
+        ctx.fillStyle = "rgba(11, 16, 25, 0.82)";
+        ctx.shadowColor = "#ffdf5f";
+        ctx.shadowBlur = low ? 0 : 10;
+        const tagWidth = Math.max(46, ctx.measureText("NEED").width + 16);
+        roundRect(node.x - tagWidth / 2, y - 18, tagWidth, 14, 5);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#ffdf5f";
+        ctx.font = "900 8px Inter, system-ui, sans-serif";
+        ctx.fillText("NEED", node.x, y - 8);
+      }
       ctx.restore();
     }
 
@@ -4551,7 +4601,8 @@
       if (hazards.tornado) drawTornado(t);
       if (hazards.tsunami) drawTsunami(t);
       drawSpaceStation(t);
-      nodes.forEach((node) => drawElementTile(node, t));
+      const missionSymbols = currentMissionSymbols();
+      nodes.forEach((node) => drawElementTile(node, t, missionSymbols));
       drawAstronauts(t);
       drawMeteors(t);
       drawEnergyOrbs(t);
@@ -4781,5 +4832,6 @@
     });
 
     resize();
+    startMissionClock(performance.now());
     updateGamePanel();
     requestAnimationFrame(loop);
