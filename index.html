@@ -417,6 +417,107 @@
       }
     }
 
+
+    /* ===== SECRET EASTER EGG ===== */
+    .rainbow-mode {
+      animation: rainbowShift 8s linear infinite;
+    }
+
+    @keyframes rainbowShift {
+      0%   { filter: hue-rotate(0deg); }
+      100% { filter: hue-rotate(360deg); }
+    }
+
+    .spaceship {
+      position: fixed;
+      top: 20%;
+      left: -220px;
+      font-size: 72px;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .spaceship.fly {
+      animation: flyAcross 3s ease-in-out forwards;
+    }
+
+    @keyframes flyAcross {
+      0% {
+        left: -220px;
+        opacity: 0;
+        transform: rotate(-10deg) scale(0.8);
+      }
+      10% {
+        opacity: 1;
+      }
+      50% {
+        transform: rotate(5deg) scale(1);
+      }
+      100% {
+        left: 120%;
+        opacity: 0;
+        transform: rotate(10deg) scale(0.9);
+      }
+    }
+
+    .welcome-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      padding: 22px 36px;
+      border-radius: 20px;
+      background: rgba(10, 20, 50, 0.88);
+      border: 2px solid rgba(255,255,255,0.25);
+      color: white;
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(24px, 4vw, 42px);
+      font-weight: 900;
+      text-align: center;
+      letter-spacing: 0.06em;
+      z-index: 10000;
+      opacity: 0;
+      box-shadow: 0 0 40px rgba(103,232,249,0.5);
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+
+    .welcome-message.show {
+      animation: welcomePop 3s ease forwards;
+    }
+
+    @keyframes welcomePop {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.6);
+      }
+      15% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.05);
+      }
+      80% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+
+    .shake {
+      animation: screenShake 0.5s;
+    }
+
+    @keyframes screenShake {
+      0% { transform: translate(0px, 0px); }
+      20% { transform: translate(-4px, 2px); }
+      40% { transform: translate(4px, -2px); }
+      60% { transform: translate(-3px, 1px); }
+      80% { transform: translate(3px, -1px); }
+      100% { transform: translate(0px, 0px); }
+    }
+
 </style>
 </head>
 <body>
@@ -506,6 +607,66 @@
     </div>
   </main>
 
+  
+  <div class="spaceship" id="spaceship">🚀</div>
+  <div class="welcome-message" id="welcomeMessage">
+    Welcome Commander
+  </div>
+
+
   <p class="footer">made with stardust 🌌</p>
+
+<script>
+  const title = document.querySelector('.title');
+  const spaceship = document.getElementById('spaceship');
+  const welcomeMessage = document.getElementById('welcomeMessage');
+
+  let clickCount = 0;
+  let clickTimer;
+
+  title.addEventListener('click', () => {
+    clickCount++;
+
+    clearTimeout(clickTimer);
+
+    clickTimer = setTimeout(() => {
+      clickCount = 0;
+    }, 1800);
+
+    if (clickCount >= 5) {
+      activateEasterEgg();
+      clickCount = 0;
+    }
+  });
+
+  function activateEasterEgg() {
+
+    // Rainbow galaxy mode
+    document.body.classList.add('rainbow-mode');
+
+    // Spaceship animation
+    spaceship.classList.remove('fly');
+    void spaceship.offsetWidth;
+    spaceship.classList.add('fly');
+
+    // Welcome message
+    welcomeMessage.classList.remove('show');
+    void welcomeMessage.offsetWidth;
+    welcomeMessage.classList.add('show');
+
+    // Screen shake
+    document.body.classList.add('shake');
+
+    setTimeout(() => {
+      document.body.classList.remove('shake');
+    }, 600);
+
+    // Turn off rainbow mode after a while
+    setTimeout(() => {
+      document.body.classList.remove('rainbow-mode');
+    }, 6000);
+  }
+</script>
+
 </body>
 </html>
