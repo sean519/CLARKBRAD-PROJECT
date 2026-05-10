@@ -284,7 +284,140 @@
       color: rgba(180, 210, 255, 0.4);
       z-index: 2; pointer-events: none;
     }
-  </style>
+  
+
+    /* Desktop keeps centered */
+    body {
+      justify-content: center;
+    }
+
+    /* =========================
+       MOBILE OPTIMIZATION
+    ========================= */
+    @media (max-width: 768px) {
+
+      body {
+        padding: 20px 14px 90px;
+        justify-content: flex-start;
+      }
+
+      .frame {
+        gap: 18px;
+      }
+
+      .title {
+        font-size: 42px;
+        line-height: 1.05;
+        margin-top: 10px;
+      }
+
+      .subtitle {
+        margin-top: -8px;
+        font-size: 13px;
+        letter-spacing: 0.04em;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .col {
+        padding: 18px;
+        border-radius: 20px;
+        gap: 12px;
+      }
+
+      .col-head {
+        padding-bottom: 12px;
+        margin-bottom: 4px;
+      }
+
+      .col-name {
+        font-size: 36px;
+      }
+
+      .card {
+        padding: 14px;
+        gap: 12px;
+        border-radius: 14px;
+        align-items: flex-start;
+      }
+
+      .card:hover {
+        transform: none;
+        box-shadow: none;
+      }
+
+      .card-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+      }
+
+      .card-name {
+        font-size: 16px;
+        line-height: 1.2;
+      }
+
+      .card-desc {
+        font-size: 11px;
+        line-height: 1.4;
+      }
+
+      .card-arrow {
+        display: none;
+      }
+
+      .footer {
+        position: relative;
+        bottom: auto;
+        margin-top: 24px;
+        padding-bottom: 12px;
+        font-size: 10px;
+      }
+
+      .nebula b {
+        filter: blur(40px);
+        opacity: 0.22;
+      }
+
+      .stars::before,
+      .stars::after {
+        opacity: 0.4;
+      }
+    }
+
+    @media (max-width: 480px) {
+
+      .title {
+        font-size: 34px;
+      }
+
+      .col-name {
+        font-size: 30px;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .card-icon {
+        width: 42px;
+        height: 42px;
+        font-size: 18px;
+      }
+
+      .card-name {
+        font-size: 15px;
+      }
+
+      .card-desc {
+        font-size: 10px;
+      }
+    }
+
+</style>
 </head>
 <body>
   <div class="stars" aria-hidden="true"></div>
