@@ -23,14 +23,10 @@
         radial-gradient(ellipse at 88% 16%, rgba(20,100,200,0.34), transparent 36%),
         radial-gradient(ellipse at 55% 92%, rgba(20,180,220,0.28), transparent 42%),
         #04081a;
-
       color: #e8f0fe;
       font-family: 'Space Grotesk', system-ui, sans-serif;
-
       display: flex;
       justify-content: center;
-      align-items: center;
-
       padding: 40px 20px;
       overflow-x: hidden;
     }
@@ -40,7 +36,6 @@
       inset: -50%;
       pointer-events: none;
       z-index: 0;
-
       background-image:
         radial-gradient(1.5px 1.5px at 13% 22%, #fff, transparent 60%),
         radial-gradient(1px 1px at 27% 78%, #cfe6ff, transparent 60%),
@@ -48,14 +43,13 @@
         radial-gradient(1px 1px at 58% 64%, #aee0ff, transparent 60%),
         radial-gradient(1.5px 1.5px at 72% 36%, #fff, transparent 60%),
         radial-gradient(1px 1px at 84% 82%, #d4ecff, transparent 60%);
-
       animation: twinkle 4s ease-in-out infinite alternate;
       opacity: 0.7;
     }
 
     @keyframes twinkle {
       from { opacity: 0.3; }
-      to { opacity: 0.95; }
+      to   { opacity: 0.95; }
     }
 
     .frame {
@@ -65,6 +59,20 @@
       max-width: 1200px;
       text-align: center;
     }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(180,210,255,0.55);
+      text-decoration: none;
+      margin-bottom: 32px;
+      transition: color 200ms;
+    }
+    .back-link:hover { color: #67e8f9; }
 
     .icon {
       width: 110px;
@@ -83,7 +91,7 @@
 
     @keyframes floaty {
       from { transform: translateY(0); }
-      to { transform: translateY(-12px); }
+      to   { transform: translateY(-12px); }
     }
 
     .tag {
@@ -109,164 +117,352 @@
       -webkit-text-fill-color: transparent;
     }
 
-    p {
+    .intro {
       max-width: 720px;
-      margin: 0 auto 40px;
+      margin: 0 auto 50px;
       color: rgba(220,232,255,0.82);
       line-height: 1.7;
       font-size: 16px;
     }
 
-    .video-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 28px;
-      align-items: start;
-      margin-bottom: 50px;
+    /* Section header */
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 24px;
+      text-align: left;
+    }
+    .section-label h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #b0e8ff;
+      margin: 0;
+      white-space: nowrap;
+    }
+    .section-label .line {
+      flex: 1;
+      height: 1px;
+      background: rgba(176,232,255,0.18);
+    }
+    .section-label .count {
+      font-size: 11px;
+      color: rgba(176,232,255,0.5);
+      letter-spacing: 0.1em;
+      white-space: nowrap;
     }
 
+    /* Grids */
+    .shorts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 24px;
+      margin-bottom: 60px;
+    }
+
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 24px;
+      margin-bottom: 60px;
+    }
+
+    /* Cards */
     .video-card {
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 26px;
-      padding: 18px;
+      border-radius: 22px;
+      padding: 14px;
       backdrop-filter: blur(10px);
       box-shadow: 0 0 30px rgba(0,0,0,0.25);
-      transition: transform 0.25s ease;
+      transition: transform 0.25s ease, border-color 0.25s ease;
+      text-align: left;
     }
-
     .video-card:hover {
       transform: translateY(-6px);
+      border-color: rgba(176,232,255,0.3);
     }
-
-    .video-card h3 {
-      margin: 0 0 14px;
-      font-size: 14px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #b0e8ff;
+    .video-card .card-title {
+      margin: 12px 0 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(220,232,255,0.9);
+      line-height: 1.4;
     }
 
     iframe {
       width: 100%;
       border: 0;
-      border-radius: 18px;
+      border-radius: 14px;
+      display: block;
     }
+    .video-card iframe  { aspect-ratio: 16 / 9; }
+    .short-card iframe  { aspect-ratio: 9 / 16; }
 
-    .video iframe {
-      aspect-ratio: 16 / 9;
+    /* Loading state */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 60px 0;
+      color: rgba(176,232,255,0.6);
+      font-size: 14px;
+      letter-spacing: 0.08em;
     }
-
-    .short iframe {
-      aspect-ratio: 9 / 16;
-      max-height: 620px;
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(176,232,255,0.2);
+      border-top-color: #b0e8ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
     }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    .actions {
+    /* Error state */
+    .error-box {
+      background: rgba(255,80,80,0.08);
+      border: 1px solid rgba(255,100,100,0.25);
+      border-radius: 16px;
+      padding: 24px 32px;
+      color: rgba(255,180,180,0.9);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 40px;
+      text-align: left;
+    }
+    .error-box strong { color: #ffaaaa; }
+
+    /* Channel CTA */
+    .channel-cta {
       display: flex;
       justify-content: center;
-      gap: 14px;
-      flex-wrap: wrap;
+      margin-bottom: 50px;
     }
-
     .btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 22px;
+      padding: 14px 28px;
       border-radius: 999px;
       text-decoration: none;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 800;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: #e8f0fe;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.16);
-      transition: 0.25s ease;
-    }
-
-    .btn:hover {
-      background: rgba(176,232,255,0.18);
-      border-color: #b0e8ff;
-      transform: translateY(-2px);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #b0e8ff, #67e8f9);
       color: #04101e;
+      background: linear-gradient(135deg, #b0e8ff, #67e8f9);
       border: none;
+      transition: 0.25s ease;
+      box-shadow: 0 0 32px rgba(103,232,249,0.35);
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 48px rgba(103,232,249,0.55);
     }
 
     @media (max-width: 700px) {
-      body {
-        padding: 24px 14px;
-      }
-
-      .video-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .short iframe {
-        max-height: 560px;
-      }
+      body { padding: 24px 14px; }
+      .video-grid  { grid-template-columns: 1fr; }
+      .shorts-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 420px) {
+      .shorts-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 
 <body>
-
   <div class="stars"></div>
 
   <main class="frame">
+
+    <a class="back-link" href="../index.html">
+      <i class="fa-solid fa-arrow-left"></i> Back to Clark
+    </a>
 
     <div class="icon">
       <i class="fa-solid fa-video"></i>
     </div>
 
     <div class="tag">Clark · Video</div>
+    <h1>Clips &amp; Films</h1>
 
-    <h1>Clips & Films</h1>
-
-    <p>
-      Watch Clark's latest videos and YouTube shorts from the universe.
+    <p class="intro">
+      Hey! I'm Clark. This is where I share all my videos — from quick science Shorts to longer adventures with my family. I hope you find something cool to watch!
     </p>
 
-    <div class="video-grid">
+    <!-- Shorts section -->
+    <div class="section-label">
+      <h2><i class="fa-solid fa-film" style="margin-right:8px;"></i>Shorts</h2>
+      <div class="line"></div>
+      <span class="count" id="shorts-count"></span>
+    </div>
+    <div id="shorts-grid" class="shorts-grid">
+      <div class="loading"><div class="spinner"></div>Loading shorts…</div>
+    </div>
 
-      <div class="video-card short">
-        <h3>YouTube Short</h3>
+    <!-- Videos section -->
+    <div class="section-label">
+      <h2><i class="fa-brands fa-youtube" style="color:#ff4444;margin-right:8px;"></i>Videos</h2>
+      <div class="line"></div>
+      <span class="count" id="videos-count"></span>
+    </div>
+    <div id="videos-grid" class="video-grid">
+      <div class="loading"><div class="spinner"></div>Loading videos…</div>
+    </div>
 
-        <iframe
-          src="https://www.youtube.com/embed/GCqvEXZm--Y"
-          title="Clark Short"
-          allowfullscreen>
-        </iframe>
-      </div>
-
-      <div class="video-card video">
-        <h3>YouTube Video</h3>
-
-        <iframe
-          src="https://www.youtube.com/embed/luzg_pkY97k"
-          title="Clark Video"
-          allowfullscreen>
-        </iframe>
-      </div>
-
-      <div class="video-card video">
-        <h3>YouTube Video</h3>
-
-        <iframe
-          src="https://www.youtube.com/embed/luzg_pkY97k"
-          title="Clark Video 2"
-          allowfullscreen>
-        </iframe>
-      </div>
-
+    <div class="channel-cta">
+      <a class="btn" href="https://www.youtube.com/@Clarkuniverse" target="_blank" rel="noopener">
+        <i class="fa-brands fa-youtube"></i>
+        Visit Clark's Universe on YouTube
+      </a>
     </div>
 
   </main>
 
+  <script>
+    // ─── CONFIG ──────────────────────────────────────────────────────────────
+    const API_KEY       = 'AIzaSyBASk2Tpsr7giU7NWICeGCT25WOF_h9LUA';
+    const CHANNEL_HANDLE = 'Clarkuniverse'; // YouTube 频道 handle（@ 后面的部分）
+    const MAX_RESULTS   = 50;               // 最多拉取的视频数量
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const BASE = 'https://www.googleapis.com/youtube/v3';
+
+    // Parse ISO 8601 duration (e.g. PT1M30S) → total seconds
+    function parseDuration(iso) {
+      const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      if (!m) return 0;
+      return (parseInt(m[1] || 0) * 3600) +
+             (parseInt(m[2] || 0) * 60)   +
+              parseInt(m[3] || 0);
+    }
+
+    function makeIframe(videoId, isShort) {
+      return `<iframe
+        src="https://www.youtube.com/embed/${videoId}"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+        loading="lazy">
+      </iframe>`;
+    }
+
+    function renderCards(videos, isShort) {
+      return videos.map(v => `
+        <div class="video-card ${isShort ? 'short-card' : ''}">
+          ${makeIframe(v.id, isShort)}
+          <p class="card-title">${v.title}</p>
+        </div>
+      `).join('');
+    }
+
+    function showError(message) {
+      const box = `<div class="error-box">${message}</div>`;
+      document.getElementById('shorts-grid').innerHTML = box;
+      document.getElementById('videos-grid').innerHTML = '';
+    }
+
+    async function loadVideos() {
+      if (API_KEY === 'YOUR_API_KEY') {
+        showError(`
+          <strong>API Key not set.</strong><br>
+          Open <code>Clark/video/index.html</code> and replace
+          <code>YOUR_API_KEY</code> with your YouTube Data API key.<br><br>
+          Follow the instructions to get one from
+          <a href="https://console.cloud.google.com" target="_blank" style="color:#b0e8ff;">
+            Google Cloud Console
+          </a>.
+        `);
+        document.getElementById('videos-grid').innerHTML = '';
+        return;
+      }
+
+      try {
+        // 1. Get channel ID from handle
+        const chRes = await fetch(
+          `${BASE}/channels?part=contentDetails&forHandle=${CHANNEL_HANDLE}&key=${API_KEY}`
+        );
+        const chData = await chRes.json();
+
+        if (!chData.items || chData.items.length === 0) {
+          throw new Error('Channel not found. Check the CHANNEL_HANDLE value.');
+        }
+
+        const uploadsPlaylistId = chData.items[0].contentDetails.relatedPlaylists.uploads;
+
+        // 2. Get video list from uploads playlist
+        const plRes = await fetch(
+          `${BASE}/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=${MAX_RESULTS}&key=${API_KEY}`
+        );
+        const plData = await plRes.json();
+
+        if (!plData.items || plData.items.length === 0) {
+          throw new Error('No videos found on this channel.');
+        }
+
+        const videoIds = plData.items.map(i => i.snippet.resourceId.videoId);
+        const titles   = {};
+        plData.items.forEach(i => {
+          titles[i.snippet.resourceId.videoId] = i.snippet.title;
+        });
+
+        // 3. Get durations to tell shorts from regular videos
+        const vidRes = await fetch(
+          `${BASE}/videos?part=contentDetails&id=${videoIds.join(',')}&key=${API_KEY}`
+        );
+        const vidData = await vidRes.json();
+
+        const shorts = [];
+        const videos = [];
+
+        vidData.items.forEach(item => {
+          const seconds = parseDuration(item.contentDetails.duration);
+          const entry   = { id: item.id, title: titles[item.id] };
+          if (seconds <= 60) {
+            shorts.push(entry);
+          } else {
+            videos.push(entry);
+          }
+        });
+
+        // 4. Render
+        const shortsGrid = document.getElementById('shorts-grid');
+        const videosGrid = document.getElementById('videos-grid');
+        const shortsCount = document.getElementById('shorts-count');
+        const videosCount = document.getElementById('videos-count');
+
+        if (shorts.length > 0) {
+          shortsGrid.innerHTML = renderCards(shorts, true);
+          shortsCount.textContent = `${shorts.length} short${shorts.length > 1 ? 's' : ''}`;
+        } else {
+          shortsGrid.innerHTML = '<p style="color:rgba(176,232,255,0.4);padding:20px 0;">No shorts yet.</p>';
+        }
+
+        if (videos.length > 0) {
+          videosGrid.innerHTML = renderCards(videos, false);
+          videosCount.textContent = `${videos.length} video${videos.length > 1 ? 's' : ''}`;
+        } else {
+          videosGrid.innerHTML = '<p style="color:rgba(176,232,255,0.4);padding:20px 0;">No videos yet.</p>';
+        }
+
+      } catch (err) {
+        showError(`
+          <strong>Failed to load videos.</strong><br>
+          ${err.message}<br><br>
+          Check that your API Key is correct and that
+          <em>YouTube Data API v3</em> is enabled in Google Cloud Console.
+        `);
+        document.getElementById('videos-grid').innerHTML = '';
+        console.error(err);
+      }
+    }
+
+    loadVideos();
+  </script>
 </body>
 </html>
