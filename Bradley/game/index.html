@@ -1681,6 +1681,102 @@
       100% { opacity: 0; }
     }
 
+    /* ── SHIP EVOLUTION BOARD ──────────────────────────────────────── */
+    .evo-board {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .evo-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 8px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .evo-row.is-maxed {
+      border-color: rgba(255, 215, 94, 0.45);
+      background: rgba(255, 215, 94, 0.08);
+    }
+    .evo-icon { font-size: 14px; flex-shrink: 0; }
+    .evo-info { flex: 1; min-width: 0; }
+    .evo-name {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(200, 225, 255, 0.85);
+      display: flex;
+      justify-content: space-between;
+    }
+    .evo-name .evo-mk { color: #ffd75e; }
+    .evo-track {
+      margin-top: 3px;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.07);
+      overflow: hidden;
+    }
+    .evo-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #67e8f9, #a5c8ff);
+      transition: width 0.3s ease;
+    }
+    .evo-row.is-maxed .evo-fill { background: linear-gradient(90deg, #ffd75e, #ffaa55); }
+
+    /* ── WAVE INTRO BANNER ──────────────────────────────────────────── */
+    .wave-banner {
+      position: fixed;
+      top: 36%;
+      left: 0;
+      right: 290px;
+      z-index: 6;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+      text-align: center;
+    }
+    .wave-banner.is-showing { display: flex; }
+    .wave-banner-title {
+      font-family: 'Audiowide', 'Orbitron', sans-serif;
+      font-size: clamp(44px, 7vw, 92px);
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffffff 0%, #a5c8ff 40%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 32px rgba(140, 190, 255, 0.7));
+      animation: waveBannerIn 2.4s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .wave-banner.is-boss .wave-banner-title {
+      background: linear-gradient(135deg, #ff6b6b 0%, #e879f9 50%, #8030ff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      filter: drop-shadow(0 0 38px rgba(232, 121, 249, 0.85));
+    }
+    .wave-banner-sub {
+      font-size: clamp(13px, 1.6vw, 18px);
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(200, 225, 255, 0.85);
+      animation: waveBannerIn 2.4s 0.12s cubic-bezier(.2,.8,.2,1) both;
+    }
+    @keyframes waveBannerIn {
+      0%   { opacity: 0; transform: translateY(34px) scale(0.82); }
+      14%  { opacity: 1; transform: translateY(0) scale(1.04); }
+      20%  { transform: scale(1); }
+      78%  { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: translateY(-22px) scale(0.96); }
+    }
+
     /* ── MOBILE / TOUCH CONTROLS ────────────────────────────────────── */
     .touch-controls {
       position: fixed;
@@ -1817,6 +1913,26 @@
       color: rgba(255, 200, 200, 0.7);
       letter-spacing: 0.04em;
       margin-bottom: 26px;
+    }
+    .gameover-newrecord {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 17px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: #ffd75e;
+      text-shadow: 0 0 18px rgba(255, 215, 94, 0.85);
+      margin-bottom: 16px;
+      animation: newRecordPulse 0.7s ease-in-out infinite alternate;
+    }
+    @keyframes newRecordPulse {
+      from { transform: scale(1);    text-shadow: 0 0 14px rgba(255,215,94,0.6); }
+      to   { transform: scale(1.08); text-shadow: 0 0 30px rgba(255,215,94,1); }
+    }
+    .gameover-bestline {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: rgba(253, 230, 138, 0.75);
+      margin: -14px 0 24px;
     }
     .gameover-stats {
       display: flex;
@@ -2192,6 +2308,7 @@
 
   <section class="game-panel" aria-label="Game mission panel">
     <div style="padding: 8px 0 4px; font-family:'Orbitron',monospace; font-size:13px; font-weight:900; background:linear-gradient(135deg,#a5c8ff,#c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; letter-spacing:0.04em;">Brad's Universe</div>
+    <div id="bestRecordLine" style="display:none; font-size:10px; color:rgba(253,230,138,0.85); letter-spacing:0.04em; padding:0 0 6px;"></div>
     <div class="message story-card" id="message" style="pointer-events:none; font-size:11px; min-height:auto; padding:8px 10px;">
       <strong>Save the Elements!</strong>
       The Black Hole wants to eat everything! Fly your UFO and shoot elements to push them to safety!
@@ -2215,6 +2332,8 @@
       <div class="ship-status" id="shipStatus">Elements saved: 0/3</div>
       <div class="ship-parts" id="shipParts"></div>
     </div>
+    <div class="panel-section-label">Ship Evolution</div>
+    <div class="evo-board" id="evoBoard" aria-label="Ship evolution progress"></div>
     <div class="panel-section-label">Controls</div>
     <div class="game-actions">
       <button id="startGame" type="button">▶️ Play</button>
@@ -2248,6 +2367,12 @@
     <button class="touch-btn touch-fire" id="touchFire"   type="button" aria-label="Fire">🔥</button>
   </div>
 
+  <!-- Wave intro banner -->
+  <div class="wave-banner" id="waveBanner" aria-hidden="true">
+    <div class="wave-banner-title" id="waveBannerTitle">WAVE 1</div>
+    <div class="wave-banner-sub" id="waveBannerSub">Save the elements!</div>
+  </div>
+
   <!-- Boss health bar -->
   <div class="boss-bar" id="bossBar">
     <span class="boss-label">👾 VOID BOSS</span>
@@ -2270,11 +2395,13 @@
       <div class="gameover-skull" aria-hidden="true">💀</div>
       <div class="gameover-title">Game Over</div>
       <div class="gameover-subtitle">The Black Hole consumed your last UFO</div>
+      <div class="gameover-newrecord" id="goNewRecord" style="display:none">🎉 NEW RECORD! 🎉</div>
       <div class="gameover-stats">
         <div class="go-stat"><span class="go-stat-label">⭐ Final Score</span><span class="go-stat-value" id="goScore">0</span></div>
         <div class="go-stat"><span class="go-stat-label">🏆 Reached Wave</span><span class="go-stat-value" id="goWave">1</span></div>
         <div class="go-stat"><span class="go-stat-label">💎 Rescues</span><span class="go-stat-value" id="goRescues">0</span></div>
       </div>
+      <div class="gameover-bestline" id="goBestLine"></div>
       <button class="gameover-btn" id="gameOverRestart" type="button">↺ Restart</button>
     </div>
   </div>
@@ -2489,11 +2616,41 @@
       "H+Cl": { formula: "HCl", note: "Hydrogen and chlorine can explode in bright light, forming hydrogen chloride.", product: "hydrogen chloride" }
     };
 
-    const missions = [
-      { title: "Save Water!", formula: "H2O", hint: "Shoot H and O away from the Black Hole to make water!", points: 100, part: "engine", partLabel: "Water saved" },
-      { title: "Save Salt!", formula: "NaCl", hint: "Shoot Na and Cl to rescue them — together they make salt!", points: 120, part: "circuit", partLabel: "Salt saved" },
-      { title: "Save Air!", formula: "CO2", hint: "Shoot C and O to rescue them — plants love this gas!", points: 130, part: "fire", partLabel: "Air saved" }
+    // ── Tiered mission sets — recipes get harder as waves progress ──
+    const MISSION_TIERS = [
+      {
+        fromWave: 1, name: "Beginner Lab", cargoBonus: 0,
+        missions: [
+          { title: "Save Water!", formula: "H2O", hint: "Shoot H and O away from the Black Hole to make water!", points: 100, part: "t1a", partLabel: "Water saved" },
+          { title: "Save Salt!", formula: "NaCl", hint: "Shoot Na and Cl to rescue them — together they make salt!", points: 120, part: "t1b", partLabel: "Salt saved" },
+          { title: "Save Air!", formula: "CO2", hint: "Shoot C and O to rescue them — plants love this gas!", points: 130, part: "t1c", partLabel: "Air saved" }
+        ]
+      },
+      {
+        fromWave: 4, name: "Junior Chemist", cargoBonus: 1,
+        missions: [
+          { title: "Make Ammonia!", formula: "NH3", hint: "Collect 1 N and 3 H — stinky but useful!", points: 160, part: "t2a", partLabel: "Ammonia made" },
+          { title: "Bright Flash!", formula: "MgO", hint: "Collect Mg and O — it burns super bright!", points: 150, part: "t2b", partLabel: "Magnesia made" },
+          { title: "Magic Mirror!", formula: "AgCl", hint: "Collect Ag and Cl — light turns it dark!", points: 150, part: "t2c", partLabel: "Silver salt made" }
+        ]
+      },
+      {
+        fromWave: 7, name: "Master Alchemist", cargoBonus: 2,
+        missions: [
+          { title: "Space Glass!", formula: "SiO2", hint: "Collect Si and 2 O — sand and glass are made of this!", points: 190, part: "t3a", partLabel: "Quartz made" },
+          { title: "Rocket Gas!", formula: "CH4", hint: "Collect 1 C and 4 H — methane burns hot!", points: 220, part: "t3b", partLabel: "Methane made" },
+          { title: "Build Rust!", formula: "Fe2O3", hint: "Collect 2 Fe and 3 O — the hardest recipe!", points: 250, part: "t3c", partLabel: "Rust made" }
+        ]
+      }
     ];
+
+    function missionTierForWave(wave) {
+      let tier = MISSION_TIERS[0];
+      MISSION_TIERS.forEach((tr) => { if (wave >= tr.fromWave) tier = tr; });
+      return tier;
+    }
+
+    let missions = MISSION_TIERS[0].missions;
 
     const levelNames = ["Space Cadet", "Star Pilot", "Galaxy Hero"];
 
@@ -2508,10 +2665,62 @@
 
     // Synthesis recipes (cargo auto-combines into compound bullets)
     const SYNTH_RECIPES = {
-      H2O:  { ingredients: { H: 2, O: 1 }, color: "#3aa8e8", glow: "#7ed4ff", power: 7,  label: "💧 H2O" },
-      NaCl: { ingredients: { Na: 1, Cl: 1 }, color: "#ffe07a", glow: "#fff4b8", power: 6,  label: "🧂 NaCl" },
-      CO2:  { ingredients: { C: 1, O: 2 }, color: "#9be09b", glow: "#d0ffd0", power: 8,  label: "🫧 CO2" }
+      // Tier 1 — waves 1-3
+      H2O:   { ingredients: { H: 2, O: 1 },  color: "#3aa8e8", glow: "#7ed4ff", power: 7,  label: "💧 H2O" },
+      NaCl:  { ingredients: { Na: 1, Cl: 1 }, color: "#ffe07a", glow: "#fff4b8", power: 6,  label: "🧂 NaCl" },
+      CO2:   { ingredients: { C: 1, O: 2 },  color: "#9be09b", glow: "#d0ffd0", power: 8,  label: "🫧 CO2" },
+      // Tier 2 — waves 4-6
+      NH3:   { ingredients: { N: 1, H: 3 },  color: "#7fe0b0", glow: "#c0ffe0", power: 9,  label: "💨 NH3" },
+      MgO:   { ingredients: { Mg: 1, O: 1 }, color: "#e8e8ff", glow: "#ffffff", power: 8,  label: "✨ MgO" },
+      AgCl:  { ingredients: { Ag: 1, Cl: 1 }, color: "#d8d8e8", glow: "#f0f0ff", power: 8,  label: "🪞 AgCl" },
+      // Tier 3 — waves 7+
+      SiO2:  { ingredients: { Si: 1, O: 2 }, color: "#d4c2a8", glow: "#f0e4d0", power: 10, label: "💎 SiO2" },
+      CH4:   { ingredients: { C: 1, H: 4 },  color: "#a8e060", glow: "#d4ff9a", power: 12, label: "🔥 CH4" },
+      Fe2O3: { ingredients: { Fe: 2, O: 3 }, color: "#d4763a", glow: "#ffb080", power: 14, label: "🧱 Fe2O3" }
     };
+
+    // ── SHIP EVOLUTION — collect specific elements to evolve the ship ──
+    // Counts are cumulative per run: every capture counts, even if the
+    // element is later consumed by synthesis. Golden elements count double.
+    const EVOLUTION_PATHS = {
+      armor:  { symbol: "Fe", icon: "🛡", name: "Iron Armor",       thresholds: [6, 12],
+                effects: ["Take 25% less damage", "Take 50% less damage"] },
+      engine: { symbol: "H",  icon: "🔥", name: "Hydrogen Engines", thresholds: [10, 20],
+                effects: ["+15% ship speed", "+30% ship speed"] },
+      cannon: { symbol: "Ag", icon: "⚡", name: "Silver Cannon",    thresholds: [4, 8],
+                effects: ["+20% weapon damage", "+40% weapon damage"] }
+    };
+
+    function evoLevel(path) {
+      return (game.evolution && game.evolution.levels[path]) || 0;
+    }
+    function armorDamageMult() { return 1 - 0.25 * evoLevel("armor"); }
+
+    // Called on every element capture. Returns true if an evolution happened.
+    function trackEvolution(symbol, t, isGolden) {
+      if (!game.evolution) return false;
+      const inc = isGolden ? 2 : 1;
+      game.evolution.counts[symbol] = (game.evolution.counts[symbol] || 0) + inc;
+      let evolved = false;
+      Object.entries(EVOLUTION_PATHS).forEach(([path, def]) => {
+        if (def.symbol !== symbol) return;
+        const lv = game.evolution.levels[path] || 0;
+        if (lv >= def.thresholds.length) return;
+        if ((game.evolution.counts[symbol] || 0) >= def.thresholds[lv]) {
+          game.evolution.levels[path] = lv + 1;
+          evolved = true;
+          const mk = lv + 1;
+          showWaveBanner(`🛸 SHIP EVOLVED!`, `${def.icon} ${def.name} Mk${mk} — ${def.effects[lv]}`, false);
+          setAutoMessage(`🛸 ${def.name} Mk${mk}!`, def.effects[lv]);
+          addShake(10, 400);
+          addHitStop(120);
+          flashScreen("rgba(160, 230, 255, 0.35)", 360);
+          playFanfare([523, 659, 784, 1047, 1568], 0.15, 0.08, 0.11);
+          if (spaceship) effects.push({ type: "plasmaWave", x: spaceship.x, y: spaceship.y, born: t, color: "#a5f0ff" });
+        }
+      });
+      return evolved;
+    }
 
     // ── Power-up definitions (dropped by the boss) ──
     const POWERUP_DEFS = {
@@ -2529,10 +2738,10 @@
       return activeBuffs.some((b) => b.type === type && b.until > now);
     }
 
-    function ufoMaxSpeed()    { return 7.2  * (1 + 0.30 * (game.upgrades.speed  || 0)) * (hasBuff("magnetize") ? 1.2 : 1); }
+    function ufoMaxSpeed()    { return 7.2  * (1 + 0.30 * (game.upgrades.speed  || 0)) * (1 + 0.15 * evoLevel("engine")) * (hasBuff("magnetize") ? 1.2 : 1); }
     function ufoCollectRange(){ return 58   * (1 + 0.35 * (game.upgrades.range  || 0)) * (hasBuff("magnetize") ? 3.5 : 1); }
-    function maxCargoSize()   { return 3    + 2  * (game.upgrades.cargo || 0); }
-    function weaponPowerMult(){ return (1   + 0.35 * (game.upgrades.power || 0)) * (hasBuff("doubleDmg") ? 2 : 1); }
+    function maxCargoSize()   { return 3 + 2 * (game.upgrades.cargo || 0) + missionTierForWave(game.level).cargoBonus; }
+    function weaponPowerMult(){ return (1   + 0.35 * (game.upgrades.power || 0)) * (1 + 0.20 * evoLevel("cannon")) * (hasBuff("doubleDmg") ? 2 : 1); }
     function scoreMult()      { return 1    + 0.60 * (game.upgrades.score || 0); }
     function missionTime()    { return 90   + 15  * (game.upgrades.time  || 0); }
     function isBossWave(lvl)  { return lvl % 3 === 0; }
@@ -2635,6 +2844,206 @@
     let spaceshipPressed = false;
     let suppressCanvasClick = false;
     let suctionActive = false;
+    // ── Game-feel state ──
+    let shakeMag = 0;          // current screen-shake magnitude (px)
+    let shakeUntil = 0;        // timestamp when shake ends
+    let hitStopUntil = 0;      // freeze-frame: updates pause until this timestamp
+    let comboCount = 0;        // consecutive quick captures
+    let comboLastAt = 0;       // last capture timestamp
+
+    function addShake(mag, durationMs) {
+      const now = performance.now();
+      shakeMag = Math.max(shakeMag, mag);
+      shakeUntil = Math.max(shakeUntil, now + durationMs);
+    }
+
+    function addHitStop(durationMs) {
+      hitStopUntil = Math.max(hitStopUntil, performance.now() + durationMs);
+    }
+
+    function addCombo(t, x, y) {
+      comboCount = (t - comboLastAt < 4000) ? comboCount + 1 : 1;
+      comboLastAt = t;
+      if (comboCount >= 2) {
+        const bonus = Math.round(5 * comboCount * scoreMult());
+        game.score += bonus;
+        addScoreEffect(x, y - 36, `🔥 COMBO ×${comboCount}  +${bonus}`, t);
+        playTone(620 + Math.min(comboCount, 10) * 60, 0.06, { type: "triangle", volume: 0.07 });
+      }
+    }
+
+    // ── HIGH SCORE RECORDS (persisted in localStorage) ─────────────
+    const RECORDS_KEY = "bradsUniverse.records";
+    function loadRecords() {
+      try { return JSON.parse(localStorage.getItem(RECORDS_KEY)) || {}; }
+      catch (e) { return {}; }
+    }
+    function saveRecords(r) {
+      try { localStorage.setItem(RECORDS_KEY, JSON.stringify(r)); } catch (e) {}
+    }
+    let records = loadRecords(); // { bestScore, bestWave, totalRescues, plays }
+
+    function updateRecordsLine() {
+      const el = document.getElementById("bestRecordLine");
+      if (!el) return;
+      if (records.bestScore) {
+        el.innerHTML = `🏅 Best: <b>${records.bestScore}</b> · Wave <b>${records.bestWave || 1}</b>`;
+        el.style.display = "";
+      } else {
+        el.style.display = "none";
+      }
+    }
+
+    // ── BONUS ROUNDS — short special rounds between waves ──────────
+    const BONUS_TYPES = {
+      goldRush: { icon: "🌟", title: "GOLD RUSH",      sub: "Every element is golden — grab them all!",      duration: 25000 },
+      meteor:   { icon: "☄️", title: "METEOR SHOWER",  sub: "Dodge the meteors — survive for a big bonus!",  duration: 22000 },
+      frenzy:   { icon: "⚡", title: "FRENZY",          sub: "Double speed — double points!",                 duration: 25000 }
+    };
+    let bonusRound = null;
+
+    function startBonusRound(t) {
+      const keys = Object.keys(BONUS_TYPES);
+      const type = keys[Math.floor(Math.random() * keys.length)];
+      const def = BONUS_TYPES[type];
+      bonusRound = {
+        type, def,
+        until: t + def.duration,
+        started: t,
+        meteors: [],
+        lastMeteorAt: 0,
+        livesAtStart: game.lives,
+        captures: 0
+      };
+      game.phase = "bonus";
+      game.active = false; // mission timer pauses during bonus
+      document.getElementById("bossBar").style.display = "none";
+      showWaveBanner(`${def.icon} ${def.title}`, def.sub, false);
+      setMessage(`${def.icon} BONUS ROUND!`, def.sub);
+      setAutoMessage(`${def.icon} ${def.title}`, def.sub);
+      playFanfare([784, 988, 1175, 1568], 0.13, 0.07, 0.10);
+      if (type === "goldRush") {
+        nodes.forEach((n) => { if (!n.swallowedByBlackHole && !n.heldByAstronaut) n.golden = true; });
+      }
+      if (type === "frenzy") {
+        nodes.forEach((n) => { n.vx *= 2.2; n.vy *= 2.2; });
+      }
+    }
+
+    function updateBonusRound(t) {
+      if (!bonusRound) return;
+      if (t > bonusRound.until) { finishBonusRound(t); return; }
+
+      if (bonusRound.type === "meteor") {
+        // Spawn a meteor roughly every 550ms
+        if (t - bonusRound.lastMeteorAt > 550) {
+          bonusRound.lastMeteorAt = t;
+          bonusRound.meteors.push({
+            x: randomBetween(width * 0.3, width + 120),
+            y: -50,
+            vx: randomBetween(-6.5, -3.0),
+            vy: randomBetween(3.5, 6.5),
+            r: randomBetween(11, 19),
+            spin: randomBetween(0, Math.PI * 2)
+          });
+        }
+        bonusRound.meteors.forEach((m) => {
+          m.x += m.vx;
+          m.y += m.vy;
+          // Hit the ship?
+          if (spaceship && t - spaceship.lastDamageAt > 520) {
+            const d = Math.hypot(m.x - spaceship.x, m.y - spaceship.y);
+            if (d < m.r + spaceship.radius * 0.6) {
+              spaceship.lastDamageAt = t;
+              if (!hasBuff("shield")) {
+                const metDmg = Math.round(12 * armorDamageMult());
+                spaceship.health = Math.max(0, spaceship.health - metDmg);
+                addScoreEffect(spaceship.x, spaceship.y - 18, `-${metDmg} ☄️`, t);
+                addShake(8, 250);
+                playNoise(0.18, { cutoff: 800, volume: 0.14 });
+                if (spaceship.health <= 0) {
+                  addExplosionEffect(spaceship.x, spaceship.y, t);
+                  loseLife(t);
+                }
+              } else {
+                addScoreEffect(spaceship.x, spaceship.y - 18, "🛡 BLOCKED", t);
+              }
+              m.y = height + 999; // consume the meteor
+            }
+          }
+          // Knock elements around
+          nodes.forEach((n) => {
+            if (n.heldByAstronaut || n.swallowedByBlackHole) return;
+            const d = Math.hypot(n.x - m.x, n.y - m.y);
+            if (d < m.r + n.size * 0.5) {
+              n.vx += m.vx * 0.25;
+              n.vy += m.vy * 0.25;
+            }
+          });
+        });
+        bonusRound.meteors = bonusRound.meteors.filter((m) => m.x > -120 && m.y < height + 120);
+      }
+    }
+
+    function finishBonusRound(t) {
+      const br = bonusRound;
+      bonusRound = null;
+      if (br.type === "meteor") {
+        if (game.lives >= br.livesAtStart && (!spaceship || spaceship.health > 0)) {
+          const bonus = Math.round(300 * scoreMult());
+          game.score += bonus;
+          addScoreEffect(spaceship ? spaceship.x : width / 2, (spaceship ? spaceship.y : height / 2) - 50, `☄️ SURVIVED! +${bonus}`, t);
+          playFanfare([659, 880, 1175], 0.14, 0.08, 0.10);
+        }
+      } else if (br.type === "goldRush") {
+        // remaining un-grabbed elements lose their shine
+        nodes.forEach((n) => { n.golden = false; });
+      }
+      setAutoMessage("Bonus round over!", "Back to the rescue mission!");
+      beginWave();
+    }
+
+    function drawBonusRound(t) {
+      if (!bonusRound) return;
+      // Countdown — big translucent seconds, top-center of play area
+      const remain = Math.max(0, Math.ceil((bonusRound.until - t) / 1000));
+      ctx.save();
+      ctx.font = "900 64px 'Orbitron', monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = remain <= 5 ? "rgba(255, 107, 91, 0.5)" : "rgba(200, 225, 255, 0.30)";
+      ctx.fillText(String(remain), width / 2, 150);
+      ctx.font = "800 14px 'Orbitron', monospace";
+      ctx.fillStyle = "rgba(200, 225, 255, 0.45)";
+      ctx.fillText(`${bonusRound.def.icon} ${bonusRound.def.title}`, width / 2, 178);
+      ctx.restore();
+      // Meteors
+      if (bonusRound.type === "meteor") {
+        bonusRound.meteors.forEach((m) => {
+          ctx.save();
+          // trail
+          const trail = ctx.createLinearGradient(m.x - m.vx * 6, m.y - m.vy * 6, m.x, m.y);
+          trail.addColorStop(0, "rgba(255, 154, 85, 0)");
+          trail.addColorStop(1, "rgba(255, 180, 100, 0.55)");
+          ctx.strokeStyle = trail;
+          ctx.lineWidth = m.r * 0.9;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(m.x - m.vx * 6, m.y - m.vy * 6);
+          ctx.lineTo(m.x, m.y);
+          ctx.stroke();
+          // rock
+          ctx.shadowColor = "#ff9a55";
+          ctx.shadowBlur = 16;
+          const rock = ctx.createRadialGradient(m.x - 3, m.y - 3, 1, m.x, m.y, m.r);
+          rock.addColorStop(0, "#c8a080");
+          rock.addColorStop(0.6, "#8a5a3a");
+          rock.addColorStop(1, "#4a2e1c");
+          ctx.fillStyle = rock;
+          ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        });
+      }
+    }
     const arrowKeys = {
       ArrowUp: false,
       ArrowDown: false,
@@ -2663,7 +3072,8 @@
       upgrades: { speed: 0, cargo: 0, power: 0, range: 0, score: 0, time: 0 },
       lastBossAttack: 0,
       lives: 3,
-      maxLives: 3
+      maxLives: 3,
+      evolution: { counts: {}, levels: { armor: 0, engine: 0, cannon: 0 } }
     };
     const hazards = {
       blackHole: true,
@@ -2908,6 +3318,31 @@
       const timeVal = Math.ceil(game.timeLeft);
       timerReadout.textContent = String(timeVal);
       if (hudTimer) hudTimer.classList.toggle("is-urgent", game.active && timeVal <= 20);
+      // Ship evolution board
+      const evoBoard = document.getElementById("evoBoard");
+      if (evoBoard && game.evolution) {
+        let evoHtml = "";
+        Object.entries(EVOLUTION_PATHS).forEach(([path, def]) => {
+          const lv = game.evolution.levels[path] || 0;
+          const count = game.evolution.counts[def.symbol] || 0;
+          const maxed = lv >= def.thresholds.length;
+          const nextAt = maxed ? def.thresholds[def.thresholds.length - 1] : def.thresholds[lv];
+          const base = lv > 0 ? def.thresholds[lv - 1] : 0;
+          const pct = maxed ? 100 : Math.min(100, Math.round(((count - base) / (nextAt - base)) * 100));
+          evoHtml += `<div class="evo-row${maxed ? " is-maxed" : ""}">
+            <span class="evo-icon">${def.icon}</span>
+            <span class="evo-info">
+              <span class="evo-name"><span>${def.name}</span><span class="evo-mk">${maxed ? "MAX" : lv > 0 ? "Mk" + lv : ""}</span></span>
+              <span class="evo-track"><span class="evo-fill" style="width:${pct}%"></span></span>
+            </span>
+            <span style="font-size:9px; color:rgba(200,225,255,0.6); flex-shrink:0">${maxed ? "★" : `${def.symbol} ${count}/${nextAt}`}</span>
+          </div>`;
+        });
+        if (evoBoard._lastHtml !== evoHtml) {
+          evoBoard.innerHTML = evoHtml;
+          evoBoard._lastHtml = evoHtml;
+        }
+      }
       // Lives readout
       const livesEl = document.getElementById("livesReadout");
       if (livesEl) {
@@ -2931,12 +3366,28 @@
       document.querySelectorAll("[data-weapon]").forEach((b) => b.classList.toggle("is-active", b.dataset.weapon === game.weapon));
     }
 
+    // Big animated "WAVE N" banner across the play area
+    function showWaveBanner(title, sub, isBoss) {
+      const banner = document.getElementById("waveBanner");
+      if (!banner) return;
+      document.getElementById("waveBannerTitle").textContent = title;
+      document.getElementById("waveBannerSub").textContent = sub || "";
+      banner.classList.toggle("is-boss", !!isBoss);
+      // restart the CSS animation
+      banner.classList.remove("is-showing");
+      void banner.offsetWidth;
+      banner.classList.add("is-showing");
+      clearTimeout(showWaveBanner._timer);
+      showWaveBanner._timer = setTimeout(() => banner.classList.remove("is-showing"), 2500);
+    }
+
     function startGame() {
       game.active = true;
       game.lastTick = performance.now();
       game.timeLeft = missionTime();
       updateGamePanel();
       setMessage("Mission started", `${currentMission().hint}`);
+      showWaveBanner(`WAVE ${game.level}`, currentMission().hint, false);
       playTone(660, 0.08);
     }
 
@@ -2968,14 +3419,19 @@
         upgrades: { speed: 0, cargo: 0, power: 0, range: 0, score: 0, time: 0 },
         lastBossAttack: 0,
         lives: 3,
-        maxLives: 3
+        maxLives: 3,
+        evolution: { counts: {}, levels: { armor: 0, engine: 0, cannon: 0 } }
       };
       makeNodes();
       makeSpaceship();
       makeBlackHole();
       powerups = [];
       activeBuffs = [];
+      bonusRound = null;
+      missions = MISSION_TIERS[0].missions;
+      comboCount = 0;
       updateGamePanel();
+      updateRecordsLine();
       setMessage("New game", `${currentMission().hint}`);
       playTone(520, 0.08);
     }
@@ -3013,9 +3469,23 @@
 
     function startNextLevel() {
       game.level += 1;
+      const t = performance.now();
+      // ~40% chance of a bonus round before non-boss waves
+      if (!isBossWave(game.level) && Math.random() < 0.4) {
+        startBonusRound(t);
+        return; // beginWave() runs when the bonus round ends
+      }
+      beginWave();
+    }
+
+    function beginWave() {
       game.active = true;
       game.missionIndex = 0;
       game.repairedParts = new Set();
+      // Mission tier swap — harder recipes at higher waves
+      const tier = missionTierForWave(game.level);
+      const tierChanged = missions !== tier.missions;
+      missions = tier.missions;
       const boss = isBossWave(game.level);
       game.phase = boss ? "boss" : "playing";
       makeBlackHole();
@@ -3024,12 +3494,23 @@
         document.getElementById("bossBar").style.display = "flex";
         setMessage(`👾 BOSS WAVE ${game.level}!`, "Destroy the Void Boss! Shoot it with everything you have!");
         setAutoMessage(`Boss Wave ${game.level}`, "A massive Void Boss appeared! Use your best weapons to defeat it!");
+        showWaveBanner(`👾 BOSS WAVE ${game.level}`, "Destroy the Void Boss!", true);
+        addShake(8, 600);
+        playNoise(0.5, { cutoff: 500, volume: 0.16 });
       } else {
         document.getElementById("bossBar").style.display = "none";
         game.timeLeft = missionTime();
         game.lastTick = performance.now();
-        setMessage(`Wave ${game.level}`, currentMission().hint);
-        setAutoMessage(`Wave ${game.level} starts!`, currentMission().hint);
+        if (tierChanged) {
+          setMessage(`🧪 ${tier.name} unlocked!`, `New recipes! ${missions.map((m) => m.formula).join(" · ")} — cargo bay expanded!`);
+          setAutoMessage("🧪 New recipes unlocked!", `You can now build ${missions.map((m) => m.formula).join(", ")}. Cargo +${tier.cargoBonus}!`);
+          showWaveBanner(`🧪 ${tier.name.toUpperCase()}`, `New recipes: ${missions.map((m) => m.formula).join(" · ")}`, false);
+          playFanfare([659, 784, 988, 1319], 0.14, 0.08, 0.10);
+        } else {
+          setMessage(`Wave ${game.level}`, currentMission().hint);
+          setAutoMessage(`Wave ${game.level} starts!`, currentMission().hint);
+          showWaveBanner(`WAVE ${game.level}`, currentMission().hint, false);
+        }
       }
       updateGamePanel();
       playTone(660, 0.1);
@@ -3347,8 +3828,8 @@
     // How many copies of each element to spawn — extra for mission ingredients
     // so the player always has enough material to build the current compound.
     const SPAWN_COUNTS = {
-      H: 5, O: 5, C: 4, N: 2, Na: 4, Cl: 4,
-      Fe: 2, Mg: 2, Ag: 2, S: 2, Si: 2
+      H: 6, O: 6, C: 4, N: 3, Na: 4, Cl: 4,
+      Fe: 3, Mg: 3, Ag: 3, S: 2, Si: 3
     };
 
     function makeNodes() {
@@ -3369,7 +3850,8 @@
           vy: randomBetween(-0.38, 0.38),
           phase: randomBetween(0, Math.PI * 2),
           element,
-          selected: false
+          selected: false,
+          golden: Math.random() < 0.06 // ✨ rare golden element — bonus on capture
         };
       });
       selected = [];
@@ -3567,7 +4049,8 @@
       updateSpaceship(t);
 
       const shielded = game.shieldUntil > t;
-      if (hazards.blackHole && !shielded) updateBlackHole(t);
+      // Black hole freezes during bonus rounds — the round is the show
+      if (hazards.blackHole && !shielded && game.phase !== "bonus") updateBlackHole(t);
       const blockedRects = uiBlockRects(0);
       const slowMo = hasBuff("timeSlow");
 
@@ -3695,6 +4178,8 @@
         if (game.phase === "boss") {
           // Triumphant boss-defeat fanfare
           playFanfare([523, 784, 1047, 1319, 1568, 2093], 0.18, 0.09, 0.11);
+          addShake(14, 500);
+          addHitStop(160);
         } else {
           playTone(980, 0.12);
         }
@@ -3757,6 +4242,7 @@
           }
           effects.push({ type: "plasmaWave", x: blackHole.x, y: blackHole.y, born: t, color: "#c020e0" });
           addScoreEffect(blackHole.x, blackHole.y - 50, "⚡ GRAVITY SURGE!", t);
+          addShake(7, 350);
           playTone(120, 0.18);
         }
 
@@ -3774,8 +4260,9 @@
             const sd = Math.hypot(sdx, sdy);
             if (sd < pulseR && t - spaceship.lastDamageAt > 520 && !hasBuff("shield")) {
               spaceship.lastDamageAt = t;
-              spaceship.health = Math.max(0, spaceship.health - 35);
-              addScoreEffect(spaceship.x, spaceship.y - 18, "-35", t);
+              const pulseDmg = Math.round(35 * armorDamageMult());
+              spaceship.health = Math.max(0, spaceship.health - pulseDmg);
+              addScoreEffect(spaceship.x, spaceship.y - 18, `-${pulseDmg}${evoLevel("armor") ? " 🛡" : ""}`, t);
               setAutoMessage("☠️ Void Pulse hit!", "Stay farther from the boss when it pulses!");
               if (spaceship.health <= 0) {
                 addExplosionEffect(spaceship.x, spaceship.y, t);
@@ -3875,11 +4362,12 @@
           addScoreEffect(spaceship.x, spaceship.y - 18, "🛡 BLOCKED", t);
           return;
         }
-        spaceship.health = Math.max(0, spaceship.health - 25);
+        const bhDmg = Math.round(25 * armorDamageMult());
+        spaceship.health = Math.max(0, spaceship.health - bhDmg);
         spaceship.vx -= (dx / distance) * 4.8;
         spaceship.vy -= (dy / distance) * 4.8;
         effects.push({ type: "bump", x: spaceship.x, y: spaceship.y, born: t });
-        addScoreEffect(spaceship.x, spaceship.y - 18, "-25", t);
+        addScoreEffect(spaceship.x, spaceship.y - 18, `-${bhDmg}${evoLevel("armor") ? " 🛡" : ""}`, t);
         setAutoMessage("UFO danger", "The monster black hole is eating the UFO. Dodge away or shoot it.");
         playTone(180, 0.08);
         if (spaceship.health <= 0) {
@@ -3892,6 +4380,9 @@
     // Lose 1 life. Respawn UFO if any lives remain; otherwise → game over.
     function loseLife(t) {
       game.lives = Math.max(0, (game.lives || 0) - 1);
+      comboCount = 0; // dying breaks the combo
+      addShake(18, 550);
+      addHitStop(140);
       flashScreen("rgba(255,80,60,0.35)", 320);
       addScoreEffect(spaceship.x, spaceship.y - 40, "💥 LIFE LOST!", t);
       playTone(110, 0.18);
@@ -3908,16 +4399,33 @@
     function gameOver(t) {
       game.active = false;
       game.phase = "gameover";
+      bonusRound = null;
       // Hide other modals/HUD bits
       document.getElementById("bossBar").style.display = "none";
       document.getElementById("upgradeModal").style.display = "none";
+      // ── Update persistent records ──
+      const newBestScore = game.score > (records.bestScore || 0);
+      const newBestWave  = game.level > (records.bestWave || 0);
+      if (newBestScore) records.bestScore = game.score;
+      if (newBestWave)  records.bestWave = game.level;
+      records.totalRescues = (records.totalRescues || 0) + (game.shipRescues || 0);
+      records.plays = (records.plays || 0) + 1;
+      saveRecords(records);
+      updateRecordsLine();
       // Populate + show game-over modal
       const m = document.getElementById("gameOverModal");
       if (m) {
         document.getElementById("goScore").textContent = String(game.score);
         document.getElementById("goWave").textContent  = String(game.level);
         document.getElementById("goRescues").textContent = String(game.shipRescues || 0);
+        const recordBadge = document.getElementById("goNewRecord");
+        const bestLine = document.getElementById("goBestLine");
+        if (recordBadge) recordBadge.style.display = (newBestScore || newBestWave) ? "block" : "none";
+        if (bestLine) bestLine.textContent = `🏅 All-time best: ${records.bestScore} pts · Wave ${records.bestWave}`;
         m.style.display = "flex";
+      }
+      if (newBestScore || newBestWave) {
+        playFanfare([659, 880, 1175, 1568], 0.16, 0.09, 0.10);
       }
       playTone(60, 0.3);
       playTone(45, 0.4);
@@ -4169,6 +4677,8 @@
         node.vy += dy / distance * blast;
       });
       addScoreEffect(x, y - 30, "☢️ MEGA BOMB!", t);
+      addShake(16, 500);
+      addHitStop(110);
       // Layered nuclear blast SFX: low rumble + filtered noise burst + high crackle
       playTone(55, 0.6, { type: "sawtooth", volume: 0.12 });
       playTone(95, 0.35, { type: "triangle", volume: 0.10 });
@@ -4215,6 +4725,7 @@
         }
       });
       addScoreEffect(x, y - 20, "MISSILE → UFO!", t);
+      addShake(5, 180);
     }
 
     // Plasma: massive black-hole damage; freezes nearby elements briefly (boss killer)
@@ -4237,6 +4748,7 @@
         node._frozenUntil = t + 1500;
       });
       addScoreEffect(x, y - 20, "PLASMA!", t);
+      addShake(9, 280);
     }
 
     // Freeze: slows elements in radius for 2.5s — easy to collect afterwards
@@ -4301,6 +4813,8 @@
               blackHole.hurtUntil = t + 360;
               addExplosionEffect(shot.x, shot.y, t);
               effects.push({ type: "plasmaWave", x: shot.x, y: shot.y, born: t, color: shot.glow || "#ffffff" });
+              addShake(10, 320);
+              addHitStop(90);
               ejectSomeSwallowed(t, 5); // compound bullet — biggest release
               completeMissionByCompound(shot.formula, shot.x, shot.y, t);
             } else if (shot.kind === "megabomb") {
@@ -4358,7 +4872,20 @@
           const pierces = shot.kind === "laser" || shot.kind === "megalaser";
           if (!pierces) shot.hit = true;
           effects.push({ type: "bump", x: node.x, y: node.y, born: t });
-          addScoreEffect(node.x, node.y - 12, pierces ? "laser" : "push", t);
+          // 🦸 Last-second rescue: element was deep in the BH gravity well
+          if (blackHole && hazards.blackHole) {
+            const bd = Math.hypot(node.x - blackHole.x, node.y - blackHole.y);
+            if (bd < blackHole.radius + 80) {
+              const rescued = Math.round(40 * scoreMult());
+              game.score += rescued;
+              addScoreEffect(node.x, node.y - 30, `🦸 CLOSE SAVE! +${rescued}`, t);
+              playFanfare([784, 1047], 0.08, 0.05, 0.07);
+            } else {
+              addScoreEffect(node.x, node.y - 12, pierces ? "laser" : "push", t);
+            }
+          } else {
+            addScoreEffect(node.x, node.y - 12, pierces ? "laser" : "push", t);
+          }
         });
       });
 
@@ -4489,10 +5016,29 @@
             spaceship.lastCollectAt = t;
             captured = true;
             effects.push({ type: "bump", x: n.x, y: n.y, born: t });
-            if (isNeeded) {
+            // 🛸 Ship evolution: count this capture (golden counts double)
+            trackEvolution(n.element.symbol, t, !!n.golden);
+            if (n.golden) {
+              // ✨ Golden element: big bonus + combo boost
+              const goldBonus = Math.round(120 * scoreMult());
+              game.score += goldBonus;
+              comboCount += 1; // extra combo credit on top of the normal one
+              addScoreEffect(n.x, n.y - 34, `✨ GOLDEN! +${goldBonus}`, t);
+              effects.push({ type: "plasmaWave", x: n.x, y: n.y, born: t, color: "#ffd75e" });
+              playFanfare([880, 1175, 1568], 0.10, 0.05, 0.08);
+              n.golden = false;
+            } else if (isNeeded) {
               addScoreEffect(n.x, n.y - 20, `Got ${n.element.symbol}!`, t);
               playTone(720, 0.05);
             }
+            if (bonusRound) bonusRound.captures += 1;
+            // ⚡ Frenzy: every capture pays extra
+            if (bonusRound && bonusRound.type === "frenzy") {
+              const fb = Math.round(15 * scoreMult());
+              game.score += fb;
+              addScoreEffect(n.x, n.y - 48, `⚡ FRENZY +${fb}`, t);
+            }
+            addCombo(t, n.x, n.y);
             tryAutoSynthesize(t);
           }
         });
@@ -4761,7 +5307,8 @@
         vy: randomBetween(-0.38, 0.38),
         phase: randomBetween(0, Math.PI * 2),
         element,
-        selected: false
+        selected: false,
+        golden: Math.random() < 0.08 // replacements roll slightly better golden odds
       });
     }
 
@@ -4853,6 +5400,29 @@
         ctx.beginPath(); ctx.arc(node.x, node.y, pulseRad, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       }
+      // Golden element: shimmering gold aura + orbiting sparkles
+      if (node.golden && !isUfoCargo) {
+        ctx.save();
+        const gp = 0.7 + Math.sin(t * 0.01 + node.phase) * 0.3;
+        ctx.shadowColor = "#ffd75e";
+        ctx.shadowBlur = 30 * gp;
+        ctx.strokeStyle = `rgba(255, 215, 94, ${0.65 + gp * 0.3})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(node.x, node.y, node.size * 0.72 + 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0;
+        // Three orbiting sparkles
+        for (let s = 0; s < 3; s += 1) {
+          const a = t * 0.004 + node.phase + s * (Math.PI * 2 / 3);
+          const sx = node.x + Math.cos(a) * (node.size * 0.85);
+          const sy = node.y + Math.sin(a) * (node.size * 0.62);
+          ctx.fillStyle = "rgba(255, 240, 180, 0.95)";
+          ctx.beginPath();
+          ctx.moveTo(sx, sy - 4); ctx.lineTo(sx + 1.6, sy); ctx.lineTo(sx, sy + 4); ctx.lineTo(sx - 1.6, sy);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      }
+
       // Frozen overlay: cyan ice ring
       const isFrozen = node._frozenUntil && t < node._frozenUntil;
       if (isFrozen) {
@@ -5386,19 +5956,35 @@
       // ── SPACESHIP fighter with forward gun ──
       // Local frame: +X = forward (nose), −X = rear (engines), Y = lateral
 
-      // Engine exhaust plume behind the ship
+      // Engine exhaust plume behind the ship — grows with Hydrogen Engine evolution
       ctx.save();
+      const engLv = evoLevel("engine");
+      const armLv = evoLevel("armor");
+      const canLv = evoLevel("cannon");
+      const plumeScale = 1 + 0.45 * engLv;
       const enginePulse = 0.85 + Math.sin(t * 0.022) * 0.15;
       ctx.globalAlpha = 0.55 * glow;
-      const plume = ctx.createRadialGradient(-58, 0, 0, -90, 0, 60);
+      const plume = ctx.createRadialGradient(-58, 0, 0, -90, 0, 60 * plumeScale);
       plume.addColorStop(0,    `rgba(180, 240, 255, ${0.85 * enginePulse})`);
       plume.addColorStop(0.35, `rgba(103, 232, 249, ${0.5 * enginePulse})`);
       plume.addColorStop(0.75, "rgba(42, 168, 216, 0.18)");
       plume.addColorStop(1,    "rgba(42, 168, 216, 0)");
       ctx.fillStyle = plume;
       ctx.beginPath();
-      ctx.ellipse(-78, 0, 56 * enginePulse, 18 * enginePulse, 0, 0, Math.PI * 2);
+      ctx.ellipse(-78, 0, 56 * enginePulse * plumeScale, 18 * enginePulse * plumeScale, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Mk2 engines: white-hot core jet
+      if (engLv >= 2) {
+        ctx.globalAlpha = 0.8 * glow;
+        const core = ctx.createRadialGradient(-52, 0, 0, -76, 0, 34);
+        core.addColorStop(0, `rgba(255, 255, 255, ${0.9 * enginePulse})`);
+        core.addColorStop(0.5, `rgba(255, 220, 150, ${0.45 * enginePulse})`);
+        core.addColorStop(1, "rgba(255, 180, 80, 0)");
+        ctx.fillStyle = core;
+        ctx.beginPath();
+        ctx.ellipse(-66, 0, 30 * enginePulse, 9 * enginePulse, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
       // Twin side thruster trails
       ctx.globalAlpha = 0.45 * glow;
       const sideTrail = ctx.createRadialGradient(-50, 0, 0, -78, 0, 30);
@@ -5435,6 +6021,29 @@
       ctx.closePath();
       ctx.fill(); ctx.stroke();
 
+      // 🛡 Iron Armor evolution: steel plates riveted onto the wings
+      if (armLv >= 1) {
+        const plate = ctx.createLinearGradient(-40, 0, -16, 0);
+        plate.addColorStop(0, "rgba(110, 125, 140, 0.98)");
+        plate.addColorStop(1, "rgba(175, 195, 215, 0.98)");
+        ctx.fillStyle = plate;
+        ctx.strokeStyle = armLv >= 2 ? "rgba(255, 200, 90, 0.9)" : "rgba(30, 38, 48, 0.7)";
+        ctx.lineWidth = armLv >= 2 ? 2 : 1.4;
+        // top wing plate
+        ctx.beginPath();
+        ctx.moveTo(-16, -16); ctx.lineTo(-30, -34); ctx.lineTo(-40, -30); ctx.lineTo(-30, -16);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // bottom wing plate
+        ctx.beginPath();
+        ctx.moveTo(-16, 16); ctx.lineTo(-30, 34); ctx.lineTo(-40, 30); ctx.lineTo(-30, 16);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // rivets
+        ctx.fillStyle = "rgba(30, 38, 48, 0.85)";
+        [[-24, -24], [-33, -28], [-24, 24], [-33, 28]].forEach(([rx, ry]) => {
+          ctx.beginPath(); ctx.arc(rx, ry, 1.4, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+
       // Wing tip running lights
       ctx.shadowColor = "#e85d4f";
       ctx.shadowBlur = 12;
@@ -5465,6 +6074,16 @@
       ctx.lineTo(34, 10);
       ctx.closePath();
       ctx.fill(); ctx.stroke();
+
+      // 🛡 Armor Mk2: golden trim re-stroke of the hull outline
+      if (armLv >= 2) {
+        ctx.strokeStyle = "rgba(255, 200, 90, 0.85)";
+        ctx.lineWidth = 1.4;
+        ctx.shadowColor = "#ffd75e";
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
 
       // Center panel line
       ctx.strokeStyle = "rgba(0,0,0,0.28)";
@@ -5519,6 +6138,35 @@
       ctx.strokeStyle = "rgba(40, 50, 60, 0.9)";
       ctx.lineWidth = 1.2;
       ctx.stroke();
+
+      // ⚡ Silver Cannon evolution
+      if (canLv >= 1) {
+        // Second barrel (under-slung)
+        const barrel2 = ctx.createLinearGradient(30, 6, 30, 13);
+        barrel2.addColorStop(0, canLv >= 2 ? "rgba(255, 220, 130, 1)" : "rgba(190, 200, 215, 1)");
+        barrel2.addColorStop(1, canLv >= 2 ? "rgba(180, 130, 40, 1)"  : "rgba(90, 105, 120, 1)");
+        ctx.fillStyle = barrel2;
+        ctx.strokeStyle = "rgba(17, 22, 27, 0.6)";
+        ctx.lineWidth = 1.2;
+        roundRect(28, 6.5, 32, 5.5, 1.2);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgba(15, 18, 24, 1)";
+        ctx.beginPath(); ctx.arc(60, 9.2, 2.6, 0, Math.PI * 2); ctx.fill();
+      }
+      if (canLv >= 2) {
+        // Golden sleeve + glow on the main barrel
+        ctx.save();
+        ctx.shadowColor = "#ffd75e";
+        ctx.shadowBlur = 10;
+        const sleeve = ctx.createLinearGradient(40, -4, 40, 4);
+        sleeve.addColorStop(0, "rgba(255, 225, 140, 0.95)");
+        sleeve.addColorStop(0.5, "rgba(230, 175, 70, 0.95)");
+        sleeve.addColorStop(1, "rgba(170, 120, 40, 0.95)");
+        ctx.fillStyle = sleeve;
+        roundRect(40, -4.2, 16, 8.4, 2);
+        ctx.fill();
+        ctx.restore();
+      }
 
       // Muzzle flash if recently fired
       const sinceShot = t - (spaceship.lastShotAt || 0);
@@ -6081,13 +6729,26 @@
     }
 
     function loop(t) {
+      // Screen shake: jitter the canvas element itself (no draw-code changes)
+      if (t < shakeUntil && shakeMag > 0.3) {
+        const m = shakeMag * Math.max(0, (shakeUntil - t) / 400);
+        canvas.style.transform = `translate(${(Math.random() - 0.5) * 2 * m}px, ${(Math.random() - 0.5) * 2 * m}px)`;
+      } else if (canvas.style.transform) {
+        canvas.style.transform = "";
+        shakeMag = 0;
+      }
+      // Combo expiry
+      if (comboCount > 0 && t - comboLastAt > 4000) comboCount = 0;
+
       drawBackground(t);
-      if (running) {
+      const hitStopped = t < hitStopUntil; // freeze-frame: draw but don't update
+      if (running && !hitStopped) {
         updateNodes(t);
         updateShots(t);
         autoReactNearby(t);
         updatePowerups(t);
         pruneBuffs(t);
+        updateBonusRound(t);
         if (game.phase === "boss") checkBossPowerupDrop(t);
       }
       refreshNeededCache();
@@ -6101,6 +6762,7 @@
       drawShots(t);
       drawSpaceship(t);
       drawActiveBuffs(t);
+      drawBonusRound(t);
       drawEffects(t);
       updateGameTimer(t);
       updateTooltip();
@@ -6278,6 +6940,7 @@
 
     resize();
     updateGamePanel();
+    updateRecordsLine();
     requestAnimationFrame(loop);
 
     // ─── Arcade Polish: Twemoji + click ripple + boss critical state ───
