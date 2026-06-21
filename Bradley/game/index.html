@@ -2311,7 +2311,7 @@
     <div id="bestRecordLine" style="display:none; font-size:10px; color:rgba(253,230,138,0.85); letter-spacing:0.04em; padding:0 0 6px;"></div>
     <div class="message story-card" id="message" style="pointer-events:none; font-size:11px; min-height:auto; padding:8px 10px;">
       <strong>Save the Elements!</strong>
-      The Black Hole wants to eat everything! Fly your UFO and shoot elements to push them to safety!
+      The Black Hole wants to eat everything! Fly your UFO and shoot elements to push them to safety. Fly into the warm ☀️ Sun to repair your ship!
       <div class="manual-slots" style="display:none">
         <span class="slot" id="slotA">A</span>
         <span class="slot" id="slotB">B</span>
@@ -2835,6 +2835,7 @@
     let astronauts = [];
 
     let blackHole = null;
+    let sun = null;             // friendly sun — a safe zone that repairs the ship
     let powerups = [];          // floating power-up orbs dropped by the boss
     let activeBuffs = [];       // active buff list — { type, until, ... }
     let tornado = null;
@@ -3767,6 +3768,7 @@
       makeNodes();
       makeSpaceship();
       makeBlackHole();
+      makeSun();
     }
 
     function makeSpaceship() {
@@ -3820,6 +3822,56 @@
         lastEatAt: 0,
         lastVoidPulseAt: 0
       };
+    }
+
+    // ── THE SUN — a friendly star and "safe zone" that repairs the ship ──
+    // Sits in a corner far from the black hole. Flying into its warm glow
+    // slowly heals the UFO and keeps it safe from the black hole's pull.
+    function makeSun() {
+      sun = {
+        x: width * 0.82,
+        y: height * 0.18,
+        radius: 46,
+        glowRadius: 150,   // healing / safe-zone reach
+        phase: randomBetween(0, Math.PI * 2),
+        lastHealAt: 0,
+        flares: Array.from({ length: 9 }, (_, i) => ({
+          angle: (i / 9) * Math.PI * 2,
+          len: randomBetween(0.5, 1),
+          speed: randomBetween(0.6, 1.4) * (Math.random() < 0.5 ? 1 : -1)
+        }))
+      };
+    }
+
+    function updateSun(t) {
+      if (!sun) makeSun();
+      // Gently drift so it isn't static — slow bob around its home corner
+      sun.x = width * 0.82 + Math.sin(t * 0.00018 + sun.phase) * 40;
+      sun.y = height * 0.18 + Math.cos(t * 0.00022 + sun.phase) * 30;
+
+      if (!spaceship) return;
+      const dx = sun.x - spaceship.x;
+      const dy = sun.y - spaceship.y;
+      const dist = Math.hypot(dx, dy);
+
+      // Inside the warm glow → repair the ship over time
+      if (dist < sun.glowRadius + spaceship.radius) {
+        // Push the ship gently away from the core so it can't sit dead-center
+        if (dist < sun.radius + spaceship.radius) {
+          const d = Math.max(1, dist);
+          spaceship.vx -= (dx / d) * 0.9;
+          spaceship.vy -= (dy / d) * 0.9;
+        }
+        if (spaceship.health < spaceship.maxHealth && t - sun.lastHealAt > 360) {
+          sun.lastHealAt = t;
+          spaceship.health = Math.min(spaceship.maxHealth, spaceship.health + 4);
+          if (Math.random() < 0.55) {
+            addScoreEffect(spaceship.x, spaceship.y - 34, "☀️ +4", t);
+          }
+          effects.push({ type: "bump", x: spaceship.x, y: spaceship.y, born: t });
+          playTone(880 + Math.random() * 120, 0.04, { volume: 0.04 });
+        }
+      }
     }
 
     function makeTornado() { /* removed */ }
@@ -4338,8 +4390,12 @@
       const threatRange = blackHole.influence * 0.9;
       if (distance > threatRange) return;
 
-      const pull = (1 - distance / threatRange) * 0.13;
-      const swirl = (1 - distance / threatRange) * 0.045;
+      // ☀️ Sun safe zone: the warm glow shields the ship from the black hole's pull
+      const inSun = sun && Math.hypot(sun.x - spaceship.x, sun.y - spaceship.y) < sun.glowRadius + spaceship.radius;
+      const sunShield = inSun ? 0.25 : 1;
+
+      const pull = (1 - distance / threatRange) * 0.13 * sunShield;
+      const swirl = (1 - distance / threatRange) * 0.045 * sunShield;
       spaceship.vx += (dx / distance) * pull - (dy / distance) * swirl;
       spaceship.vy += (dy / distance) * pull + (dx / distance) * swirl;
 
@@ -6427,6 +6483,86 @@
     function drawMeteors(_t){}
     function drawTsunami(_t){}
 
+    function drawSun(t) {
+      if (!sun) return;
+      ctx.save();
+      ctx.translate(sun.x, sun.y);
+
+      const pulse = 1 + Math.sin(t * 0.003 + sun.phase) * 0.04;
+
+      // Soft outer safe-zone glow (warm halo)
+      const halo = ctx.createRadialGradient(0, 0, sun.radius * 0.5, 0, 0, sun.glowRadius);
+      halo.addColorStop(0,   "rgba(255, 220, 120, 0.30)");
+      halo.addColorStop(0.4, "rgba(255, 180, 70, 0.14)");
+      halo.addColorStop(1,   "rgba(255, 150, 50, 0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(0, 0, sun.glowRadius * pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Animated solar flares / rays
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      sun.flares.forEach((fl) => {
+        const a = fl.angle + t * 0.0004 * fl.speed;
+        const inner = sun.radius * 0.95;
+        const outer = sun.radius * (1.35 + fl.len * 0.5) + Math.sin(t * 0.006 + fl.angle) * 6;
+        const grad = ctx.createLinearGradient(
+          Math.cos(a) * inner, Math.sin(a) * inner,
+          Math.cos(a) * outer, Math.sin(a) * outer
+        );
+        grad.addColorStop(0, "rgba(255, 210, 90, 0.65)");
+        grad.addColorStop(1, "rgba(255, 140, 40, 0)");
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+        ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer);
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      // Corona ring
+      ctx.shadowColor = "#ffcd55";
+      ctx.shadowBlur = 40;
+      const corona = ctx.createRadialGradient(0, 0, sun.radius * 0.4, 0, 0, sun.radius * 1.15);
+      corona.addColorStop(0,   "rgba(255, 245, 200, 1)");
+      corona.addColorStop(0.6, "rgba(255, 200, 90, 1)");
+      corona.addColorStop(1,   "rgba(255, 150, 50, 0.85)");
+      ctx.fillStyle = corona;
+      ctx.beginPath();
+      ctx.arc(0, 0, sun.radius * pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Bright core
+      ctx.shadowBlur = 0;
+      const core = ctx.createRadialGradient(-sun.radius * 0.2, -sun.radius * 0.2, 2, 0, 0, sun.radius * 0.9);
+      core.addColorStop(0, "rgba(255, 255, 245, 1)");
+      core.addColorStop(1, "rgba(255, 210, 110, 0.9)");
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(0, 0, sun.radius * 0.78 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Friendly face — two eyes + smile
+      ctx.fillStyle = "rgba(120, 70, 20, 0.78)";
+      ctx.beginPath(); ctx.arc(-13, -6, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(13, -6, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(120, 70, 20, 0.78)";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(0, 4, 13, 0.2 * Math.PI, 0.8 * Math.PI);
+      ctx.stroke();
+      // rosy cheeks
+      ctx.fillStyle = "rgba(255, 140, 90, 0.4)";
+      ctx.beginPath(); ctx.arc(-20, 4, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(20, 4, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.restore();
+    }
+
     function drawBlackHole(t) {
       if (!blackHole) return;
       const isBoss = game.phase === "boss";
@@ -6744,6 +6880,7 @@
       const hitStopped = t < hitStopUntil; // freeze-frame: draw but don't update
       if (running && !hitStopped) {
         updateNodes(t);
+        updateSun(t);
         updateShots(t);
         autoReactNearby(t);
         updatePowerups(t);
@@ -6755,6 +6892,7 @@
       drawBonds();
       compounds = compounds.filter((compound) => t - compound.createdAt < 9500);
       compounds.forEach((compound) => drawCompound(compound, t));
+      drawSun(t);
       if (hazards.blackHole) drawBlackHole(t);
       nodes.forEach((node) => drawElementTile(node, t));
       drawCompoundCargo(t);
