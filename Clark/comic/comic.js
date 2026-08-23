@@ -28,19 +28,51 @@ function renderIndex() {
   }).join('');
 }
 
+// Work out how wide a page actually renders, so the browser can pick the right file.
+//
+// On desktop the two pages sit side by side and the image is capped by height
+// (`max-height: min(82vh, 980px)` in comic.css), not width — so the slot width
+// follows from each page's aspect ratio, and the column itself caps it at ~670px.
+// Below 900px the grid collapses to one column and the image goes full width.
+function sizesFor(width, height) {
+  const ratio = width / height;
+  const fromViewportHeight = (ratio * 82).toFixed(1);   // 82vh, expressed as a width
+  const fromMaxHeight = Math.round(ratio * 980);         // the 980px hard cap
+  return `(max-width: 900px) 92vw, min(${fromViewportHeight}vh, ${fromMaxHeight}px, 670px)`;
+}
+
 function imageBlock(page, type) {
   const isSketch = type === 'sketch';
   const originalExt = isSketch ? 'jpg' : 'png';
   const label = isSketch ? 'Sketch' : 'Comic';
-  const originalSrc = `assets/${type}/page-${pad(page)}.${originalExt}`;
-  const displaySrc = `assets/${type}-web/page-${pad(page)}.webp`;
+  const key = pad(page);
+  const originalSrc = `assets/${type}/page-${key}.${originalExt}`;
+  const displaySrc = `assets/${type}-web/page-${key}.webp`;
+  const smallSrc = `assets/${type}-web-640/page-${key}.webp`;
   const alt = isSketch ? `Original sketch for page ${page}` : `Finished comic page ${page}`;
 
-  return `
+  const size = (typeof PAGE_SIZES !== 'undefined' && PAGE_SIZES[type]) ? PAGE_SIZES[type][key] : null;
+  if (!size) {
+    return `
     <figure class="page-card">
       <h3>${label}</h3>
       <a href="${originalSrc}" target="_blank" rel="noopener">
         <img src="${displaySrc}" loading="lazy" decoding="async" alt="${alt}">
+      </a>
+    </figure>
+  `;
+  }
+
+  const [width, height, smallWidth] = size;
+  return `
+    <figure class="page-card">
+      <h3>${label}</h3>
+      <a href="${originalSrc}" target="_blank" rel="noopener">
+        <img src="${displaySrc}"
+             srcset="${smallSrc} ${smallWidth}w, ${displaySrc} ${width}w"
+             sizes="${sizesFor(width, height)}"
+             width="${width}" height="${height}"
+             loading="lazy" decoding="async" alt="${alt}">
       </a>
     </figure>
   `;

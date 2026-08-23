@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="That page drifted off the map. Head back to the launchpad.">
+  <meta name="theme-color" content="#05081a">
+
+  <link rel="icon" href="/CLARKBRAD-PROJECT/assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/CLARKBRAD-PROJECT/assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/CLARKBRAD-PROJECT/assets/apple-touch-icon.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Clark &amp; Bradley&#x27;s Universe">
+  <meta property="og:title" content="Lost in Space">
+  <meta property="og:description" content="That page drifted off the map. Head back to the launchpad.">
+  <meta property="og:url" content="https://sean519.github.io/CLARKBRAD-PROJECT/404.html">
+  <meta property="og:image" content="https://sean519.github.io/CLARKBRAD-PROJECT/assets/og-cover.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Clark &amp; Bradley&#x27;s Universe">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>Lost in Space</title>
+  <!-- GitHub Pages can serve this file for a URL at any depth, so every path
+       here is absolute from the site root rather than relative. -->
+  <link rel="stylesheet" href="/CLARKBRAD-PROJECT/assets/css/cosmos.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700&family=Audiowide&display=swap');
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      min-height: 100%;
+      background:
+        radial-gradient(ellipse at 12% 8%,  rgba(40, 130, 220, 0.32), transparent 38%),
+        radial-gradient(ellipse at 88% 16%, rgba(232, 93, 79, 0.28), transparent 36%),
+        radial-gradient(ellipse at 50% 92%, rgba(110, 70, 180, 0.22), transparent 46%),
+        #05081a;
+      color: #e8f0fe;
+      font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px 20px;
+    }
+
+    .nebula b:nth-child(1) { width: 420px; height: 420px; top: -70px; left: -70px;
+      background: radial-gradient(circle, #2aa8d8, transparent 70%); }
+    .nebula b:nth-child(2) { width: 460px; height: 460px; bottom: -110px; right: -70px;
+      background: radial-gradient(circle, #ff9a55, transparent 70%); animation-delay: -6s; }
+
+    .frame { position: relative; z-index: 2; max-width: 620px; }
+
+    .astro {
+      font-size: clamp(64px, 14vw, 108px);
+      line-height: 1;
+      margin-bottom: 8px;
+      animation: bob 4s ease-in-out infinite alternate;
+    }
+    @keyframes bob {
+      from { transform: translateY(0) rotate(-6deg); }
+      to   { transform: translateY(-16px) rotate(6deg); }
+    }
+
+    h1 {
+      font-family: 'Audiowide', 'Orbitron', sans-serif;
+      font-size: clamp(30px, 6vw, 54px);
+      margin: 0 0 14px;
+      background: linear-gradient(135deg, #ffffff 0%, #a5e0ff 40%, #ffb38a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    p {
+      color: rgba(200, 220, 255, 0.75);
+      line-height: 1.7;
+      margin: 0 0 32px;
+      font-size: clamp(14px, 2vw, 17px);
+    }
+
+    .links { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 26px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.06);
+      color: #e8f0fe;
+      transition: transform 200ms, border-color 200ms, background 200ms;
+    }
+    .btn:hover, .btn:focus-visible {
+      transform: translateY(-2px);
+      border-color: rgba(165, 224, 255, 0.65);
+      background: rgba(165, 224, 255, 0.14);
+    }
+    .btn-primary {
+      border-color: transparent;
+      background: linear-gradient(135deg, #a5e0ff, #67e8f9);
+      color: #04101e;
+    }
+    .btn-primary:hover, .btn-primary:focus-visible {
+      border-color: transparent;
+      background: linear-gradient(135deg, #c3ecff, #8ef0ff);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .astro { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="nebula" aria-hidden="true"><b></b><b></b></div>
+
+  <main class="frame">
+    <div class="astro" aria-hidden="true">🧑‍🚀</div>
+    <h1>Lost in Space</h1>
+    <p>This page drifted off the map. Nothing is broken — that address just doesn't exist out here.</p>
+    <div class="links">
+      <a class="btn btn-primary" href="/CLARKBRAD-PROJECT/">Back to the launchpad</a>
+      <a class="btn" href="/CLARKBRAD-PROJECT/Clark/">Clark's Universe</a>
+      <a class="btn" href="/CLARKBRAD-PROJECT/Bradley/">Bradley's Universe</a>
+    </div>
+  </main>
+</body>
+</html>

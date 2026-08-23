@@ -3,8 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Clark&#x27;s hub — the Space Lab game, his comic, and his videos.">
+  <meta name="theme-color" content="#05081a">
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Clark &amp; Bradley&#x27;s Universe">
+  <meta property="og:title" content="Clark&#x27;s Universe">
+  <meta property="og:description" content="Clark&#x27;s hub — the Space Lab game, his comic, and his videos.">
+  <meta property="og:url" content="https://sean519.github.io/CLARKBRAD-PROJECT/Clark/">
+  <meta property="og:image" content="https://sean519.github.io/CLARKBRAD-PROJECT/assets/og-cover.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Clark &amp; Bradley&#x27;s Universe">
+  <meta name="twitter:card" content="summary_large_image">
   <title>Clark · Hub</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/cosmos.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700;800&family=Audiowide&display=swap');
 
@@ -28,43 +46,22 @@
       padding: 20px;
     }
 
-    /* Twinkling stars */
-    .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-    .stars::before, .stars::after {
-      content: ""; position: absolute; inset: -50%;
-      background-image:
-        radial-gradient(1.5px 1.5px at 13% 22%, #fff, transparent 60%),
-        radial-gradient(1px 1px   at 27% 78%, #cfe6ff, transparent 60%),
-        radial-gradient(2px 2px   at 41% 14%, #fff, transparent 60%),
-        radial-gradient(1px 1px   at 58% 64%, #aee0ff, transparent 60%),
-        radial-gradient(1.5px 1.5px at 72% 36%, #fff, transparent 60%),
-        radial-gradient(1px 1px   at 84% 82%, #d4ecff, transparent 60%),
-        radial-gradient(1.2px 1.2px at 92% 12%, #fff, transparent 60%),
-        radial-gradient(1px 1px   at  6% 56%, #aee0ff, transparent 60%);
-      background-size: 100% 100%;
-      animation: twinkle 4s ease-in-out infinite alternate, drift 140s linear infinite;
-      opacity: 0.75;
+    /* Starfield + nebula structure lives in ../assets/css/cosmos.css;
+       this page only overrides the palette. */
+    :root {
+      --star-warm: #cfe6ff;
+      --star-glow: #aee0ff;
+      --star-cool: #d4ecff;
+      --star-pale: #aee0ff;
     }
-    .stars::after {
-      animation: twinkle 6s ease-in-out 0.8s infinite alternate, drift 220s linear reverse infinite;
-      opacity: 0.5; filter: blur(0.4px);
-    }
-    @keyframes twinkle { from { opacity: 0.3; } to { opacity: 0.95; } }
-    @keyframes drift   { from { transform: translate3d(0,0,0); } to { transform: translate3d(-3%, -2%, 0); } }
 
-    .nebula { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-    .nebula b {
-      position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.32;
-      animation: nebulaFloat 18s ease-in-out infinite alternate;
-    }
+    /* Nebula blobs — this page's own colours and layout */
     .nebula b:nth-child(1) { width: 420px; height: 420px; top: -60px; left: -80px;
       background: radial-gradient(circle, #2aa8d8, transparent 70%); }
     .nebula b:nth-child(2) { width: 480px; height: 480px; bottom: -120px; right: 8%;
       background: radial-gradient(circle, #67e8f9, transparent 70%); animation-delay: -6s; }
     .nebula b:nth-child(3) { width: 360px; height: 360px; top: 36%; left: 28%;
       background: radial-gradient(circle, #06b6d4, transparent 70%); animation-delay: -12s; opacity: 0.22; }
-    @keyframes nebulaFloat { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,-30px) scale(1.12); } }
-
     .frame { position: relative; z-index: 2; max-width: 1100px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 36px; }
 
     .breadcrumb {

@@ -1,8 +1,25 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Save the elements! Vacuum, synthesize, and blast the void boss across endless waves.">
+  <meta name="theme-color" content="#030818">
+
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../../assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Clark &amp; Bradley&#x27;s Universe">
+  <meta property="og:title" content="Brad&#x27;s Universe">
+  <meta property="og:description" content="Save the elements! Vacuum, synthesize, and blast the void boss across endless waves.">
+  <meta property="og:url" content="https://sean519.github.io/CLARKBRAD-PROJECT/Bradley/game/">
+  <meta property="og:image" content="https://sean519.github.io/CLARKBRAD-PROJECT/assets/og-cover.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Clark &amp; Bradley&#x27;s Universe">
+  <meta name="twitter:card" content="summary_large_image">
   <title>Brad's Universe</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
@@ -1183,6 +1200,33 @@
       pointer-events: auto;
       max-width: none;
     }
+
+    .back-link {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(232, 240, 254, 0.82);
+      text-decoration: none;
+      transition: color 180ms, border-color 180ms, background 180ms;
+    }
+
+    .back-link svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .back-link:hover,
+    .back-link:focus-visible {
+      color: #fff;
+      border-color: rgba(255, 154, 85, 0.6);
+      background: rgba(255, 154, 85, 0.18);
+    }
     h1 {
       font-size: clamp(14px, 2.2vw, 22px);
       line-height: 1;
@@ -2243,7 +2287,7 @@
 </head>
 <body>
   <!-- Twemoji parser (replaces emoji with crisp SVG icons) -->
-  <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@17.0.3/dist/twemoji.min.js" crossorigin="anonymous"></script>
 
   <!-- Animated parallax starfield + nebula glow -->
   <div class="star-layer" aria-hidden="true"></div>
@@ -2252,6 +2296,12 @@
   <canvas id="field" aria-label="Floating interactive chemistry field"></canvas>
 
   <div class="topbar">
+    <a class="back-link" href="../index.html" aria-label="Back to Bradley's Hub" title="Back to Bradley's Hub">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 12H5"></path>
+        <path d="m12 19-7-7 7-7"></path>
+      </svg>
+    </a>
     <section class="brand">
       <h1>Brad's Universe</h1>
     </section>

@@ -1,4 +1,4 @@
-﻿:root {
+:root {
       --ink: #101418;
       --paper: #f7f1e5;
       --line: rgba(17, 22, 27, 0.18);
@@ -79,6 +79,38 @@
     .brand {
       pointer-events: auto;
       max-width: min(560px, calc(100vw - 130px));
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--hud-line);
+      background: var(--hud);
+      color: rgba(234, 248, 255, 0.78);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-decoration: none;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: color 180ms, border-color 180ms, background 180ms;
+    }
+
+    .back-link svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .back-link:hover,
+    .back-link:focus-visible {
+      color: #fff;
+      border-color: rgba(135, 218, 255, 0.6);
+      background: rgba(5, 9, 18, 0.92);
     }
 
     h1 {

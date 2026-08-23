@@ -1,0 +1,94 @@
+/* ─────────────────────────────────────────────────────────────
+   Shared cosmic backdrop — twinkling starfield + drifting nebula.
+
+   Every hub page used to carry its own copy of this. The geometry
+   and the animations now live here once; each page still picks its
+   own palette by setting the custom properties below, and keeps its
+   own `.nebula b:nth-child()` rules since the blob layout is part of
+   that page's design.
+
+   Markup expected:
+     <div class="stars" aria-hidden="true"></div>
+     <div class="nebula" aria-hidden="true"><b></b><b></b><b></b></div>
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --star-warm: #cfe6ff;  /* star at 27% 78% */
+  --star-glow: #fce8a8;  /* star at 58% 64% */
+  --star-cool: #d4c2ff;  /* star at 84% 82% */
+  --star-pale: #aee0ff;  /* star at  6% 56% */
+  --nebula-opacity: 0.32;
+}
+
+.stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.stars::before,
+.stars::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background-image:
+    radial-gradient(1.5px 1.5px at 13% 22%, #fff, transparent 60%),
+    radial-gradient(1px 1px     at 27% 78%, var(--star-warm), transparent 60%),
+    radial-gradient(2px 2px     at 41% 14%, #fff, transparent 60%),
+    radial-gradient(1px 1px     at 58% 64%, var(--star-glow), transparent 60%),
+    radial-gradient(1.5px 1.5px at 72% 36%, #fff, transparent 60%),
+    radial-gradient(1px 1px     at 84% 82%, var(--star-cool), transparent 60%),
+    radial-gradient(1.2px 1.2px at 92% 12%, #fff, transparent 60%),
+    radial-gradient(1px 1px     at  6% 56%, var(--star-pale), transparent 60%);
+  background-size: 100% 100%;
+  animation: twinkle 4s ease-in-out infinite alternate, drift 140s linear infinite;
+  opacity: 0.75;
+}
+
+.stars::after {
+  animation: twinkle 6s ease-in-out 0.8s infinite alternate, drift 220s linear reverse infinite;
+  opacity: 0.5;
+  filter: blur(0.4px);
+}
+
+@keyframes twinkle {
+  from { opacity: 0.3; }
+  to   { opacity: 0.95; }
+}
+
+@keyframes drift {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-3%, -2%, 0); }
+}
+
+.nebula {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.nebula b {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: var(--nebula-opacity);
+  animation: nebulaFloat 18s ease-in-out infinite alternate;
+}
+
+@keyframes nebulaFloat {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(40px, -30px) scale(1.12); }
+}
+
+/* Respect a reduced-motion preference: keep the art, drop the drift. */
+@media (prefers-reduced-motion: reduce) {
+  .stars::before,
+  .stars::after,
+  .nebula b {
+    animation: none;
+  }
+}

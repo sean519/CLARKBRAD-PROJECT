@@ -1,4 +1,4 @@
-﻿const canvas = document.querySelector("#field");
+const canvas = document.querySelector("#field");
     const ctx = canvas.getContext("2d");
     const message = document.querySelector("#message");
     const autoMessage = document.querySelector("#autoMessage");
