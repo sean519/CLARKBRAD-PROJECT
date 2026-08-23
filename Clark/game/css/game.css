@@ -81,29 +81,43 @@
       max-width: min(560px, calc(100vw - 130px));
     }
 
+    /* Back to the hub — same button language as Bradley's game: a round
+       arrow badge in the top-left corner, here with a visible label. */
     .back-link {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      margin-bottom: 8px;
-      padding: 6px 12px;
+      gap: 9px;
+      margin-bottom: 12px;
+      padding: 5px 17px 5px 5px;
       border-radius: 999px;
       border: 1px solid var(--hud-line);
       background: var(--hud);
-      color: rgba(234, 248, 255, 0.78);
-      font-size: 11px;
+      color: rgba(234, 248, 255, 0.88);
+      font-size: 12px;
       font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       text-decoration: none;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      transition: color 180ms, border-color 180ms, background 180ms;
+      transition: color 180ms, border-color 180ms, background 180ms, transform 180ms;
+    }
+
+    .back-link-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(135, 218, 255, 0.28);
+      background: rgba(135, 218, 255, 0.14);
+      transition: background 180ms, border-color 180ms;
     }
 
     .back-link svg {
-      width: 14px;
-      height: 14px;
+      width: 15px;
+      height: 15px;
     }
 
     .back-link:hover,
@@ -111,6 +125,12 @@
       color: #fff;
       border-color: rgba(135, 218, 255, 0.6);
       background: rgba(5, 9, 18, 0.92);
+    }
+
+    .back-link:hover .back-link-icon,
+    .back-link:focus-visible .back-link-icon {
+      border-color: rgba(135, 218, 255, 0.6);
+      background: rgba(135, 218, 255, 0.28);
     }
 
     h1 {
