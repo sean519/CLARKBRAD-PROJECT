@@ -448,6 +448,72 @@ const canvas = document.querySelector("#field");
       tsunami: false
     };
 
+    // ── Game feel ──────────────────────────────────────────────────────────
+    // Impacts had no physical consequence on screen: the black hole simply lost
+    // health. A short camera shake, a frame of hitstop and an expanding
+    // shockwave are the three cheapest things that make a hit read as a hit.
+    //
+    // Note this deliberately uses its own reduced-motion query rather than
+    // lowPowerMode(): a tablet is "low power" but should still get the shake,
+    // whereas someone who asked for reduced motion should not.
+    const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let reducedMotion = reducedMotionQuery.matches;
+    if (reducedMotionQuery.addEventListener) {
+      reducedMotionQuery.addEventListener("change", () => { reducedMotion = reducedMotionQuery.matches; });
+    }
+
+    let shakeMagnitude = 0;
+    let shakeUntil = 0;
+    let shakeDuration = 1;
+
+    const MAX_SHAKE = 10;   // px per axis; the two axes combine, so this is plenty
+    function addScreenShake(magnitude, duration = 260, t = performance.now()) {
+      if (reducedMotion) return;
+      magnitude = Math.min(magnitude, MAX_SHAKE);
+      // Keep the strongest shake in flight rather than letting them stack.
+      if (magnitude >= shakeMagnitude || t > shakeUntil) {
+        shakeMagnitude = Math.max(magnitude, t < shakeUntil ? shakeMagnitude : 0);
+        shakeDuration = duration;
+        shakeUntil = t + duration;
+      }
+    }
+
+    function currentShakeOffset(t) {
+      if (t >= shakeUntil || shakeMagnitude <= 0) return null;
+      // Quadratic falloff feels like a real impact; linear feels like a wobble.
+      const remaining = (shakeUntil - t) / shakeDuration;
+      const strength = shakeMagnitude * remaining * remaining;
+      if (strength < 0.15) return null;
+      return {
+        x: Math.sin(t * 0.083) * strength,
+        y: Math.cos(t * 0.117) * strength
+      };
+    }
+
+    // Hitstop: hold the simulation for a few milliseconds so a big hit lands.
+    // It works by pushing the next fixed step back, so it cannot desync physics.
+    let hitstopUntil = 0;
+    function addHitstop(ms, t = performance.now()) {
+      if (reducedMotion) return;
+      hitstopUntil = Math.max(hitstopUntil, t + Math.min(ms, 90));
+    }
+
+    function addShockwave(x, y, radius, color, now) {
+      if (reducedMotion) return;
+      if (lowPowerCached && effects.length > 40) return;
+      effects.push({ type: "shockwave", x, y, radius, color, born: now });
+    }
+
+    function addMuzzleFlash(x, y, angle, color, now) {
+      if (reducedMotion) return;
+      if (effects.length > 60) return;
+      effects.push({ type: "muzzle", x, y, angle, color, born: now });
+    }
+
+    // easing helpers — linear motion is what makes effects look cheap
+    const easeOutCubic = (k) => 1 - Math.pow(1 - k, 3);
+    const easeOutBack = (k) => 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
+
     function randomBetween(min, max) {
       return min + Math.random() * (max - min);
     }
@@ -1072,6 +1138,7 @@ const canvas = document.querySelector("#field");
     }
 
     function recordCompound(formula, x, y, source = "field") {
+      addShockwave(x, y, 52, "#67e8f9", performance.now());
       if (!formula) return;
       const mission = currentMission();
       const wasNew = !game.discovered.has(formula);
@@ -2814,6 +2881,12 @@ const canvas = document.querySelector("#field");
         shots.push(makeShot(angle));
       }
       spaceship.lastShotAt = t;
+      addMuzzleFlash(
+        spaceship.x + Math.cos(angle) * 62,
+        spaceship.y + Math.sin(angle) * 38,
+        angle, spec.color, t
+      );
+      if (weapon === "megaboom") addScreenShake(3.2, 160, t);
       playTone(spec.tone, spec.toneLength);
     }
 
@@ -2840,6 +2913,9 @@ const canvas = document.querySelector("#field");
     function detonateMegaboom(x, y, t, power = 1) {
       const radius = 138;
       addExplosionEffect(x, y, t);
+      addShockwave(x, y, radius, "#ffcf33", t);
+      addScreenShake(7 + 2 * Math.min(power, 2), 340, t);
+      addHitstop(70, t);
       if (blackHole && hazards.blackHole) {
         const distance = Math.hypot(x - blackHole.x, y - blackHole.y);
         if (distance < radius + blackHole.radius) {
@@ -2888,6 +2964,14 @@ const canvas = document.querySelector("#field");
                 spurtSwallowedElements(t, shot.kind === "laser" ? 1 : 2 + (shot.power || 1), shot.power || 1);
               }
               effects.push({ type: "bump", x: shot.x, y: shot.y, born: t });
+              // The laser fires constantly, so it gets a far gentler kick.
+              if (shot.kind === "laser") {
+                addScreenShake(1.6, 130, t);
+              } else {
+                addScreenShake(4.5, 200, t);
+                addHitstop(28, t);
+                addShockwave(shot.x, shot.y, 34, shot.color || "#fff4b8", t);
+              }
               addScoreEffect(shot.x, shot.y - 10, shot.kind === "laser" ? "laser" : "hit", t);
             }
           }
@@ -3191,6 +3275,8 @@ const canvas = document.querySelector("#field");
     }
 
     function damageSpaceStation(amount, label, t = performance.now()) {
+      addScreenShake(6.5, 300, t);
+      flashHitVignette();
       if (!spaceStation || t - (spaceStation.lastDamageAt || 0) < 500) return;
       spaceStation.lastDamageAt = t;
       spaceStation.health = Math.max(0, spaceStation.health - amount);
@@ -3918,6 +4004,39 @@ const canvas = document.querySelector("#field");
       return true;
     }
 
+    function drawShockwaveEffect(effect, t) {
+      const age = t - effect.born;
+      const k = age / 520;
+      if (k > 1) return false;
+      const eased = easeOutCubic(k);
+      ctx.save();
+      ctx.globalAlpha = (1 - k) * 0.75;
+      ctx.strokeStyle = effect.color || "#ffcf33";
+      ctx.lineWidth = Math.max(1, 7 * (1 - k));
+      ctx.beginPath();
+      ctx.arc(effect.x, effect.y, 8 + effect.radius * eased, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      return true;
+    }
+
+    function drawMuzzleEffect(effect, t) {
+      const age = t - effect.born;
+      const k = age / 110;
+      if (k > 1) return false;
+      const size = 16 * (1 - k) + 5;
+      ctx.save();
+      ctx.globalAlpha = (1 - k) * 0.9;
+      ctx.translate(effect.x, effect.y);
+      ctx.rotate(effect.angle);
+      ctx.fillStyle = effect.color || "#fff4b8";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, size, size * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return true;
+    }
+
     function drawEffects(t) {
       effects = effects.filter((effect) => {
         if (t < effect.born) return true;
@@ -3926,6 +4045,8 @@ const canvas = document.querySelector("#field");
         if (effect.type === "synthesis") return drawSynthesisEffect(effect, t);
         if (effect.type === "bump") return drawBumpEffect(effect, t);
         if (effect.type === "score") return drawScoreEffect(effect, t);
+        if (effect.type === "shockwave") return drawShockwaveEffect(effect, t);
+        if (effect.type === "muzzle") return drawMuzzleEffect(effect, t);
         return drawSimpleEffect(effect, t);
       });
     }
@@ -4810,7 +4931,7 @@ const canvas = document.querySelector("#field");
     function loop(t) {
       const low = lowPowerCached;
       // A little tolerance so a 60Hz display never skips a step to rounding.
-      const shouldStep = t >= nextSimulationAt - 1;
+      const shouldStep = t >= nextSimulationAt - 1 && t >= hitstopUntil;
       if (shouldStep) {
         // After a tab switch or a long stall, resync instead of catching up.
         nextSimulationAt = (t - nextSimulationAt > 250)
@@ -4818,6 +4939,13 @@ const canvas = document.querySelector("#field");
           : nextSimulationAt + SIMULATION_STEP_MS;
       }
       drawBackground(t);
+      // Everything after the backdrop rides the camera shake. The backdrop
+      // itself stays put, which keeps the cleared area exact and reads fine.
+      const shake = currentShakeOffset(t);
+      if (shake) {
+        ctx.save();
+        ctx.translate(shake.x, shake.y);
+      }
       if (running && shouldStep) {
         if (fireHeld) shootUfo(t);
         updateNodes(t);
@@ -4841,6 +4969,7 @@ const canvas = document.querySelector("#field");
       drawShots(t);
       drawSpaceship(t);
       drawEffects(t);
+      if (shake) ctx.restore();
       updateGameTimer(t);
       updateTooltip();
       if (readout?.dataset.debug === "true" && t - lastReadoutUpdateAt > 500) {
@@ -5088,6 +5217,7 @@ const canvas = document.querySelector("#field");
       if (!WEAPONS[name]) return;
       selectedWeapon = name;
       weaponSlots.forEach((parts, key) => parts.slot.classList.toggle("is-active", key === name));
+      if (!reducedMotion) replayAnimation(weaponSlots.get(name)?.slot, "just-picked");
       weaponButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.weapon === name));
       setAutoMessage("Weapon selected", `${WEAPONS[name].label} — ${WEAPONS[name].role}.`);
       playTone(720, 0.05);
@@ -5114,6 +5244,22 @@ const canvas = document.querySelector("#field");
 
     // -- the rest of the HUD, refreshed on the same cadence as the panel ------
     let hudChipsKey = "";
+    let lastHudScore = null;
+    let previouslyCollected = new Set();
+    const hitFlashLayer = document.querySelector("#hitFlash");
+
+    // Restart a CSS animation by removing the class and forcing a reflow.
+    function replayAnimation(element, className) {
+      if (!element) return;
+      element.classList.remove(className);
+      void element.offsetWidth;
+      element.classList.add(className);
+    }
+
+    function flashHitVignette() {
+      if (reducedMotion) return;
+      replayAnimation(hitFlashLayer, "is-firing");
+    }
 
     function updatePlayHud() {
       const mission = currentMission();
@@ -5127,9 +5273,23 @@ const canvas = document.querySelector("#field");
         hudChips.innerHTML = targets
           .map((item) => `<span class="hud-chip ${item.collected ? "is-collected" : ""}">${item.label}</span>`)
           .join("");
+        // Pop only the chips that became collected since the last render.
+        const nowCollected = new Set(targets.filter((item) => item.collected).map((item) => item.label));
+        if (!reducedMotion) {
+          targets.forEach((item, index) => {
+            if (item.collected && !previouslyCollected.has(item.label)) {
+              hudChips.children[index]?.classList.add("just-collected");
+            }
+          });
+        }
+        previouslyCollected = nowCollected;
       }
 
-      if (hudScore) hudScore.textContent = game.score;
+      if (hudScore && game.score !== lastHudScore) {
+        hudScore.textContent = game.score;
+        if (lastHudScore !== null && game.score > lastHudScore) replayAnimation(hudScore, "is-bumped");
+        lastHudScore = game.score;
+      }
       if (hudTime) {
         const secondsLeft = Math.max(0, Math.ceil(game.timeLeft));
         hudTime.textContent = secondsLeft;
