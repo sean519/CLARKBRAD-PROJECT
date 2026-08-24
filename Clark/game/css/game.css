@@ -25,6 +25,8 @@
     body {
       height: 100%;
       margin: 0;
+      overscroll-behavior: none;
+      -webkit-text-size-adjust: 100%;
     }
 
     body {
@@ -57,6 +59,8 @@
     canvas {
       position: fixed;
       inset: 0;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
       width: 100%;
       height: 100%;
       display: block;
@@ -1617,6 +1621,7 @@
       color: var(--ink);
     }
 
+
     @media (pointer: coarse), (max-width: 900px), (prefers-reduced-motion: reduce) {
       body::before {
         display: none;
@@ -1710,5 +1715,109 @@
       .buddy {
         width: 74px;
         min-height: 116px;
+      }
+    }
+
+
+    /* -- Touch controls -----------------------------------------------------
+       Hidden on mouse-driven machines; on a tablet these are the primary way to
+       play, so they are large, high-contrast and sat inside the safe area. */
+    .touch-pad {
+      display: none;
+    }
+
+    @media (pointer: coarse) {
+      .touch-pad {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 6;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 20px calc(20px + env(safe-area-inset-bottom, 0px));
+        pointer-events: none;
+      }
+
+      .touch-pad-right {
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+      }
+
+      .touch-btn {
+        pointer-events: auto;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        width: 88px;
+        height: 88px;
+        padding: 0;
+        border-radius: 50%;
+        border: 2px solid rgba(135, 218, 255, 0.42);
+        background: rgba(5, 9, 18, 0.82);
+        color: var(--hud-text);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+        transition: transform 120ms, background 120ms, border-color 120ms;
+      }
+
+      .touch-btn svg {
+        width: 30px;
+        height: 30px;
+      }
+
+      .touch-btn:active,
+      .touch-btn.is-held {
+        transform: scale(0.94);
+        border-color: rgba(135, 218, 255, 0.9);
+        background: rgba(15, 155, 143, 0.5);
+      }
+
+      .touch-fire {
+        width: 104px;
+        height: 104px;
+        border-color: rgba(255, 207, 51, 0.55);
+        background: rgba(60, 22, 8, 0.82);
+      }
+
+      .touch-fire:active {
+        background: rgba(232, 93, 79, 0.62);
+      }
+
+      /* Keep the mission panel from swallowing the play field on a tablet, and
+         leave room for the thumb controls underneath it. */
+      .game-panel {
+        width: min(300px, 42vw);
+        bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+        font-size: 11px;
+      }
+
+      .lab-panel {
+        display: none;
+      }
+    }
+
+    /* Portrait tablets and phones: the side panel becomes a short bottom sheet
+       so the game itself keeps most of the screen. */
+    @media (pointer: coarse) and (orientation: portrait) {
+      .game-panel {
+        top: auto;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-height: 34vh;
+        bottom: calc(126px + env(safe-area-inset-bottom, 0px));
       }
     }

@@ -361,7 +361,6 @@ const canvas = document.querySelector("#field");
     let energyOrbs = [];
     let shots = [];
     let spaceshipPressed = false;
-    let suppressCanvasClick = false;
     let processingStation = false;
     let stationReactionQueued = false;
     let stationCompletionQueued = false;
@@ -378,8 +377,15 @@ const canvas = document.querySelector("#field");
     const MISSION_TIME_LIMIT = 90;
     const BLACK_HOLE_BOSS_EATEN_THRESHOLD = 24;
     const RANKING_STORAGE_KEY = "clark-space-lab-best-times-v1";
-    const lowPowerMode = () => window.matchMedia("(pointer: coarse), (max-width: 900px), (prefers-reduced-motion: reduce)").matches
-      || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+    // Cached deliberately: this used to call window.matchMedia once per element
+    // tile per frame — about 7,000 media-query evaluations a second.
+    const lowPowerQuery = window.matchMedia("(pointer: coarse), (max-width: 900px), (prefers-reduced-motion: reduce)");
+    const weakCpu = Boolean(navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+    let lowPowerCached = lowPowerQuery.matches || weakCpu;
+    const lowPowerMode = () => lowPowerCached;
+    const refreshLowPowerMode = () => { lowPowerCached = lowPowerQuery.matches || weakCpu; };
+    if (lowPowerQuery.addEventListener) lowPowerQuery.addEventListener("change", refreshLowPowerMode);
+    else if (lowPowerQuery.addListener) lowPowerQuery.addListener(refreshLowPowerMode);
     let game = {
       active: true,
       score: 0,
@@ -1266,7 +1272,50 @@ const canvas = document.querySelector("#field");
       updateGamePanel();
     }
 
-    function resize() {
+    // -- Viewport handling --------------------------------------------------
+    // This used to rebuild the entire world on every resize, which meant that on
+    // an iPad simply rotating the device -- or Safari hiding its address bar
+    // mid-scroll -- wiped the player's elements, cargo and progress. Now the
+    // world is built once and merely rescaled afterwards.
+    let worldBuilt = false;
+
+    function buildWorld() {
+      makeNodes();
+      makeSpaceship();
+      makeSpaceStation();
+      makeAstronauts();
+      makeBlackHole();
+      makeTornado();
+      makeTsunami();
+    }
+
+    function rescalePoint(entity, scaleX, scaleY) {
+      if (!entity) return;
+      if (typeof entity.x === "number") entity.x *= scaleX;
+      if (typeof entity.y === "number") entity.y *= scaleY;
+      if (typeof entity.targetX === "number") entity.targetX *= scaleX;
+      if (typeof entity.targetY === "number") entity.targetY *= scaleY;
+      if (typeof entity.homeX === "number") entity.homeX *= scaleX;
+      if (typeof entity.homeY === "number") entity.homeY *= scaleY;
+    }
+
+    function rescaleWorld(scaleX, scaleY) {
+      nodes.forEach((node) => rescalePoint(node, scaleX, scaleY));
+      astronauts.forEach((astronaut) => rescalePoint(astronaut, scaleX, scaleY));
+      meteors.forEach((meteor) => rescalePoint(meteor, scaleX, scaleY));
+      miniBlackHoles.forEach((hole) => rescalePoint(hole, scaleX, scaleY));
+      energyOrbs.forEach((orb) => rescalePoint(orb, scaleX, scaleY));
+      shots.forEach((shot) => rescalePoint(shot, scaleX, scaleY));
+      effects.forEach((effect) => rescalePoint(effect, scaleX, scaleY));
+      compounds.forEach((compound) => rescalePoint(compound, scaleX, scaleY));
+      [spaceship, spaceStation, organizer, blackHole, tornado, tsunami]
+        .forEach((entity) => rescalePoint(entity, scaleX, scaleY));
+    }
+
+    function applyViewportSize() {
+      const previousWidth = width;
+      const previousHeight = height;
+
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = window.innerWidth;
       height = window.innerHeight;
@@ -1275,13 +1324,32 @@ const canvas = document.querySelector("#field");
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      makeNodes();
-      makeSpaceship();
-      makeSpaceStation();
-      makeAstronauts();
-      makeBlackHole();
-      makeTornado();
-      makeTsunami();
+
+      if (!worldBuilt) {
+        buildWorld();
+        worldBuilt = true;
+        return;
+      }
+      if (previousWidth > 0 && previousHeight > 0 && (previousWidth !== width || previousHeight !== height)) {
+        rescaleWorld(width / previousWidth, height / previousHeight);
+      }
+    }
+
+    // Kept as the public name the rest of the file (and startGame/resetGame) uses.
+    function resize() {
+      applyViewportSize();
+    }
+
+    // iOS fires resize repeatedly while the address bar slides away; coalesce
+    // those into one layout pass on the next frame.
+    let resizePending = false;
+    function requestResize() {
+      if (resizePending) return;
+      resizePending = true;
+      requestAnimationFrame(() => {
+        resizePending = false;
+        applyViewportSize();
+      });
     }
 
     function makeSpaceship() {
@@ -1719,29 +1787,36 @@ const canvas = document.querySelector("#field");
         if (Math.abs(node.vy) < 0.12) node.vy += Math.cos(t * 0.001 + node.phase) * 0.006;
       });
 
+      // Neighbour forces. The reaction lookup used to run for every one of the
+      // ~6,900 pairs on every step, allocating a fresh object each time, even
+      // though nothing at all happens past 132px. Distance now gates the lookup,
+      // and the result comes from the same memo table drawBonds uses.
+      const SEPARATION_RANGE = 44;
+      const ATTRACTION_RANGE = 132;
+      const ATTRACTION_RANGE_SQUARED = ATTRACTION_RANGE * ATTRACTION_RANGE;
       for (let i = 0; i < nodes.length; i += 1) {
+        const a = nodes[i];
+        if (a.heldByAstronaut) continue;
         for (let j = i + 1; j < nodes.length; j += 1) {
-          const a = nodes[i];
           const b = nodes[j];
-          if (a.heldByAstronaut || b.heldByAstronaut) continue;
+          if (b.heldByAstronaut) continue;
           const dx = b.x - a.x;
           const dy = b.y - a.y;
-          const distance = Math.max(1, Math.hypot(dx, dy));
-          if (distance < 44) {
-            const push = (44 - distance) * 0.003;
+          const distanceSquared = dx * dx + dy * dy;
+          if (distanceSquared >= ATTRACTION_RANGE_SQUARED) continue;
+          const distance = Math.max(1, Math.sqrt(distanceSquared));
+          if (distance < SEPARATION_RANGE) {
+            const push = (SEPARATION_RANGE - distance) * 0.003;
             a.vx -= dx / distance * push;
             a.vy -= dy / distance * push;
             b.vx += dx / distance * push;
             b.vy += dy / distance * push;
-          } else {
-            const known = reactionForElements(a.element, b.element);
-            if (known && distance < 132 && !a.selected && !b.selected) {
-              const pull = (132 - distance) * 0.00011;
-              a.vx += dx / distance * pull;
-              a.vy += dy / distance * pull;
-              b.vx -= dx / distance * pull;
-              b.vy -= dy / distance * pull;
-            }
+          } else if (!a.selected && !b.selected && bondStyleFor(a.element, b.element)) {
+            const pull = (ATTRACTION_RANGE - distance) * 0.00011;
+            a.vx += dx / distance * pull;
+            a.vy += dy / distance * pull;
+            b.vx -= dx / distance * pull;
+            b.vy -= dy / distance * pull;
           }
         }
       }
@@ -3342,14 +3417,36 @@ const canvas = document.querySelector("#field");
       ctx.restore();
     }
 
+    // reactionForElements() builds strings and allocates a fresh object every
+    // call, so drawBonds memoises the only two flags it actually needs.
+    const bondStyleCache = new Map();
+    function bondStyleFor(a, b) {
+      const key = pairKey(a.symbol, b.symbol);
+      let style = bondStyleCache.get(key);
+      if (style === undefined) {
+        const known = reactionForElements(a, b);
+        style = known ? { explosive: Boolean(known.explosive), inferred: Boolean(known.inferred) } : null;
+        bondStyleCache.set(key, style);
+      }
+      return style;
+    }
+
+    const BOND_RANGE = 148;
+    const BOND_RANGE_SQUARED = BOND_RANGE * BOND_RANGE;
+
     function drawBonds() {
       for (let i = 0; i < nodes.length; i += 1) {
+        const a = nodes[i];
         for (let j = i + 1; j < nodes.length; j += 1) {
-          const a = nodes[i];
           const b = nodes[j];
-          const known = reactionForElements(a.element, b.element);
-          const distance = Math.hypot(a.x - b.x, a.y - b.y);
-          if (known && distance < 148) {
+          // Reject on cheap squared distance first — almost every pair fails here.
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const distanceSquared = dx * dx + dy * dy;
+          if (distanceSquared >= BOND_RANGE_SQUARED) continue;
+          const known = bondStyleFor(a.element, b.element);
+          const distance = Math.sqrt(distanceSquared);
+          if (known) {
             const alpha = (1 - distance / 148) * 0.55;
             ctx.globalAlpha = alpha;
             ctx.strokeStyle = known.explosive ? "#e85d4f" : known.inferred ? "#2aa8d8" : "#11161b";
@@ -3375,6 +3472,99 @@ const canvas = document.querySelector("#field");
       return !stationHasSymbol(node.element.symbol);
     }
 
+    // -- Element tile sprite cache -----------------------------------------
+    // Every tile used to build a fresh linear gradient and lay out four runs of
+    // text, every frame -- 118 tiles of that was the single biggest cost in the
+    // frame. The face of a tile only depends on its element, so it is rendered
+    // once into a small offscreen canvas and blitted from then on. Only the
+    // state-dependent parts (glow, coloured border, mission beacon) are still
+    // drawn live, and only for the handful of tiles that are in such a state.
+    const TILE_SPRITE_SIZE = 64;
+    const TILE_REFERENCE_SIZE = 38;          // the size the original constants were tuned at
+    const TILE_K = TILE_SPRITE_SIZE / TILE_REFERENCE_SIZE;
+    const tileSpriteCache = new Map();
+    let tileSpriteScale = 0;
+
+    function buildTileSprite(element) {
+      const scale = Math.min(dpr || 1, 2);
+      const sprite = document.createElement("canvas");
+      sprite.width = Math.ceil(TILE_SPRITE_SIZE * scale);
+      sprite.height = Math.ceil(TILE_SPRITE_SIZE * scale);
+      const g = sprite.getContext("2d");
+      g.setTransform(scale, 0, 0, scale, 0, 0);
+
+      const color = familyColors[element.family];
+      const S = TILE_SPRITE_SIZE;
+      const inset = 0.5;                      // keeps the 1px border crisp inside the bitmap
+      const w = S - inset * 2;
+      const r = Math.min(7 * TILE_K, w / 2);
+
+      g.beginPath();
+      g.moveTo(inset + r, inset);
+      g.lineTo(inset + w - r, inset);
+      g.quadraticCurveTo(inset + w, inset, inset + w, inset + r);
+      g.lineTo(inset + w, inset + w - r);
+      g.quadraticCurveTo(inset + w, inset + w, inset + w - r, inset + w);
+      g.lineTo(inset + r, inset + w);
+      g.quadraticCurveTo(inset, inset + w, inset, inset + w - r);
+      g.lineTo(inset, inset + r);
+      g.quadraticCurveTo(inset, inset, inset + r, inset);
+      g.closePath();
+
+      const tileGradient = g.createLinearGradient(0, 0, S, S);
+      tileGradient.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+      tileGradient.addColorStop(0.52, "rgba(255, 252, 244, 0.78)");
+      tileGradient.addColorStop(1, color + "22");
+      g.fillStyle = tileGradient;
+      g.fill();
+      g.lineWidth = 1;
+      g.strokeStyle = "rgba(17, 22, 27, 0.25)";
+      g.stroke();
+
+      // family colour bar across the top, clipped to the rounded corners
+      g.save();
+      g.clip();
+      g.fillStyle = color;
+      g.fillRect(0, 0, S, 5 * TILE_K);
+      g.restore();
+
+      g.fillStyle = "rgba(17, 22, 27, 0.62)";
+      g.font = "600 " + (8 * TILE_K) + "px SFMono-Regular, Consolas, monospace";
+      g.textAlign = "left";
+      g.fillText(String(element.n), 4 * TILE_K, 13 * TILE_K);
+
+      g.textAlign = "center";
+      g.fillStyle = "#11161b";
+      g.font = "800 " + (18 * TILE_K) + "px Inter, system-ui, sans-serif";
+      g.fillText(element.symbol, S / 2, S * 0.61);
+
+      if (element.family === "radioactive") {
+        g.fillStyle = color;
+        g.font = "900 " + (9 * TILE_K) + "px Inter, system-ui, sans-serif";
+        g.fillText("RAD", S / 2, S * 0.82);
+      }
+
+      g.fillStyle = "rgba(17, 22, 27, 0.52)";
+      g.font = "600 " + (7 * TILE_K) + "px Inter, system-ui, sans-serif";
+      g.fillText(element.family, S / 2, S - 5 * TILE_K);
+
+      return sprite;
+    }
+
+    function tileSpriteFor(element) {
+      const scale = Math.min(dpr || 1, 2);
+      if (scale !== tileSpriteScale) {
+        tileSpriteCache.clear();
+        tileSpriteScale = scale;
+      }
+      let sprite = tileSpriteCache.get(element.symbol);
+      if (!sprite) {
+        sprite = buildTileSprite(element);
+        tileSpriteCache.set(element.symbol, sprite);
+      }
+      return sprite;
+    }
+
     function drawElementTile(node, t, missionSymbols) {
       if (node.swallowedByBlackHole) return;
       const color = familyColors[node.element.family];
@@ -3392,16 +3582,25 @@ const canvas = document.querySelector("#field");
       const visualSize = size * hoverScale;
       const x = node.x - visualSize / 2;
       const y = node.y - visualSize / 2;
-      const low = lowPowerMode();
+      const low = lowPowerCached;
+      const accent = isMissionTarget ? "#ffdf5f"
+        : isDanger ? "#e85d4f"
+        : isCargo ? "#ffcf33"
+        : isHeld ? "#d49b2a"
+        : isTrapped ? "#2aa8d8"
+        : color;
+      const highlighted = isMissionTarget || isDanger || isCargo || isHeld || isTrapped || node.selected || isHovered;
+      const emphasised = highlighted || Boolean(activeFamily && isFamilyMatch);
 
       ctx.save();
       ctx.globalAlpha = isFamilyMatch ? 1 : 0.3;
+
       if (isMissionTarget) {
         const beacon = 0.62 + Math.sin(t * 0.006 + node.phase) * 0.22;
         ctx.globalAlpha = isFamilyMatch ? 1 : 0.55;
         ctx.shadowColor = "#ffdf5f";
         ctx.shadowBlur = low ? 14 : 28;
-        ctx.strokeStyle = `rgba(255, 223, 95, ${beacon})`;
+        ctx.strokeStyle = "rgba(255, 223, 95, " + beacon + ")";
         ctx.lineWidth = low ? 2 : 3;
         ctx.beginPath();
         ctx.arc(node.x, node.y, visualSize * (low ? 0.78 : 0.9), 0, Math.PI * 2);
@@ -3415,49 +3614,45 @@ const canvas = document.querySelector("#field");
           ctx.setLineDash([]);
         }
       }
-      ctx.shadowColor = isMissionTarget ? "#ffdf5f" : isDanger ? "#e85d4f" : isCargo ? "#ffcf33" : isHeld ? "#d49b2a" : isTrapped ? "#2aa8d8" : node.selected || isHovered ? color : "rgba(17, 22, 27, 0.16)";
-      ctx.shadowBlur = low ? (isMissionTarget || isDanger || isCargo || isHeld || isTrapped || node.selected || isHovered ? 10 : 0) : isMissionTarget || isDanger || isCargo || isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 24 : 8;
-      ctx.shadowOffsetY = low ? 0 : isCargo || isHeld || isTrapped || node.selected || isHovered ? 0 : 4;
-      roundRect(x, y, visualSize, visualSize, 7);
-      const tileGradient = ctx.createLinearGradient(x, y, x + visualSize, y + visualSize);
-      tileGradient.addColorStop(0, "rgba(255, 255, 255, 0.95)");
-      tileGradient.addColorStop(0.52, "rgba(255, 252, 244, 0.78)");
-      tileGradient.addColorStop(1, `${color}22`);
-      ctx.fillStyle = tileGradient;
-      ctx.fill();
-      ctx.lineWidth = isMissionTarget || isCargo || isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 3 : 1;
-      ctx.strokeStyle = isMissionTarget ? "#ffdf5f" : isDanger ? "#e85d4f" : isCargo ? "#ffcf33" : isHeld ? "#d49b2a" : isTrapped ? "#2aa8d8" : node.selected || isHovered || (activeFamily && isFamilyMatch) ? color : "rgba(17, 22, 27, 0.25)";
-      ctx.stroke();
-      ctx.fillStyle = isMissionTarget ? "#ffdf5f" : color;
-      ctx.fillRect(x, y, visualSize, 5);
 
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "rgba(17, 22, 27, 0.62)";
-      ctx.font = "600 8px SFMono-Regular, Consolas, monospace";
-      ctx.textAlign = "left";
-      ctx.fillText(String(node.element.n), x + 4, y + 13);
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#11161b";
-      ctx.font = `800 ${visualSize > 36 ? 18 : 16}px Inter, system-ui, sans-serif`;
-      ctx.fillText(node.element.symbol, node.x, y + visualSize * 0.61);
-      if (node.element.family === "radioactive") {
-        ctx.fillStyle = color;
-        ctx.font = "900 9px Inter, system-ui, sans-serif";
-        ctx.fillText("RAD", node.x, y + visualSize * 0.82);
+      // Canvas shadows are expensive, so idle tiles no longer pay for one.
+      if (emphasised) {
+        ctx.shadowColor = accent;
+        ctx.shadowBlur = low ? 10 : 24;
+      } else {
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
       }
-      ctx.fillStyle = "rgba(17, 22, 27, 0.52)";
-      ctx.font = "600 7px Inter, system-ui, sans-serif";
-      ctx.fillText(node.element.family, node.x, y + visualSize - 5);
+      ctx.shadowOffsetY = 0;
+
+      ctx.drawImage(tileSpriteFor(node.element), x, y, visualSize, visualSize);
+
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+
+      // The neutral border is baked into the sprite; anything else goes over it.
+      if (emphasised) {
+        roundRect(x, y, visualSize, visualSize, 7);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = accent;
+        ctx.stroke();
+      }
+      if (isMissionTarget) {
+        ctx.fillStyle = "#ffdf5f";
+        ctx.fillRect(x, y, visualSize, 5);
+      }
+
       if (isMissionTarget) {
         ctx.fillStyle = "rgba(11, 16, 25, 0.82)";
         ctx.shadowColor = "#ffdf5f";
         ctx.shadowBlur = low ? 0 : 10;
+        ctx.font = "900 8px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
         const tagWidth = Math.max(46, ctx.measureText("NEED").width + 16);
         roundRect(node.x - tagWidth / 2, y - 18, tagWidth, 14, 5);
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.fillStyle = "#ffdf5f";
-        ctx.font = "900 8px Inter, system-ui, sans-serif";
         ctx.fillText("NEED", node.x, y - 8);
       }
       ctx.restore();
@@ -4584,10 +4779,26 @@ const canvas = document.querySelector("#field");
       }
     }
 
+    // The simulation integrates per call (node.x += node.vx), with no delta term,
+    // so its speed was tied to the display refresh rate: on a 120Hz iPad Pro the
+    // whole game ran at double speed. Physics is therefore stepped at a fixed
+    // 60Hz and simply skipped on the extra frames, which leaves every existing
+    // update function untouched while making the pace identical everywhere.
+    const SIMULATION_STEP_MS = 1000 / 60;
+    let nextSimulationAt = 0;
+
     function loop(t) {
-      const low = lowPowerMode();
+      const low = lowPowerCached;
+      // A little tolerance so a 60Hz display never skips a step to rounding.
+      const shouldStep = t >= nextSimulationAt - 1;
+      if (shouldStep) {
+        // After a tab switch or a long stall, resync instead of catching up.
+        nextSimulationAt = (t - nextSimulationAt > 250)
+          ? t + SIMULATION_STEP_MS
+          : nextSimulationAt + SIMULATION_STEP_MS;
+      }
       drawBackground(t);
-      if (running) {
+      if (running && shouldStep) {
         updateNodes(t);
         updateShots(t);
         updateEnergyOrbs(t);
@@ -4623,19 +4834,113 @@ const canvas = document.querySelector("#field");
       requestAnimationFrame(loop);
     }
 
-    window.addEventListener("resize", resize);
-    window.addEventListener("pointermove", (event) => {
+    window.addEventListener("resize", requestResize);
+    window.addEventListener("orientationchange", requestResize);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", requestResize);
+    // -- Pointer / touch control -------------------------------------------
+    // Previously the UFO could only be flown by grabbing the ship itself, which
+    // is a small target and near-impossible for a child on a touch screen. Now a
+    // press anywhere on the field flies the UFO to your finger, and a quick tap
+    // (short, without moving) still selects an element tile. The same code path
+    // serves mouse and touch, so behaviour cannot drift between them.
+    const TAP_MOVE_TOLERANCE = 12;   // css px of slop still counted as a tap
+    const TAP_TIME_LIMIT = 350;      // ms
+    let activePointerId = null;
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    let pointerStartAt = 0;
+    let pointerDragging = false;
+    let grabbedShip = false;
+
+    const isCoarsePointer = () => lowPowerQuery.matches || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+
+    function steerTowards(x, y) {
+      if (!spaceship || spaceship.keyboardControl) return;
+      spaceship.following = true;
+      spaceship.targetX = x;
+      spaceship.targetY = y;
+    }
+
+    function beginPointer(event) {
+      if (activePointerId !== null) return;
+      activePointerId = event.pointerId;
+      pointerStartX = event.clientX;
+      pointerStartY = event.clientY;
+      pointerStartAt = performance.now();
+      pointerDragging = false;
+      grabbedShip = Boolean(spaceshipAt(event.clientX, event.clientY));
       pointer = { x: event.clientX, y: event.clientY, active: true };
-      const overSpaceship = spaceshipAt(event.clientX, event.clientY);
-      if (spaceship && spaceship.following && !spaceship.keyboardControl) {
-        spaceship.targetX = event.clientX;
-        spaceship.targetY = event.clientY;
+
+      if (grabbedShip) {
+        // Grabbing the ship steers immediately, exactly as it always did.
+        spaceshipPressed = true;
+        pointerDragging = true;
+        steerTowards(event.clientX, event.clientY);
+        canvas.style.cursor = "grabbing";
       }
-      hoveredNode = overSpaceship ? null : nodeAt(event.clientX, event.clientY);
-      canvas.style.cursor = spaceshipPressed ? "grabbing" : overSpaceship ? "grab" : hoveredNode ? "pointer" : "default";
-      updateTooltip();
-    });
-    window.addEventListener("pointerleave", () => {
+      if (canvas.setPointerCapture) {
+        try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+      }
+    }
+
+    function movePointer(event) {
+      pointer = { x: event.clientX, y: event.clientY, active: true };
+
+      if (activePointerId === event.pointerId && !pointerDragging) {
+        const movedFar = Math.abs(event.clientX - pointerStartX) > TAP_MOVE_TOLERANCE
+          || Math.abs(event.clientY - pointerStartY) > TAP_MOVE_TOLERANCE;
+        if (movedFar) pointerDragging = true;
+      }
+      if (activePointerId === event.pointerId && pointerDragging) {
+        steerTowards(event.clientX, event.clientY);
+      }
+
+      // Hover affordances only make sense for a mouse.
+      if (event.pointerType === "mouse") {
+        const overSpaceship = spaceshipAt(event.clientX, event.clientY);
+        hoveredNode = overSpaceship ? null : nodeAt(event.clientX, event.clientY);
+        canvas.style.cursor = spaceshipPressed ? "grabbing" : overSpaceship ? "grab" : hoveredNode ? "pointer" : "default";
+        updateTooltip();
+      }
+    }
+
+    function endPointer(event) {
+      if (activePointerId !== event.pointerId) return;
+      const heldFor = performance.now() - pointerStartAt;
+      const wasTap = !pointerDragging && heldFor < TAP_TIME_LIMIT;
+
+      if (wasTap && !grabbedShip) {
+        const tappedNode = nodeAt(event.clientX, event.clientY);
+        if (tappedNode) {
+          chooseNode(tappedNode);
+        } else if (isCoarsePointer()) {
+          // On a touch screen an empty tap is the friendliest "go there" gesture.
+          steerTowards(event.clientX, event.clientY);
+        }
+      }
+
+      activePointerId = null;
+      pointerDragging = false;
+      grabbedShip = false;
+      spaceshipPressed = false;
+      if (spaceship && !spaceship.keyboardControl) spaceship.following = false;
+      if (event.pointerType !== "mouse") {
+        pointer.active = false;
+        hoveredNode = null;
+        updateTooltip();
+      }
+      canvas.style.cursor = "default";
+      if (canvas.releasePointerCapture) {
+        try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* ignore */ }
+      }
+    }
+
+    canvas.addEventListener("pointerdown", beginPointer);
+    window.addEventListener("pointermove", movePointer);
+    window.addEventListener("pointerup", endPointer);
+    window.addEventListener("pointercancel", endPointer);
+    window.addEventListener("pointerleave", (event) => {
+      if (event.pointerType && event.pointerType !== "mouse") return;
       pointer.active = false;
       spaceshipPressed = false;
       if (spaceship && !spaceship.keyboardControl) spaceship.following = false;
@@ -4643,30 +4948,13 @@ const canvas = document.querySelector("#field");
       canvas.style.cursor = "default";
       updateTooltip();
     });
-    canvas.addEventListener("pointerdown", (event) => {
-      if (!spaceshipAt(event.clientX, event.clientY)) return;
-      spaceshipPressed = true;
-      suppressCanvasClick = true;
-      spaceship.following = true;
-      spaceship.targetX = event.clientX;
-      spaceship.targetY = event.clientY;
-      canvas.style.cursor = "grabbing";
-      setMessage("Spaceship control", "Hold on the spaceship to pilot it. Release and it flies by itself.");
-    });
-    window.addEventListener("pointerup", () => {
-      if (!spaceshipPressed) return;
-      spaceshipPressed = false;
-      if (spaceship && !spaceship.keyboardControl) spaceship.following = false;
-      canvas.style.cursor = "default";
-    });
-    canvas.addEventListener("click", (event) => {
-      if (suppressCanvasClick) {
-        suppressCanvasClick = false;
-        return;
-      }
-      if (spaceshipAt(event.clientX, event.clientY)) return;
-      chooseNode(nodeAt(event.clientX, event.clientY));
-    });
+
+    // Stop iOS from turning game gestures into page zoom / rubber-band scroll.
+    canvas.addEventListener("touchstart", (event) => event.preventDefault(), { passive: false });
+    canvas.addEventListener("touchmove", (event) => event.preventDefault(), { passive: false });
+    document.addEventListener("gesturestart", (event) => event.preventDefault());
+    document.addEventListener("dblclick", (event) => event.preventDefault());
+
     familyButtons.forEach((button) => {
       button.addEventListener("click", () => {
         setActiveFamily(button.dataset.family);
@@ -4722,6 +5010,43 @@ const canvas = document.querySelector("#field");
       event.preventDefault();
       vacuumUfoButton.classList.remove("is-held");
       setTractorBeam(false);
+    }
+
+    // Thumb controls mirror the keyboard actions exactly; they are simply a
+    // bigger target for a child on a tablet.
+    const touchVacuumButton = document.querySelector("#touchVacuum");
+    const touchFireButton = document.querySelector("#touchFire");
+    const touchDockButton = document.querySelector("#touchDock");
+
+    if (touchVacuumButton) {
+      const holdTouchVacuum = (event) => {
+        event.preventDefault();
+        touchVacuumButton.classList.add("is-held");
+        setTractorBeam(true);
+      };
+      const releaseTouchVacuum = (event) => {
+        event.preventDefault();
+        touchVacuumButton.classList.remove("is-held");
+        setTractorBeam(false);
+      };
+      touchVacuumButton.addEventListener("pointerdown", holdTouchVacuum);
+      touchVacuumButton.addEventListener("pointerup", releaseTouchVacuum);
+      touchVacuumButton.addEventListener("pointercancel", releaseTouchVacuum);
+      touchVacuumButton.addEventListener("pointerleave", releaseTouchVacuum);
+    }
+
+    if (touchFireButton) {
+      touchFireButton.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        shootUfo(performance.now());
+      });
+    }
+
+    if (touchDockButton) {
+      touchDockButton.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        depositCargoToStation();
+      });
     }
 
     vacuumUfoButton.addEventListener("pointerdown", holdVacuumButton);
