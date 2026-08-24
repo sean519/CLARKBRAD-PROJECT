@@ -1821,3 +1821,616 @@
         bottom: calc(126px + env(safe-area-inset-bottom, 0px));
       }
     }
+
+    /* ==========================================================================
+       PLAY HUD
+       The game used to show every control at once -- roughly forty interactive
+       elements. The play HUD now carries only the three things that matter while
+       flying: the objective, your vitals, and your weapons. Everything else is
+       one Menu button away.
+       ========================================================================== */
+
+    .hud {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .hud > * {
+      pointer-events: auto;
+    }
+
+    /* -- objective, top left (sits under the back link) -- */
+    .hud-objective {
+      position: absolute;
+      top: 92px;
+      left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-width: min(340px, 42vw);
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--hud-line);
+      background: var(--hud);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+    }
+
+    .hud-kicker {
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(135, 218, 255, 0.75);
+    }
+
+    .hud-formula {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--hud-text);
+      text-shadow: 0 0 18px rgba(42, 168, 216, 0.5);
+    }
+
+    .hud-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .hud-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(135, 218, 255, 0.3);
+      background: rgba(135, 218, 255, 0.08);
+      color: var(--hud-text);
+      font-size: 12px;
+      font-weight: 800;
+      transition: border-color 160ms, background 160ms, color 160ms;
+    }
+
+    .hud-chip.is-collected {
+      border-color: rgba(15, 155, 143, 0.75);
+      background: rgba(15, 155, 143, 0.32);
+      color: #eafffb;
+    }
+
+    .hud-chip.is-collected::before {
+      content: "\2713";
+      font-size: 11px;
+    }
+
+    /* -- vitals, top right -- */
+    .hud-vitals {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--hud-line);
+      background: var(--hud);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+    }
+
+    .hud-numbers {
+      display: flex;
+      gap: 14px;
+    }
+
+    .hud-num {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+      min-width: 46px;
+    }
+
+    .hud-num span {
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(234, 248, 255, 0.5);
+    }
+
+    .hud-num strong {
+      font-size: 19px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--hud-text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-num.is-urgent strong {
+      color: #ff9a7a;
+    }
+
+    .hud-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 116px;
+    }
+
+    .hud-bar {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .hud-bar-label {
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(234, 248, 255, 0.5);
+    }
+
+    .hud-bar-track {
+      position: relative;
+      display: block;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+    }
+
+    .hud-bar-track i {
+      position: absolute;
+      inset: 0 auto 0 0;
+      display: block;
+      width: 0%;
+      border-radius: 999px;
+      transition: width 200ms ease-out, background 200ms;
+    }
+
+    .hud-bar.hull .hud-bar-track i {
+      background: linear-gradient(90deg, #2aa8d8, #67e8f9);
+    }
+
+    .hud-bar.hull.is-critical .hud-bar-track i {
+      background: linear-gradient(90deg, #e85d4f, #ff9a55);
+    }
+
+    .hud-bar.energy .hud-bar-track i {
+      background: linear-gradient(90deg, #d49b2a, #ffcf33);
+    }
+
+    .hud-menu-button {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      width: 54px;
+      height: 46px;
+      padding: 0;
+      border-radius: 12px;
+      border: 1px solid rgba(135, 218, 255, 0.3);
+      background: rgba(135, 218, 255, 0.1);
+      color: var(--hud-text);
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 160ms, border-color 160ms;
+    }
+
+    .hud-menu-button svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .hud-menu-button:hover,
+    .hud-menu-button:focus-visible {
+      background: rgba(135, 218, 255, 0.24);
+      border-color: rgba(135, 218, 255, 0.6);
+    }
+
+    /* -- weapon bar, bottom centre -- */
+    .weapon-bar {
+      position: absolute;
+      left: 50%;
+      bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 18px;
+      border: 1px solid var(--hud-line);
+      background: var(--hud);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.44);
+    }
+
+    .weapon-slot {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      width: 78px;
+      height: 68px;
+      padding: 0;
+      border-radius: 13px;
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      background: rgba(6, 12, 26, 0.72);
+      color: rgba(234, 248, 255, 0.72);
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 160ms, background 160ms, color 160ms, transform 160ms;
+    }
+
+    .weapon-slot:hover {
+      transform: translateY(-2px);
+      color: var(--hud-text);
+    }
+
+    .weapon-slot.is-active {
+      border-color: var(--weapon-color, #67e8f9);
+      background: rgba(12, 26, 48, 0.9);
+      color: #fff;
+      box-shadow: 0 0 0 1px var(--weapon-color, #67e8f9), 0 0 22px -6px var(--weapon-color, #67e8f9);
+    }
+
+    .weapon-key {
+      position: absolute;
+      top: 5px;
+      left: 7px;
+      font-size: 9px;
+      font-weight: 900;
+      color: rgba(234, 248, 255, 0.45);
+    }
+
+    .weapon-slot.is-active .weapon-key {
+      color: var(--weapon-color, #67e8f9);
+    }
+
+    .weapon-dot {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--weapon-color, #67e8f9);
+      box-shadow: 0 0 12px var(--weapon-color, #67e8f9);
+    }
+
+    .weapon-name {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+    }
+
+    .weapon-role {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: rgba(234, 248, 255, 0.46);
+      text-align: center;
+      padding: 0 4px;
+    }
+
+    .weapon-slot.is-active .weapon-role {
+      color: rgba(234, 248, 255, 0.7);
+    }
+
+    /* the cooldown wipe -- drains left to right as the weapon becomes ready */
+    .weapon-cooldown {
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 3px;
+      background: var(--weapon-color, #67e8f9);
+      transform-origin: left center;
+      transform: scaleX(0);
+    }
+
+    /* when the UFO is carrying cargo, Fire launches that instead -- say so */
+    .weapon-bar.has-cargo::after {
+      content: "Fire launches cargo: " attr(data-cargo);
+      position: absolute;
+      left: 50%;
+      top: -26px;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 207, 51, 0.45);
+      background: rgba(40, 28, 6, 0.92);
+      color: #ffcf33;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ==========================================================================
+       START SCREEN + MENU
+       ========================================================================== */
+
+    .start-screen,
+    .menu-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 12;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(3, 6, 16, 0.76);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .start-screen[hidden],
+    .menu-overlay[hidden] {
+      display: none;
+    }
+
+    .start-card {
+      width: min(520px, 100%);
+      padding: 30px 32px 26px;
+      border-radius: 20px;
+      border: 1px solid rgba(135, 218, 255, 0.34);
+      background:
+        linear-gradient(180deg, rgba(26, 56, 82, 0.94), rgba(7, 12, 25, 0.96)),
+        var(--hud);
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
+      text-align: center;
+      color: var(--hud-text);
+    }
+
+    .start-kicker {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(135, 218, 255, 0.8);
+    }
+
+    .start-title {
+      margin: 10px 0 12px;
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 900;
+      line-height: 1.05;
+      background: linear-gradient(135deg, #fff, #a5e0ff 45%, #ffb38a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .start-copy {
+      margin: 0 auto 20px;
+      max-width: 40ch;
+      font-size: 14px;
+      line-height: 1.6;
+      color: rgba(234, 248, 255, 0.75);
+    }
+
+    .start-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 0 0 24px;
+      padding: 0;
+      list-style: none;
+      text-align: left;
+    }
+
+    .start-steps li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 13px;
+      color: rgba(234, 248, 255, 0.82);
+    }
+
+    .start-step-num {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2aa8d8, #67e8f9);
+      color: #04101e;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .start-steps kbd {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.1);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .start-play {
+      width: 100%;
+      height: 56px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #67e8f9, #2aa8d8);
+      color: #04101e;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 160ms, filter 160ms;
+    }
+
+    .start-play:hover,
+    .start-play:focus-visible {
+      transform: translateY(-2px);
+      filter: brightness(1.08);
+    }
+
+    .menu-sheet {
+      display: flex;
+      flex-direction: column;
+      width: min(760px, 100%);
+      max-height: min(86vh, 780px);
+      border-radius: 18px;
+      border: 1px solid rgba(135, 218, 255, 0.32);
+      background: linear-gradient(180deg, rgba(18, 40, 62, 0.96), rgba(6, 10, 22, 0.97));
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+
+    .menu-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(135, 218, 255, 0.2);
+      color: var(--hud-text);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .menu-close {
+      height: 38px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #67e8f9, #2aa8d8);
+      color: #04101e;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .menu-body {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 18px 20px 24px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    /* The old panels are moved in here at boot; unpin them from the viewport. */
+    .menu-body .game-panel,
+    .menu-body .lab-panel {
+      position: static;
+      inset: auto;
+      top: auto;
+      right: auto;
+      bottom: auto;
+      left: auto;
+      width: auto;
+      flex: 1 1 320px;
+      max-width: none;
+      max-height: none;
+      transform: none;
+      display: flex;
+      /* the panels are column stacks; overriding `display` must not reset this */
+      flex-direction: column;
+    }
+
+    /* The start screen teaches the controls now, so the inline hint is noise. */
+    .menu-body .control-hint {
+      display: none;
+    }
+
+    @media (max-width: 720px) {
+      .hud-objective {
+        top: 84px;
+        left: 12px;
+        padding: 9px 12px;
+        max-width: 54vw;
+      }
+
+      .hud-formula {
+        font-size: 20px;
+      }
+
+      .hud-vitals {
+        top: 12px;
+        right: 12px;
+        gap: 10px;
+        padding: 8px 10px;
+      }
+
+      .hud-bars {
+        display: none;
+      }
+
+      .hud-num strong {
+        font-size: 16px;
+      }
+
+      .weapon-slot {
+        width: 62px;
+        height: 60px;
+      }
+
+      .weapon-role {
+        display: none;
+      }
+    }
+
+    /* On touch the thumb pad owns the bottom corners, so lift the weapon bar. */
+    @media (pointer: coarse) {
+      .weapon-bar {
+        bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+        gap: 8px;
+        padding: 8px;
+      }
+    }
+
+    /* The vitals cluster now occupies the top-right corner, so the help button
+       drops below it instead of sitting underneath. */
+    .guide-toggle {
+      top: 96px;
+      right: 18px;
+    }
+
+    @media (max-width: 720px) {
+      .guide-toggle {
+        top: 84px;
+        right: 12px;
+      }
+    }
+
+    /* Narrow screens (phones, and iPad in portrait) do not have room for the
+       back label beside the vitals cluster, so it collapses to the icon alone --
+       the same shape Bradley's game uses. */
+    @media (max-width: 820px) {
+      .back-link {
+        gap: 0;
+        padding: 5px;
+      }
+
+      .back-link-label {
+        display: none;
+      }
+    }

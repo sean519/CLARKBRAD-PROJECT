@@ -416,7 +416,31 @@ const canvas = document.querySelector("#field");
       activeTool: null,
       shieldUntil: 0
     };
+    // Single source of truth for the weapons. These numbers used to live in five
+    // separate object literals inside shootUfo(), which meant the HUD had no way
+    // to know a weapon's cooldown and the player got no feedback at all.
+    const WEAPONS = {
+      bolt: {
+        key: "1", label: "Bolt", role: "Steady shot",
+        cooldown: 190, speed: 10.5, power: 1, color: "#fff4b8", tone: 860, toneLength: 0.04
+      },
+      laser: {
+        key: "2", label: "Laser", role: "Fast, pierces",
+        cooldown: 95, speed: 17.4, power: 0.9, color: "#2aa8d8", tone: 980, toneLength: 0.04
+      },
+      spread: {
+        key: "3", label: "Spread", role: "Three at once",
+        cooldown: 280, speed: 10.2, power: 0.78, color: "#ffcf33", tone: 640, toneLength: 0.04
+      },
+      megaboom: {
+        key: "4", label: "Boom", role: "Big blast",
+        cooldown: 360, speed: 8.2, power: 2.35, color: "#e85d4f", tone: 180, toneLength: 0.12
+      }
+    };
+    const WEAPON_ORDER = ["bolt", "laser", "spread", "megaboom"];
+    const CARGO_SHOT_COOLDOWN = 160;
     let selectedWeapon = "bolt";
+    let fireHeld = false;
     const hazards = {
       blackHole: true,
       tornado: false,
@@ -813,7 +837,7 @@ const canvas = document.querySelector("#field");
       const stationSummary = Object.entries(stationCounts).slice(-4).map(([symbol, count]) => `${symbol}${count > 1 ? `x${count}` : ""}`).join(" ");
       const productSummary = spaceStation?.products?.slice(-2).map((item) => item.formula).join(" ") || "";
       if (stationReadout) stationReadout.textContent = `${stationHealthPercent()}% | ${stationSummary || productSummary || "Empty"}`;
-      const weaponLabel = selectedWeapon === "megaboom" ? "Boom" : selectedWeapon === "spread" ? "Spread" : selectedWeapon === "laser" ? "Laser" : "Bolt";
+      const weaponLabel = (WEAPONS[selectedWeapon] || WEAPONS.bolt).label;
       weaponReadout.textContent = riderName === "Clark" && selectedWeapon === "laser" ? "Clark Laser" : riderName === "Bradley" && selectedWeapon === "megaboom" ? "Bradley Boom" : weaponLabel;
       const ufoHp = spaceship ? Math.max(0, Math.round(spaceship.health / spaceship.maxHealth * 100)) : 0;
       ufoReadout.textContent = `${ufoHp}%`;
@@ -2767,25 +2791,21 @@ const canvas = document.querySelector("#field");
       if (shootCargoElement(t)) return;
       const riderName = spaceship.rider?.name;
       const weapon = selectedWeapon || "bolt";
-      const cooldownByWeapon = { bolt: 190, laser: 95, megaboom: 360, spread: 280 };
-      const cooldown = cooldownByWeapon[weapon] || 220;
-      if (t - spaceship.lastShotAt < cooldown) return;
+      const spec = WEAPONS[weapon] || WEAPONS.bolt;
+      if (t - spaceship.lastShotAt < spec.cooldown) return;
       const angle = Math.atan2(spaceship.vy, spaceship.vx);
-      const speedByWeapon = { bolt: 10.5, laser: 17.4, megaboom: 8.2, spread: 10.2 };
-      const speed = (speedByWeapon[weapon] || 9.4) + (game.evolutionTier || 0) * 0.6;
+      const speed = spec.speed + (game.evolutionTier || 0) * 0.6;
       const upgradePower = 1 + (game.upgrades?.weapon || 0) * 0.16 + (game.evolutionTier || 0) * 0.08;
       const riderPower = riderName === "Clark" && weapon === "laser" ? 1.22 : riderName === "Bradley" && weapon === "megaboom" ? 1.32 : 1;
-      const colorByWeapon = { bolt: "#fff4b8", laser: "#2aa8d8", megaboom: "#e85d4f", spread: "#ffcf33" };
-      const powerByWeapon = { bolt: 1, laser: 0.9, megaboom: 2.35, spread: 0.78 };
       const makeShot = (shotAngle, powerScale = 1) => ({
         x: spaceship.x + Math.cos(shotAngle) * 68,
         y: spaceship.y + Math.sin(shotAngle) * 42,
         vx: Math.cos(shotAngle) * speed + spaceship.vx * 0.2,
         vy: Math.sin(shotAngle) * speed + spaceship.vy * 0.2,
         born: t,
-        power: (powerByWeapon[weapon] || 1) * upgradePower * riderPower * powerScale,
+        power: spec.power * upgradePower * riderPower * powerScale,
         kind: weapon,
-        color: colorByWeapon[weapon] || "#fff4b8",
+        color: spec.color,
         hitNodes: new Set()
       });
       if (weapon === "spread") {
@@ -2794,7 +2814,7 @@ const canvas = document.querySelector("#field");
         shots.push(makeShot(angle));
       }
       spaceship.lastShotAt = t;
-      playTone(weapon === "megaboom" ? 180 : weapon === "laser" ? 980 : weapon === "spread" ? 640 : 860, weapon === "megaboom" ? 0.12 : 0.04);
+      playTone(spec.tone, spec.toneLength);
     }
 
     function shootCargoElement(t = performance.now()) {
@@ -4799,6 +4819,7 @@ const canvas = document.querySelector("#field");
       }
       drawBackground(t);
       if (running && shouldStep) {
+        if (fireHeld) shootUfo(t);
         updateNodes(t);
         updateShots(t);
         updateEnergyOrbs(t);
@@ -4827,9 +4848,12 @@ const canvas = document.querySelector("#field");
         const activeHazards = Object.entries(hazards).filter(([, active]) => active).map(([name]) => name).join(", ") || "off";
         readout.innerHTML = `elements: ${nodes.length}<br>compounds: ${compounds.length}<br>hazards: ${activeHazards}<br>effects: ${effects.length}`;
       }
+      updateWeaponCooldowns(t);
       if (t - lastPanelUpdateAt > (low ? 180 : 100)) {
         lastPanelUpdateAt = t;
-        updateGamePanel();
+        updatePlayHud();
+        // The old panel only needs refreshing while it is actually on screen.
+        if (menuOpen) updateGamePanel();
       }
       requestAnimationFrame(loop);
     }
@@ -5012,6 +5036,151 @@ const canvas = document.querySelector("#field");
       setTractorBeam(false);
     }
 
+    // ── Play HUD ──────────────────────────────────────────────────────────
+    // The mission panels are not deleted, they are moved into the menu overlay.
+    // Moving a node keeps its identity, so every listener and every cached
+    // reference elsewhere in this file keeps working untouched.
+    const playHud = document.querySelector("#playHud");
+    const hudFormula = document.querySelector("#hudFormula");
+    const hudChips = document.querySelector("#hudChips");
+    const hudScore = document.querySelector("#hudScore");
+    const hudTime = document.querySelector("#hudTime");
+    const hudHull = document.querySelector("#hudHull");
+    const hudEnergy = document.querySelector("#hudEnergy");
+    const weaponBar = document.querySelector("#weaponBar");
+    const menuOverlay = document.querySelector("#menuOverlay");
+    const menuBody = document.querySelector("#menuBody");
+    const openMenuButton = document.querySelector("#openMenu");
+    const closeMenuButton = document.querySelector("#closeMenu");
+    const startScreen = document.querySelector("#startScreen");
+    const startPlayButton = document.querySelector("#startPlay");
+
+    if (menuBody && labPanel && gamePanel) menuBody.append(labPanel, gamePanel);
+
+    // -- weapon bar ---------------------------------------------------------
+    const weaponSlots = new Map();
+
+    function buildWeaponBar() {
+      if (!weaponBar) return;
+      weaponBar.innerHTML = "";
+      WEAPON_ORDER.forEach((name) => {
+        const spec = WEAPONS[name];
+        const slot = document.createElement("button");
+        slot.type = "button";
+        slot.className = "weapon-slot";
+        slot.style.setProperty("--weapon-color", spec.color);
+        slot.dataset.weapon = name;
+        slot.setAttribute("aria-label", `${spec.label} — ${spec.role} (key ${spec.key})`);
+        slot.innerHTML = `
+          <span class="weapon-key">${spec.key}</span>
+          <span class="weapon-dot"></span>
+          <span class="weapon-name">${spec.label}</span>
+          <span class="weapon-role">${spec.role}</span>
+          <span class="weapon-cooldown"></span>
+        `;
+        slot.addEventListener("click", () => selectWeapon(name));
+        weaponBar.append(slot);
+        weaponSlots.set(name, { slot, cooldown: slot.querySelector(".weapon-cooldown") });
+      });
+    }
+
+    function selectWeapon(name) {
+      if (!WEAPONS[name]) return;
+      selectedWeapon = name;
+      weaponSlots.forEach((parts, key) => parts.slot.classList.toggle("is-active", key === name));
+      weaponButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.weapon === name));
+      setAutoMessage("Weapon selected", `${WEAPONS[name].label} — ${WEAPONS[name].role}.`);
+      playTone(720, 0.05);
+    }
+
+    // Redrawn every frame: a weapon's readiness is the one thing that has to be
+    // live, and it is only four transform writes.
+    function updateWeaponCooldowns(t) {
+      if (!spaceship) return;
+      const cargoCount = spaceship.cargo?.length || 0;
+      weaponSlots.forEach((parts, name) => {
+        const spec = WEAPONS[name];
+        const since = t - (spaceship.lastShotAt || 0);
+        const limit = cargoCount ? CARGO_SHOT_COOLDOWN : spec.cooldown;
+        const remaining = Math.max(0, 1 - since / limit);
+        parts.cooldown.style.transform = `scaleX(${remaining.toFixed(3)})`;
+      });
+      if (weaponBar) {
+        const cargoLabel = spaceship.cargo?.map((node) => node.element.symbol).join(" ") || "";
+        weaponBar.classList.toggle("has-cargo", cargoCount > 0);
+        if (cargoCount > 0) weaponBar.dataset.cargo = cargoLabel;
+      }
+    }
+
+    // -- the rest of the HUD, refreshed on the same cadence as the panel ------
+    let hudChipsKey = "";
+
+    function updatePlayHud() {
+      const mission = currentMission();
+      const targets = collectionTargetItems();
+      const missionTargets = targets.filter((item) => item.type === "mission");
+      if (hudFormula) hudFormula.textContent = missionTargets.map((item) => item.label).join(" + ") || mission.formula;
+
+      const chipsKey = targets.map((item) => `${item.label}:${item.collected ? 1 : 0}`).join("|");
+      if (hudChips && chipsKey !== hudChipsKey) {
+        hudChipsKey = chipsKey;
+        hudChips.innerHTML = targets
+          .map((item) => `<span class="hud-chip ${item.collected ? "is-collected" : ""}">${item.label}</span>`)
+          .join("");
+      }
+
+      if (hudScore) hudScore.textContent = game.score;
+      if (hudTime) {
+        const secondsLeft = Math.max(0, Math.ceil(game.timeLeft));
+        hudTime.textContent = secondsLeft;
+        hudTime.parentElement.classList.toggle("is-urgent", secondsLeft <= 15);
+      }
+      if (hudHull && spaceship) {
+        const hullPercent = Math.max(0, Math.min(100, spaceship.health / spaceship.maxHealth * 100));
+        hudHull.style.width = `${hullPercent}%`;
+        hudHull.parentElement.parentElement.classList.toggle("is-critical", hullPercent <= 30);
+      }
+      if (hudEnergy) {
+        const tier = game.evolutionTier || 0;
+        const needed = energyNeededForEvolution();
+        const atMax = tier >= evolutionNames.length - 1;
+        hudEnergy.style.width = `${atMax ? 100 : Math.max(0, Math.min(100, game.energy / needed * 100))}%`;
+      }
+    }
+
+    // -- menu ---------------------------------------------------------------
+    let menuOpen = false;
+
+    function setMenuOpen(open) {
+      menuOpen = open;
+      if (!menuOverlay) return;
+      menuOverlay.hidden = !open;
+      // Pausing while the menu is up keeps a child from being eaten mid-read.
+      running = !open;
+      if (open) {
+        updateGamePanel();
+        closeMenuButton?.focus();
+      }
+    }
+
+    openMenuButton?.addEventListener("click", () => setMenuOpen(true));
+    closeMenuButton?.addEventListener("click", () => setMenuOpen(false));
+    menuOverlay?.addEventListener("click", (event) => {
+      if (event.target === menuOverlay) setMenuOpen(false);
+    });
+
+    // -- start screen -------------------------------------------------------
+    function dismissStartScreen() {
+      if (!startScreen || startScreen.hidden) return;
+      startScreen.hidden = true;
+      startGame();
+    }
+
+    startPlayButton?.addEventListener("click", dismissStartScreen);
+
+    buildWeaponBar();
+    selectWeapon(selectedWeapon);
+
     // Thumb controls mirror the keyboard actions exactly; they are simply a
     // bigger target for a child on a tablet.
     const touchVacuumButton = document.querySelector("#touchVacuum");
@@ -5060,8 +5229,16 @@ const canvas = document.querySelector("#field");
         setGuideOpen(false);
         return;
       }
+      if (event.key === "Escape" || event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        if (startScreen && !startScreen.hidden) dismissStartScreen();
+        else setMenuOpen(!menuOpen);
+        return;
+      }
       if (event.code === "Space") {
         event.preventDefault();
+        // Holding the key keeps firing; the weapon cooldown still sets the rate.
+        fireHeld = true;
         shootUfo(performance.now());
         return;
       }
@@ -5070,12 +5247,20 @@ const canvas = document.querySelector("#field");
         setTractorBeam(true);
         return;
       }
-      if (event.code === "Digit1") {
+      // Number keys now pick weapons, which is what a child reaches for first;
+      // the crew swap moved to Z / X (and B still boards Bradley as before).
+      const weaponByKey = WEAPON_ORDER.find((name) => WEAPONS[name].key === event.key);
+      if (weaponByKey) {
+        event.preventDefault();
+        selectWeapon(weaponByKey);
+        return;
+      }
+      if (event.key.toLowerCase() === "z") {
         event.preventDefault();
         boardNamedAstronaut("Clark");
         return;
       }
-      if (event.code === "Digit2" || event.key.toLowerCase() === "b") {
+      if (event.key.toLowerCase() === "x" || event.key.toLowerCase() === "b") {
         event.preventDefault();
         boardNamedAstronaut("Bradley");
         return;
@@ -5100,6 +5285,7 @@ const canvas = document.querySelector("#field");
       setMessage("Keyboard control", "Use arrow keys to fly the UFO. Press Space to shoot.");
     });
     window.addEventListener("keyup", (event) => {
+      if (event.code === "Space") fireHeld = false;
       if (document.activeElement !== lookupInput && event.key.toLowerCase() === "c") {
         event.preventDefault();
         vacuumUfoButton.classList.remove("is-held");

@@ -35,7 +35,7 @@
             <path d="m12 19-7-7 7-7"></path>
           </svg>
         </span>
-        Clark's Universe
+        <span class="back-link-label">Clark's Universe</span>
       </a>
       <h1>Clark Space Lab</h1>
       <p class="subhead">Repair the UFO. Protect the station. Stop the black hole boss before it catches you.</p>
@@ -212,9 +212,74 @@
       <button id="clarkSkill" type="button">Clark Help</button>
       <button id="bradleySkill" type="button">Bradley Ship</button>
     </div>
-    <div class="control-hint">Fly: arrows/drag · C/Vacuum · Fire/Space · D dock · 1/2 crew</div>
+    <div class="control-hint">Fly: arrows/drag · C vacuum · Space fire · D dock · 1-4 weapons · Z/X crew</div>
     <div class="discovery-strip" id="discoveryStrip" aria-label="Discovered compounds"></div>
   </section>
+
+  <!-- ── Play HUD ────────────────────────────────────────────────────────────
+       The only interface visible during normal play: what to do (top left),
+       how you are doing (top right), and what you can fire (bottom centre).
+       Everything else lives behind the Menu button. -->
+  <div class="hud" id="playHud">
+    <div class="hud-objective" id="hudObjective">
+      <span class="hud-kicker">Collect &amp; dock</span>
+      <strong class="hud-formula" id="hudFormula">H + O</strong>
+      <div class="hud-chips" id="hudChips"></div>
+    </div>
+
+    <div class="hud-vitals">
+      <div class="hud-numbers">
+        <div class="hud-num"><span>Score</span><strong id="hudScore">0</strong></div>
+        <div class="hud-num"><span>Time</span><strong id="hudTime">90</strong></div>
+      </div>
+      <div class="hud-bars">
+        <div class="hud-bar hull" title="UFO hull">
+          <span class="hud-bar-label">Hull</span>
+          <span class="hud-bar-track"><i id="hudHull"></i></span>
+        </div>
+        <div class="hud-bar energy" title="Energy toward the next UFO level">
+          <span class="hud-bar-label">Energy</span>
+          <span class="hud-bar-track"><i id="hudEnergy"></i></span>
+        </div>
+      </div>
+      <button class="hud-menu-button" id="openMenu" type="button" aria-label="Open menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path>
+        </svg>
+        <span>Menu</span>
+      </button>
+    </div>
+
+    <div class="weapon-bar" id="weaponBar" aria-label="Weapons"></div>
+  </div>
+
+  <!-- ── Start screen ─────────────────────────────────────────────────────── -->
+  <div class="start-screen" id="startScreen">
+    <div class="start-card">
+      <span class="start-kicker">Clark Space Lab</span>
+      <h2 class="start-title">Save the Elements</h2>
+      <p class="start-copy">Fly your UFO, vacuum up the elements the station needs, and dock them before the black hole eats everything.</p>
+      <ol class="start-steps">
+        <li><span class="start-step-num">1</span><span><strong>Fly</strong> — drag anywhere, or use the arrow keys.</span></li>
+        <li><span class="start-step-num">2</span><span><strong>Vacuum</strong> — hold <kbd>C</kbd> or the Vacuum button to pull elements in.</span></li>
+        <li><span class="start-step-num">3</span><span><strong>Dock</strong> — fly to the station and press <kbd>D</kbd> to deliver.</span></li>
+      </ol>
+      <button class="start-play" id="startPlay" type="button">Play</button>
+    </div>
+  </div>
+
+  <!-- ── Menu overlay ─────────────────────────────────────────────────────────
+       The old always-on side panels get moved in here at boot (see game.js), so
+       every existing control keeps working -- it is just no longer in the way. -->
+  <div class="menu-overlay" id="menuOverlay" hidden>
+    <div class="menu-sheet" role="dialog" aria-modal="true" aria-label="Game menu">
+      <header class="menu-head">
+        <strong>Menu</strong>
+        <button class="menu-close" id="closeMenu" type="button" aria-label="Close menu">Resume</button>
+      </header>
+      <div class="menu-body" id="menuBody"></div>
+    </div>
+  </div>
 
   <!-- Thumb controls, shown only on touch screens (see .touch-pad in game.css).
        These drive exactly the same actions as the C / Space / D keys. -->
@@ -254,13 +319,15 @@
       <button id="closeGuide" type="button" aria-label="Close game guide" title="Close guide">X</button>
     </div>
     <textarea id="gameGuide" readonly>Goal: protect the station. Dock elements there so the station can make H2O, NaCl, and CO2.
-Fly: Arrow keys or drag UFO. Hold C or hold Vacuum: forward tractor beam collects elements.
+Fly: arrow keys, or drag anywhere on the screen to steer the UFO.
+Vacuum: hold C or the Vacuum button to pull elements in.
 Dock: fly near the space station and press D to deposit cargo.
+Menu / pause: press P or Esc. Everything else lives in there.
 Mission timer: finish faster to climb the Best Times ranking.
 Storage: the station auto-reacts matching elements and recycles overflow into XP.
 Black hole: it traps eaten elements. After 8 elements it becomes a chasing boss. Destroy it to release them.
-Weapons: choose Bolt, Laser, Boom, or Spread, then press Fire/Space.
-Pilot powers: 1 = Clark laser, 2 or B = Bradley megaboom, E = eject crew.
+Weapons: press 1 Bolt, 2 Laser, 3 Spread, 4 Boom. Hold Space (or Fire) to keep shooting.
+Pilot powers: Z = Clark aboard, X or B = Bradley aboard, E = eject crew.
 XP tip: mission elements and boss-weakness compounds give the most energy.</textarea>
   </section>
 
