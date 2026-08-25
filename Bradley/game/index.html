@@ -21,10 +21,8 @@
   <meta property="og:image:alt" content="Clark &amp; Bradley&#x27;s Universe">
   <meta name="twitter:card" content="summary_large_image">
   <title>Brad's Universe</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;600;700;800&family=Press+Start+2P&family=Audiowide&family=Bungee&family=Russo+One&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;600;700;800&family=Press+Start+2P&family=Audiowide&family=Bungee&display=swap');
 
     :root {
       --ink: #e8f0fe;
@@ -1297,6 +1295,10 @@
       border-radius: 8px;
     }
 
+    #panelToggle {
+      display: none;
+    }
+
     /* ── PANEL SECTION LABELS ── */
     .panel-section-label {
       font-size: 9px;
@@ -2283,6 +2285,81 @@
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
+
+    /* Tablet/iPad mode: keep the playfield full-width and make the HUD drawer collapsible. */
+    @media (pointer: coarse), (max-width: 1180px) {
+      canvas {
+        right: 0;
+      }
+
+      #panelToggle {
+        display: grid;
+      }
+
+      .game-panel {
+        top: 64px;
+        right: max(6px, env(safe-area-inset-right));
+        bottom: max(6px, env(safe-area-inset-bottom));
+        width: min(290px, calc(100vw - 12px));
+        max-height: none;
+        transform: none;
+        transition: transform 180ms ease, opacity 180ms ease;
+        will-change: transform;
+      }
+
+      body.panel-collapsed .game-panel {
+        transform: translateX(calc(100% + 18px));
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .topbar,
+      .game-panel,
+      button,
+      .touch-btn {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+
+      .star-layer,
+      .nebula {
+        display: none;
+      }
+
+      h1,
+      .mission-card,
+      .weapon-belt button.is-active::before {
+        animation: none !important;
+      }
+
+      .touch-controls {
+        bottom: max(18px, env(safe-area-inset-bottom));
+      }
+    }
+
+    @media (pointer: coarse) and (orientation: portrait) {
+      .game-panel {
+        width: min(270px, calc(100vw - 12px));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .topbar { padding: 0 8px; gap: 6px; }
+      .brand h1 { font-size: 12px !important; }
+      .hud-stat { padding: 0 8px; }
+      .hud-label { font-size: 7px; letter-spacing: 0.06em; }
+      .hud-value { font-size: 13px; }
+      .buttons { gap: 4px; }
+      .buttons button { width: 34px; height: 34px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -2332,6 +2409,13 @@
     </div>
 
     <div class="buttons">
+      <button id="panelToggle" type="button" aria-label="Hide mission panel" title="Hide mission panel" aria-expanded="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="M4 5h16v14H4z"></path>
+          <path d="M14 5v14"></path>
+          <path d="m10 9-3 3 3 3"></path>
+        </svg>
+      </button>
       <button id="shuffle" type="button" aria-label="Shuffle elements" title="Shuffle elements">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M16 3h5v5"></path>
@@ -2412,7 +2496,7 @@
   </section>
 
   <!-- Mobile floating controls (visible on touch devices only) -->
-  <div class="touch-controls" id="touchControls" aria-hidden="true">
+  <div class="touch-controls" id="touchControls" aria-label="Touch game controls">
     <button class="touch-btn touch-vac"  id="touchVacuum" type="button" aria-label="Vacuum (hold)">🧲</button>
     <button class="touch-btn touch-fire" id="touchFire"   type="button" aria-label="Fire">🔥</button>
   </div>
@@ -2460,6 +2544,30 @@
   <div class="tooltip" id="tooltip" aria-hidden="true"></div>
 
   <script>
+    const twemojiOpts = { folder: "svg", ext: ".svg", base: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/" };
+
+    function parseEmoji(target) {
+      if (window.twemoji && target) {
+        try { window.twemoji.parse(target, twemojiOpts); } catch (e) {}
+      }
+    }
+
+    function setTextIfChanged(target, value) {
+      if (!target) return false;
+      const next = String(value);
+      if (target.textContent === next) return false;
+      target.textContent = next;
+      return true;
+    }
+
+    function setHtmlIfChanged(target, value, withEmoji = false) {
+      if (!target || target._lastHtml === value) return false;
+      target.innerHTML = value;
+      target._lastHtml = value;
+      if (withEmoji) parseEmoji(target);
+      return true;
+    }
+
     // Global error visualizer — if anything throws, surface it on screen
     window.addEventListener("error", (e) => {
       const div = document.createElement("div");
@@ -2477,6 +2585,7 @@
     const shuffleButton = document.querySelector("#shuffle") || _stubBtn;
     const pauseButton = document.querySelector("#pause") || _stubBtn;
     const pauseIcon = document.querySelector("#pauseIcon") || _stubBtn;
+    const panelToggleButton = document.querySelector("#panelToggle") || _stubBtn;
     const slotA = _stubBtn;
     const slotB = _stubBtn;
     const tooltip = document.querySelector("#tooltip") || _stubBtn;
@@ -2486,6 +2595,7 @@
     const gamePanel = document.querySelector(".game-panel");
     const familyButtons = [];
     const hazardButtons = [...document.querySelectorAll("[data-hazard]")];
+    const weaponButtons = [...document.querySelectorAll("[data-weapon]")];
     const scoreReadout = document.querySelector("#scoreReadout");
     const levelReadout = document.querySelector("#levelReadout");
     const streakReadout = document.querySelector("#streakReadout");
@@ -2871,6 +2981,10 @@
     let width = 0;
     let height = 0;
     let dpr = 1;
+    let lowPowerMode = false;
+    let frameScale = 1;
+    let lastFrameAt = 0;
+    let lastPanelSyncAt = 0;
     let running = true;
     let nodes = [];
     let compounds = [];
@@ -2879,6 +2993,8 @@
     let pointer = { x: 0, y: 0, active: false };
     let hoveredNode = null;
     let reactionCooldowns = new Map();
+    const reactionCache = new Map();
+    const uiRectCache = new Map();
     let lastAutoReactionAt = 0;
     let activeFamily = null;
     let spaceship = null;
@@ -2895,6 +3011,10 @@
     let spaceshipPressed = false;
     let suppressCanvasClick = false;
     let suctionActive = false;
+
+    function usesTabletLayout() {
+      return window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 1180;
+    }
     // ── Game-feel state ──
     let shakeMag = 0;          // current screen-shake magnitude (px)
     let shakeUntil = 0;        // timestamp when shake ends
@@ -2999,8 +3119,8 @@
           });
         }
         bonusRound.meteors.forEach((m) => {
-          m.x += m.vx;
-          m.y += m.vy;
+          m.x += m.vx * frameScale;
+          m.y += m.vy * frameScale;
           // Hit the ship?
           if (spaceship && t - spaceship.lastDamageAt > 520) {
             const d = Math.hypot(m.x - spaceship.x, m.y - spaceship.y);
@@ -3149,7 +3269,13 @@
     }
 
     function uiBlockRects(extraPadding = 0) {
-      return [labPanel, gamePanel].filter((panel) => panel && typeof panel.getBoundingClientRect === "function").map((panel) => {
+      const cacheKey = `${extraPadding}:${document.body.classList.contains("panel-collapsed")}`;
+      if (uiRectCache.has(cacheKey)) return uiRectCache.get(cacheKey);
+      const rects = [labPanel, gamePanel].filter((panel) => {
+        if (!panel || typeof panel.getBoundingClientRect !== "function") return false;
+        if (panel === gamePanel && document.body.classList.contains("panel-collapsed")) return false;
+        return true;
+      }).map((panel) => {
         const rect = panel.getBoundingClientRect();
         return {
           left: rect.left - extraPadding,
@@ -3158,6 +3284,8 @@
           bottom: rect.bottom + extraPadding
         };
       });
+      uiRectCache.set(cacheKey, rects);
+      return rects;
     }
 
     function pointInsideRect(x, y, rect) {
@@ -3309,21 +3437,35 @@
 
     function reactionForElements(a, b) {
       const key = pairKey(a.symbol, b.symbol);
-      if (explosiveReactions[key]) return { ...explosiveReactions[key], explosive: true };
-      return inferReaction(a, b);
+      if (reactionCache.has(key)) return reactionCache.get(key);
+      const reaction = explosiveReactions[key]
+        ? { ...explosiveReactions[key], explosive: true }
+        : inferReaction(a, b);
+      reactionCache.set(key, reaction || null);
+      return reaction;
     }
 
     function setMessage(title, body) {
-      message.innerHTML = `<strong>${title}</strong>${body}`;
+      setHtmlIfChanged(message, `<strong>${title}</strong>${body}`, true);
     }
 
     function setAutoMessage(title, body) {
-      autoMessage.innerHTML = `<strong>${title}</strong>${body}`;
+      setHtmlIfChanged(autoMessage, `<strong>${title}</strong>${body}`, true);
       autoMessage.classList.remove("is-idle");
     }
 
     function currentMission() {
       return missions[game.missionIndex % missions.length];
+    }
+
+    function setPanelCollapsed(collapsed) {
+      document.body.classList.toggle("panel-collapsed", collapsed);
+      uiRectCache.clear();
+      clearTimeout(setPanelCollapsed._rectTimer);
+      setPanelCollapsed._rectTimer = setTimeout(() => uiRectCache.clear(), 220);
+      panelToggleButton.setAttribute("aria-expanded", String(!collapsed));
+      panelToggleButton.setAttribute("aria-label", collapsed ? "Show mission panel" : "Hide mission panel");
+      panelToggleButton.setAttribute("title", collapsed ? "Show mission panel" : "Hide mission panel");
     }
 
     const hudTimer = document.querySelector("#hudTimer");
@@ -3332,7 +3474,7 @@
       const mission = currentMission();
       const recipe = SYNTH_RECIPES[mission.formula];
 
-      missionName.textContent = mission.title;
+      setTextIfChanged(missionName, mission.title);
       // Live ingredient checklist
       if (recipe) {
         const counts = {};
@@ -3345,29 +3487,29 @@
         }
         const hasCompound = spaceship && spaceship.cargo && spaceship.cargo.some((it) => it.type === "compound" && it.formula === mission.formula);
         if (hasCompound) {
-          missionHint.innerHTML = `<span class="ready-msg">✓ ${recipe.label} ready — press FIRE!</span>`;
+          setHtmlIfChanged(missionHint, `<span class="ready-msg">✓ ${recipe.label} ready — press FIRE!</span>`);
         } else {
           const ingredients = Object.entries(recipe.ingredients).map(([sym, n]) => {
             const got = Math.min(counts[sym] || 0, n);
             return `<span class="ing ${got >= n ? "is-got" : ""}">${sym}<b> ${got}/${n}</b></span>`;
           }).join("");
-          missionHint.innerHTML = `Build <b>${mission.formula}</b>: ${ingredients}`;
+          setHtmlIfChanged(missionHint, `Build <b>${mission.formula}</b>: ${ingredients}`);
         }
       } else {
-        missionHint.textContent = mission.hint;
+        setTextIfChanged(missionHint, mission.hint);
       }
       const prevScore = scoreReadout.textContent;
       const newScore = String(game.score);
-      scoreReadout.textContent = newScore;
+      setTextIfChanged(scoreReadout, newScore);
       if (prevScore !== newScore && game.score > 0) {
         scoreReadout.classList.remove("pop");
         void scoreReadout.offsetWidth;
         scoreReadout.classList.add("pop");
       }
-      levelReadout.textContent = String(game.level);
-      streakReadout.textContent = `×${game.streak}`;
+      setTextIfChanged(levelReadout, game.level);
+      setTextIfChanged(streakReadout, `×${game.streak}`);
       const timeVal = Math.ceil(game.timeLeft);
-      timerReadout.textContent = String(timeVal);
+      setTextIfChanged(timerReadout, timeVal);
       if (hudTimer) hudTimer.classList.toggle("is-urgent", game.active && timeVal <= 20);
       // Ship evolution board
       const evoBoard = document.getElementById("evoBoard");
@@ -3390,8 +3532,7 @@
           </div>`;
         });
         if (evoBoard._lastHtml !== evoHtml) {
-          evoBoard.innerHTML = evoHtml;
-          evoBoard._lastHtml = evoHtml;
+          setHtmlIfChanged(evoBoard, evoHtml, true);
         }
       }
       // Lives readout
@@ -3403,18 +3544,19 @@
         for (let i = 0; i < max; i += 1) {
           html += `<span class="life-dot ${i < cur ? "is-on" : "is-off"}">🛸</span>`;
         }
-        livesEl.innerHTML = html;
+        setHtmlIfChanged(livesEl, html, true);
       }
-      missionProgress.style.width = `${Math.min(100, game.repairedParts.size / missions.length * 100)}%`;
+      const progressWidth = `${Math.min(100, game.repairedParts.size / missions.length * 100)}%`;
+      if (missionProgress.style.width !== progressWidth) missionProgress.style.width = progressWidth;
       const boss = isBossWave(game.level);
-      levelMap.innerHTML = `<span class="level-node is-active${boss ? " is-boss" : ""}">Wave ${game.level}${boss ? " 👾 BOSS" : ""}</span>`;
-      shipStatus.textContent = `Elements saved: ${game.repairedParts.size}/${missions.length} · rescues ${game.shipRescues}`;
-      shipParts.innerHTML = missions.map((item) => `<span class="ship-part ${game.repairedParts.has(item.part) ? "is-fixed" : ""}">${item.partLabel}<br>${item.formula}</span>`).join("");
-      discoveryStrip.innerHTML = [...game.discovered].slice(-8).map((formula) => `<span class="discovery-chip">${formula}</span>`).join("");
+      setHtmlIfChanged(levelMap, `<span class="level-node is-active${boss ? " is-boss" : ""}">Wave ${game.level}${boss ? " 👾 BOSS" : ""}</span>`, true);
+      setTextIfChanged(shipStatus, `Elements saved: ${game.repairedParts.size}/${missions.length} · rescues ${game.shipRescues}`);
+      setHtmlIfChanged(shipParts, missions.map((item) => `<span class="ship-part ${game.repairedParts.has(item.part) ? "is-fixed" : ""}">${item.partLabel}<br>${item.formula}</span>`).join(""), true);
+      setHtmlIfChanged(discoveryStrip, [...game.discovered].slice(-8).map((formula) => `<span class="discovery-chip">${formula}</span>`).join(""));
       kidsModeButton.classList.toggle("is-active", game.kidsMode);
       soundToggleButton.classList.toggle("is-active", game.sound);
 
-      document.querySelectorAll("[data-weapon]").forEach((b) => b.classList.toggle("is-active", b.dataset.weapon === game.weapon));
+      weaponButtons.forEach((b) => b.classList.toggle("is-active", b.dataset.weapon === game.weapon));
     }
 
     // Big animated "WAVE N" banner across the play area
@@ -3437,9 +3579,12 @@
       game.lastTick = performance.now();
       game.timeLeft = missionTime();
       updateGamePanel();
+      setHtmlIfChanged(startGameButton, "✓ Playing");
+      startGameButton.disabled = true;
       setMessage("Mission started", `${currentMission().hint}`);
       showWaveBanner(`WAVE ${game.level}`, currentMission().hint, false);
       playTone(660, 0.08);
+      if (usesTabletLayout()) setPanelCollapsed(true);
     }
 
     function resetGame() {
@@ -3482,6 +3627,8 @@
       missions = MISSION_TIERS[0].missions;
       comboCount = 0;
       updateGamePanel();
+      setHtmlIfChanged(startGameButton, "✓ Playing");
+      startGameButton.disabled = true;
       updateRecordsLine();
       setMessage("New game", `${currentMission().hint}`);
       playTone(520, 0.08);
@@ -3508,6 +3655,7 @@
           <div class="uc-desc">${u.desc}</div>
           <div class="uc-lvl">Lv ${(game.upgrades[u.id] || 0) + 1}</div>
         </button>`).join("");
+      parseEmoji(modal);
       modal.style.display = "flex";
       cards.querySelectorAll(".upgrade-card").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -3807,18 +3955,40 @@
     }
 
     function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth - 290;
+      const oldWidth = width;
+      const oldHeight = height;
+      lowPowerMode = usesTabletLayout();
+      uiRectCache.clear();
+      dpr = Math.min(window.devicePixelRatio || 1, lowPowerMode ? 1.25 : 2);
+      width = window.innerWidth - (lowPowerMode ? 0 : 290);
       height = window.innerHeight;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      makeNodes();
-      makeSpaceship();
-      makeBlackHole();
-      makeSun();
+      ctx.imageSmoothingEnabled = true;
+
+      if (!oldWidth || !oldHeight || !nodes.length) {
+        makeNodes();
+        makeSpaceship();
+        makeBlackHole();
+        makeSun();
+        return;
+      }
+
+      const scaleX = width / oldWidth;
+      const scaleY = height / oldHeight;
+      const scalePoint = (item) => {
+        if (!item) return;
+        if (Number.isFinite(item.x)) item.x = Math.max(0, Math.min(width, item.x * scaleX));
+        if (Number.isFinite(item.y)) item.y = Math.max(0, Math.min(height, item.y * scaleY));
+        if (Number.isFinite(item.targetX)) item.targetX *= scaleX;
+        if (Number.isFinite(item.targetY)) item.targetY *= scaleY;
+      };
+      [spaceship, blackHole, sun, tornado, tsunami].forEach(scalePoint);
+      [nodes, compounds, shots, powerups, meteors, effects, astronauts].forEach((items) => items.forEach(scalePoint));
+      if (bonusRound && bonusRound.meteors) bonusRound.meteors.forEach(scalePoint);
     }
 
     function makeSpaceship() {
@@ -4186,8 +4356,8 @@
           return;
         }
 
-        node.x += node.vx + Math.sin(t * 0.0008 + node.phase) * 0.08;
-        node.y += node.vy + Math.cos(t * 0.0007 + node.phase) * 0.08;
+        node.x += (node.vx + Math.sin(t * 0.0008 + node.phase) * 0.08) * frameScale;
+        node.y += (node.vy + Math.cos(t * 0.0007 + node.phase) * 0.08) * frameScale;
 
         if (pointer.active) {
           const dx = node.x - pointer.x;
@@ -4206,8 +4376,8 @@
         if (node.y < 86 || node.y > height - 34) node.vy *= -1;
         node.x = Math.max(32, Math.min(width - 32, node.x));
         node.y = Math.max(86, Math.min(height - 34, node.y));
-        node.vx *= 0.996;
-        node.vy *= 0.996;
+        node.vx *= Math.pow(0.996, frameScale);
+        node.vy *= Math.pow(0.996, frameScale);
 
         if (Math.abs(node.vx) < 0.12) node.vx += Math.sin(t * 0.001 + node.phase) * 0.006;
         if (Math.abs(node.vy) < 0.12) node.vy += Math.cos(t * 0.001 + node.phase) * 0.006;
@@ -4241,8 +4411,8 @@
       }
 
       compounds.forEach((compound) => {
-        compound.x += compound.vx;
-        compound.y += compound.vy + Math.sin(t * 0.002 + compound.phase) * 0.06;
+        compound.x += compound.vx * frameScale;
+        compound.y += (compound.vy + Math.sin(t * 0.002 + compound.phase) * 0.06) * frameScale;
         if (compound.x < 60 || compound.x > width - 60) compound.vx *= -1;
         if (compound.y < 120 || compound.y > height - 70) compound.vy *= -1;
       });
@@ -4319,8 +4489,8 @@
           const cdy = spaceship.y - blackHole.y;
           const cd = Math.max(1, Math.hypot(cdx, cdy));
           const chaseAccel = 0.10 + game.level * 0.012; // gets fiercer each boss
-          blackHole.vx += (cdx / cd) * chaseAccel;
-          blackHole.vy += (cdy / cd) * chaseAccel;
+          blackHole.vx += (cdx / cd) * chaseAccel * frameScale;
+          blackHole.vy += (cdy / cd) * chaseAccel * frameScale;
         }
 
         // ⚡ GRAVITY SURGE — much faster + stronger pull
@@ -4375,8 +4545,8 @@
         }
       }
 
-      blackHole.vx += Math.cos(t * 0.00041 + blackHole.phase) * 0.012;
-      blackHole.vy += Math.sin(t * 0.00047 + blackHole.phase) * 0.012;
+      blackHole.vx += Math.cos(t * 0.00041 + blackHole.phase) * 0.012 * frameScale;
+      blackHole.vy += Math.sin(t * 0.00047 + blackHole.phase) * 0.012 * frameScale;
       const speed = Math.max(0.01, Math.hypot(blackHole.vx, blackHole.vy));
       // Boss is ~50% faster
       const maxSpeed = game.phase === "boss"
@@ -4386,8 +4556,8 @@
         blackHole.vx = blackHole.vx / speed * maxSpeed;
         blackHole.vy = blackHole.vy / speed * maxSpeed;
       }
-      blackHole.x += blackHole.vx;
-      blackHole.y += blackHole.vy + Math.sin(t * 0.0012 + blackHole.phase) * 0.1;
+      blackHole.x += blackHole.vx * frameScale;
+      blackHole.y += (blackHole.vy + Math.sin(t * 0.0012 + blackHole.phase) * 0.1) * frameScale;
 
       const margin = blackHole.influence * 0.3;
       if (blackHole.x < margin || blackHole.x > width - margin) blackHole.vx *= -1;
@@ -4407,8 +4577,8 @@
 
         const pull = (1 - distance / blackHole.influence) * 0.065;
         const swirl = (1 - distance / blackHole.influence) * 0.022;
-        node.vx += (dx / distance) * pull - (dy / distance) * swirl;
-        node.vy += (dy / distance) * pull + (dx / distance) * swirl;
+        node.vx += ((dx / distance) * pull - (dy / distance) * swirl) * frameScale;
+        node.vy += ((dy / distance) * pull + (dx / distance) * swirl) * frameScale;
 
         if (distance < blackHole.radius + node.size * 0.45) {
           // Eat more aggressively — keep stockpiling until cap (20).
@@ -4446,8 +4616,8 @@
 
       const pull = (1 - distance / threatRange) * 0.13 * sunShield;
       const swirl = (1 - distance / threatRange) * 0.045 * sunShield;
-      spaceship.vx += (dx / distance) * pull - (dy / distance) * swirl;
-      spaceship.vy += (dy / distance) * pull + (dx / distance) * swirl;
+      spaceship.vx += ((dx / distance) * pull - (dy / distance) * swirl) * frameScale;
+      spaceship.vy += ((dy / distance) * pull + (dx / distance) * swirl) * frameScale;
 
       if (!spaceship.following && distance < blackHole.influence * 0.74) {
         spaceship.dodgeUntil = t + 420;
@@ -4874,8 +5044,8 @@
 
     function updateShots(t) {
       shots.forEach((shot) => {
-        shot.x += shot.vx;
-        shot.y += shot.vy;
+        shot.x += shot.vx * frameScale;
+        shot.y += shot.vy * frameScale;
 
         // Missile homing
         if (shot.kind === "missile" && !shot.hit) {
@@ -4892,8 +5062,8 @@
           if (nearest) {
             const dx = nearest.x - shot.x, dy = nearest.y - shot.y;
             const d = Math.max(1, Math.hypot(dx, dy));
-            shot.vx += dx / d * 0.65;
-            shot.vy += dy / d * 0.65;
+            shot.vx += dx / d * 0.65 * frameScale;
+            shot.vy += dy / d * 0.65 * frameScale;
             const sp = Math.hypot(shot.vx, shot.vy);
             if (sp > 9) { shot.vx = shot.vx / sp * 9; shot.vy = shot.vy / sp * 9; }
           }
@@ -5013,8 +5183,8 @@
         const length = Math.max(1, Math.hypot(keyX, keyY));
         const accel = 0.58;
         spaceship.following = true;
-        spaceship.vx += keyX / length * accel;
-        spaceship.vy += keyY / length * accel;
+        spaceship.vx += keyX / length * accel * frameScale;
+        spaceship.vy += keyY / length * accel * frameScale;
         const speed = Math.max(0.01, Math.hypot(spaceship.vx, spaceship.vy));
         const maxSpeed = ufoMaxSpeed();
         if (speed > maxSpeed) {
@@ -5026,14 +5196,15 @@
         const dy = spaceship.targetY - spaceship.y;
         const distance = Math.max(1, Math.hypot(dx, dy));
         const speed = Math.min(7.5, Math.max(1.8, distance * 0.085));
-        spaceship.vx += ((dx / distance) * speed - spaceship.vx) * 0.16;
-        spaceship.vy += ((dy / distance) * speed - spaceship.vy) * 0.16;
+        const followBlend = 1 - Math.pow(0.84, frameScale);
+        spaceship.vx += ((dx / distance) * speed - spaceship.vx) * followBlend;
+        spaceship.vy += ((dy / distance) * speed - spaceship.vy) * followBlend;
       } else {
         const turn = Math.sin(t * 0.0008 + spaceship.wobble) * 0.018 + Math.cos(t * 0.00043) * 0.012;
         const speed = 1.9 + Math.sin(t * 0.0011 + spaceship.wobble) * 0.35;
-        spaceship.angle += turn;
-        spaceship.vx += Math.cos(spaceship.angle) * 0.028;
-        spaceship.vy += Math.sin(spaceship.angle) * 0.028;
+        spaceship.angle += turn * frameScale;
+        spaceship.vx += Math.cos(spaceship.angle) * 0.028 * frameScale;
+        spaceship.vy += Math.sin(spaceship.angle) * 0.028 * frameScale;
 
         const currentSpeed = Math.max(0.01, Math.hypot(spaceship.vx, spaceship.vy));
         spaceship.vx = (spaceship.vx / currentSpeed) * speed;
@@ -5043,8 +5214,8 @@
       if (Math.hypot(spaceship.vx, spaceship.vy) > 0.2) {
         spaceship.angle = Math.atan2(spaceship.vy, spaceship.vx);
       }
-      spaceship.x += spaceship.vx;
-      spaceship.y += spaceship.vy + Math.sin(t * 0.002 + spaceship.wobble) * 0.22;
+      spaceship.x += spaceship.vx * frameScale;
+      spaceship.y += (spaceship.vy + Math.sin(t * 0.002 + spaceship.wobble) * 0.22) * frameScale;
 
       const margin = spaceship.radius + 18;
       if (spaceship.x < margin || spaceship.x > width - margin) {
@@ -5255,10 +5426,10 @@
       if (!powerups.length) return;
       powerups.forEach((p) => {
         // float gently with damping
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.985;
-        p.vy *= 0.985;
+        p.x += p.vx * frameScale;
+        p.y += p.vy * frameScale;
+        p.vx *= Math.pow(0.985, frameScale);
+        p.vy *= Math.pow(0.985, frameScale);
         // soft attraction toward UFO if it's in vacuum range
         if (spaceship && suctionActive) {
           const dx = spaceship.x - p.x, dy = spaceship.y - p.y;
@@ -5330,7 +5501,7 @@
         ctx.translate(0, bob);
         // Outer halo
         ctx.shadowColor = p.def.glow;
-        ctx.shadowBlur = 30 * pulse;
+        ctx.shadowBlur = lowPowerMode ? 8 * pulse : 30 * pulse;
         const halo = ctx.createRadialGradient(0, 0, 4, 0, 0, 28 * pulse);
         halo.addColorStop(0, `${p.def.glow}cc`);
         halo.addColorStop(1, `${p.def.glow}00`);
@@ -5424,6 +5595,9 @@
 
     function drawBackground(t) {
       ctx.clearRect(0, 0, width, height);
+      // On tablets, the static CSS space background shows through the transparent
+      // canvas. Avoid repainting eight screen-sized gradients every frame.
+      if (lowPowerMode) return;
       ctx.save();
       ctx.globalAlpha = 0.34;
       const colors = ["#e85d4f", "#0f9b8f", "#d49b2a", "#2e79bd", "#8067c8"];
@@ -5465,9 +5639,13 @@
         for (let j = i + 1; j < nodes.length; j += 1) {
           const a = nodes[i];
           const b = nodes[j];
-          const known = reactionForElements(a.element, b.element);
-          const distance = Math.hypot(a.x - b.x, a.y - b.y);
-          if (known && distance < 148) {
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const distanceSquared = dx * dx + dy * dy;
+          if (distanceSquared < 148 * 148) {
+            const known = reactionForElements(a.element, b.element);
+            if (!known) continue;
+            const distance = Math.sqrt(distanceSquared);
             const alpha = (1 - distance / 148) * 0.55;
             ctx.globalAlpha = alpha;
             ctx.strokeStyle = known.explosive ? "#e85d4f" : known.inferred ? "#2aa8d8" : "#11161b";
@@ -5500,7 +5678,7 @@
         ctx.save();
         const pulseRad = node.size * 0.65 + 8 + Math.sin(t * 0.006 + node.phase) * 3;
         ctx.shadowColor = "#fde68a";
-        ctx.shadowBlur = 22;
+        ctx.shadowBlur = lowPowerMode ? 8 : 22;
         ctx.strokeStyle = `rgba(253, 230, 138, ${0.75 + Math.sin(t * 0.006) * 0.18})`;
         ctx.lineWidth = 2.4;
         ctx.beginPath(); ctx.arc(node.x, node.y, pulseRad, 0, Math.PI * 2); ctx.stroke();
@@ -5511,7 +5689,7 @@
         ctx.save();
         const gp = 0.7 + Math.sin(t * 0.01 + node.phase) * 0.3;
         ctx.shadowColor = "#ffd75e";
-        ctx.shadowBlur = 30 * gp;
+        ctx.shadowBlur = lowPowerMode ? 8 * gp : 30 * gp;
         ctx.strokeStyle = `rgba(255, 215, 94, ${0.65 + gp * 0.3})`;
         ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(node.x, node.y, node.size * 0.72 + 6, 0, Math.PI * 2); ctx.stroke();
@@ -5534,7 +5712,7 @@
       if (isFrozen) {
         ctx.save();
         ctx.shadowColor = "#98dcff";
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = lowPowerMode ? 6 : 18;
         ctx.strokeStyle = "rgba(180,232,255,0.85)";
         ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(node.x, node.y, node.size * 0.7 + 4, 0, Math.PI * 2); ctx.stroke();
@@ -5562,14 +5740,20 @@
       ctx.save();
       ctx.globalAlpha = isFamilyMatch ? 1 : 0.3;
       ctx.shadowColor = isUfoCargo ? "#2aa8d8" : isHeld ? "#d49b2a" : isTrapped ? "#2aa8d8" : node.selected || isHovered ? color : "rgba(17, 22, 27, 0.16)";
-      ctx.shadowBlur = isUfoCargo ? 32 : isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 24 : 8;
+      ctx.shadowBlur = lowPowerMode
+        ? (isUfoCargo || isHeld || isTrapped || node.selected || isHovered ? 8 : 0)
+        : (isUfoCargo ? 32 : isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 24 : 8);
       ctx.shadowOffsetY = isUfoCargo || isHeld || isTrapped || node.selected || isHovered ? 0 : 4;
       roundRect(x, y, visualSize, visualSize, 7);
-      const tileGradient = ctx.createLinearGradient(x, y, x + visualSize, y + visualSize);
-      tileGradient.addColorStop(0, "rgba(255, 255, 255, 0.95)");
-      tileGradient.addColorStop(0.52, "rgba(255, 252, 244, 0.78)");
-      tileGradient.addColorStop(1, `${color}22`);
-      ctx.fillStyle = tileGradient;
+      if (lowPowerMode) {
+        ctx.fillStyle = "rgba(246, 246, 242, 0.92)";
+      } else {
+        const tileGradient = ctx.createLinearGradient(x, y, x + visualSize, y + visualSize);
+        tileGradient.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+        tileGradient.addColorStop(0.52, "rgba(255, 252, 244, 0.78)");
+        tileGradient.addColorStop(1, `${color}22`);
+        ctx.fillStyle = tileGradient;
+      }
       ctx.fill();
       ctx.lineWidth = isUfoCargo || isHeld || isTrapped || node.selected || isHovered || (activeFamily && isFamilyMatch) ? 3 : 1;
       ctx.strokeStyle = isUfoCargo ? "#2aa8d8" : isHeld ? "#d49b2a" : isTrapped ? "#2aa8d8" : node.selected || isHovered || (activeFamily && isFamilyMatch) ? color : "rgba(17, 22, 27, 0.25)";
@@ -5642,7 +5826,7 @@
     }
 
     function addExplosionEffect(x, y, now) {
-      effects.push({ type: "explosion", x, y, born: now, particles: Array.from({ length: 76 }, () => ({
+      effects.push({ type: "explosion", x, y, born: now, particles: Array.from({ length: lowPowerMode ? 28 : 76 }, () => ({
         angle: randomBetween(0, Math.PI * 2),
         speed: randomBetween(2.1, 7.2),
         radius: randomBetween(1.8, 7),
@@ -6553,7 +6737,8 @@
       // Animated solar flares / rays
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      sun.flares.forEach((fl) => {
+      sun.flares.forEach((fl, index) => {
+        if (lowPowerMode && index % 2) return;
         const a = fl.angle + t * 0.0004 * fl.speed;
         const inner = sun.radius * 0.95;
         const outer = sun.radius * (1.35 + fl.len * 0.5) + Math.sin(t * 0.006 + fl.angle) * 6;
@@ -6575,7 +6760,7 @@
 
       // Corona ring
       ctx.shadowColor = "#ffcd55";
-      ctx.shadowBlur = 40;
+      ctx.shadowBlur = lowPowerMode ? 10 : 40;
       const corona = ctx.createRadialGradient(0, 0, sun.radius * 0.4, 0, 0, sun.radius * 1.15);
       corona.addColorStop(0,   "rgba(255, 245, 200, 1)");
       corona.addColorStop(0.6, "rgba(255, 200, 90, 1)");
@@ -6634,7 +6819,7 @@
 
       // Accretion rings
       ctx.globalCompositeOperation = "screen";
-      const ringCount = isBoss ? 5 : 3;
+      const ringCount = lowPowerMode ? (isBoss ? 3 : 2) : (isBoss ? 5 : 3);
       for (let i = 0; i < ringCount; i += 1) {
         ctx.save();
         ctx.rotate(i * Math.PI / 3 + t * (0.0018 + i * 0.00045) * (isBoss ? 1.6 : 1));
@@ -6651,7 +6836,7 @@
 
       // Black core
       ctx.shadowColor = "rgba(17, 22, 27, 0.92)";
-      ctx.shadowBlur = 24;
+      ctx.shadowBlur = lowPowerMode ? 8 : 24;
       ctx.fillStyle = "#020307";
       ctx.beginPath();
       ctx.arc(0, 0, blackHole.radius, 0, Math.PI * 2);
@@ -6915,6 +7100,8 @@
     }
 
     function loop(t) {
+      frameScale = lastFrameAt ? Math.max(0.25, Math.min(2.5, (t - lastFrameAt) / (1000 / 60))) : 1;
+      lastFrameAt = t;
       // Screen shake: jitter the canvas element itself (no draw-code changes)
       if (t < shakeUntil && shakeMag > 0.3) {
         const m = shakeMag * Math.max(0, (shakeUntil - t) / 400);
@@ -6953,8 +7140,12 @@
       drawBonusRound(t);
       drawEffects(t);
       updateGameTimer(t);
-      updateTooltip();
-      updateGamePanel();
+      // The HUD is deliberately capped at 8 updates/second. Individual fields are
+      // diffed, so unchanged DOM and emoji images are left completely untouched.
+      if (t - lastPanelSyncAt >= 125) {
+        lastPanelSyncAt = t;
+        updateGamePanel();
+      }
       updateAmbientAudio();
       requestAnimationFrame(loop);
     }
@@ -6981,6 +7172,7 @@
     });
     canvas.addEventListener("pointerdown", (event) => {
       if (!spaceshipAt(event.clientX, event.clientY)) return;
+      canvas.setPointerCapture?.(event.pointerId);
       spaceshipPressed = true;
       suppressCanvasClick = true;
       spaceship.following = true;
@@ -7028,6 +7220,9 @@
     resetGameButton.addEventListener("click", resetGame);
     const gameOverRestartBtn = document.getElementById("gameOverRestart");
     if (gameOverRestartBtn) gameOverRestartBtn.addEventListener("click", resetGame);
+    panelToggleButton.addEventListener("click", () => {
+      setPanelCollapsed(!document.body.classList.contains("panel-collapsed"));
+    });
 
     // ── Mobile touch buttons (Vacuum hold + Fire) ──
     const touchVacBtn  = document.getElementById("touchVacuum");
@@ -7035,24 +7230,22 @@
     if (touchVacBtn) {
       const startVac = (e) => { e.preventDefault(); suctionActive = true; touchVacBtn.classList.add("is-active"); };
       const stopVac  = (e) => { e.preventDefault(); suctionActive = false; touchVacBtn.classList.remove("is-active"); };
-      touchVacBtn.addEventListener("touchstart", startVac, { passive: false });
-      touchVacBtn.addEventListener("touchend",   stopVac,  { passive: false });
-      touchVacBtn.addEventListener("touchcancel",stopVac,  { passive: false });
-      touchVacBtn.addEventListener("mousedown",  startVac);
-      touchVacBtn.addEventListener("mouseup",    stopVac);
-      touchVacBtn.addEventListener("mouseleave", stopVac);
+      touchVacBtn.addEventListener("pointerdown", (e) => {
+        touchVacBtn.setPointerCapture?.(e.pointerId);
+        startVac(e);
+      });
+      touchVacBtn.addEventListener("pointerup", stopVac);
+      touchVacBtn.addEventListener("pointercancel", stopVac);
+      touchVacBtn.addEventListener("lostpointercapture", stopVac);
     }
     if (touchFireBtn) {
       const fireFn = (e) => {
         e.preventDefault();
         shootUfo(performance.now());
       };
-      touchFireBtn.addEventListener("touchstart", fireFn, { passive: false });
-      touchFireBtn.addEventListener("click", fireFn);
+      touchFireBtn.addEventListener("pointerdown", fireFn);
     }
 
-
-    const weaponButtons = [...document.querySelectorAll("[data-weapon]")];
     weaponButtons.forEach((button) => {
       button.addEventListener("click", () => {
         game.weapon = button.dataset.weapon;
@@ -7114,7 +7307,7 @@
     shuffleButton.addEventListener("click", () => {
       makeNodes();
       setMessage("Shuffled.", "New floating elements are ready. Try H + O for water.");
-      autoMessage.innerHTML = "<strong>Auto reaction</strong>Waiting for nearby elements to react.";
+      setHtmlIfChanged(autoMessage, "<strong>Auto reaction</strong>Waiting for nearby elements to react.");
       autoMessage.classList.add("is-idle");
     });
     pauseButton.addEventListener("click", () => {
@@ -7132,38 +7325,12 @@
     requestAnimationFrame(loop);
 
     // ─── Arcade Polish: Twemoji + click ripple + boss critical state ───
-    const twemojiOpts = { folder: 'svg', ext: '.svg', base: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/' };
-    function parseEmoji(target) {
-      if (window.twemoji && target) try { window.twemoji.parse(target, twemojiOpts); } catch (e) {}
-    }
     // Initial parse once Twemoji script has loaded
     function tryInitialParse(retries) {
       if (window.twemoji) { parseEmoji(document.body); return; }
       if (retries > 0) setTimeout(() => tryInitialParse(retries - 1), 120);
     }
     tryInitialParse(40);
-
-    // Re-parse upgrade modal cards each time it opens (they're dynamically built)
-    const _origShowUpgradeModal = showUpgradeModal;
-    showUpgradeModal = function (isBoss) {
-      _origShowUpgradeModal(isBoss);
-      setTimeout(() => parseEmoji(document.getElementById('upgradeModal')), 30);
-    };
-
-    // Re-parse mission card / level map on each panel update (text changes dynamically)
-    const _origUpdateGamePanel = updateGamePanel;
-    updateGamePanel = function () {
-      _origUpdateGamePanel();
-      parseEmoji(document.querySelector('.mission-card'));
-      parseEmoji(document.getElementById('levelMap'));
-      parseEmoji(document.getElementById('shipParts'));
-    };
-
-    // Re-parse messages whenever they update
-    const _origSetMessage = setMessage;
-    setMessage = function (...args) { _origSetMessage(...args); parseEmoji(document.getElementById('message')); };
-    const _origSetAutoMessage = setAutoMessage;
-    setAutoMessage = function (...args) { _origSetAutoMessage(...args); parseEmoji(document.getElementById('autoMessage')); };
 
     // Click ripple flash on every button
     document.body.addEventListener('click', (e) => {
@@ -7186,19 +7353,6 @@
       }
     }, 200);
 
-    // HUD score pop animation when score changes
-    let _lastScore = 0;
-    setInterval(() => {
-      const sr = document.getElementById('scoreReadout');
-      if (!sr) return;
-      const n = parseInt(sr.textContent || '0', 10);
-      if (n !== _lastScore) {
-        _lastScore = n;
-        sr.style.animation = 'none';
-        void sr.offsetWidth;
-        sr.style.animation = 'hudPop 0.5s ease-out';
-      }
-    }, 150);
   </script>
 </body>
 </html>

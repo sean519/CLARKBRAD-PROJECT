@@ -103,11 +103,16 @@
 
     .cards {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 22px;
       width: 100%;
     }
-    @media (max-width: 860px) { .cards { grid-template-columns: 1fr; gap: 16px; } }
+    @media (max-width: 860px) {
+      body { overflow: auto; justify-content: flex-start; }
+      .frame { padding-block: 22px 70px; gap: 28px; }
+      .cards { grid-template-columns: 1fr; gap: 16px; }
+      .footer { position: static; margin: 10px 0 20px; }
+    }
 
     .card {
       position: relative;
@@ -201,6 +206,8 @@
                    --card-glow: radial-gradient(circle at 30% 20%, rgba(165,200,255,0.32), transparent 60%); }
     .card-video  { --card-color: #b0e8ff; --card-color-2: #7fc4e8;
                    --card-glow: radial-gradient(circle at 30% 20%, rgba(176,232,255,0.32), transparent 60%); }
+    .card-rpg    { --card-color: #ffd34f; --card-color-2: #a65dff;
+                   --card-glow: radial-gradient(circle at 30% 20%, rgba(166,93,255,0.30), transparent 62%); }
 
     .footer {
       position: fixed; bottom: 14px; left: 0; right: 0;
@@ -257,12 +264,21 @@
         <p class="card-desc">Watch Clark's videos and behind-the-scenes clips.</p>
         <span class="card-cta">Watch <i class="fa-solid fa-arrow-right"></i></span>
       </a>
+
+      <a class="card card-rpg" href="rpg-codex/index.html" aria-label="Play Clark Portalbound Codex Edition">
+        <span class="card-icon" aria-hidden="true"><i class="fa-solid fa-hat-wizard"></i></span>
+        <p class="card-tag">Story RPG · Codex Edition</p>
+        <h2 class="card-name">Portalbound</h2>
+        <p class="card-desc">Cross seven comic worlds, solve portal puzzles, and battle the shadows with Clark and Bradley.</p>
+        <span class="card-cta">Begin Adventure <i class="fa-solid fa-arrow-right"></i></span>
+      </a>
     </nav>
 
     <p class="keys" aria-hidden="true">
       <span><kbd>1</kbd> Game</span>
       <span><kbd>2</kbd> Comic</span>
       <span><kbd>3</kbd> Video</span>
+      <span><kbd>4</kbd> RPG</span>
       <span><kbd>Esc</kbd> Back</span>
     </p>
   </main>
@@ -275,6 +291,7 @@
       if (e.key === "1") window.location.href = "game/index.html";
       if (e.key === "2") window.location.href = "comic/index.html";
       if (e.key === "3") window.location.href = "video/index.html";
+      if (e.key === "4") window.location.href = "rpg-codex/index.html";
       if (e.key === "Escape") window.location.href = "../index.html";
     });
   </script>

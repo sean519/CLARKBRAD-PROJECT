@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Memory match — flip two cards, find every pair, beat your best time.">
+  <meta name="theme-color" content="#080418">
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+
+  <title>Memory Match · Arcade</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/cosmos.css">
+  <link rel="stylesheet" href="arcade.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700;800&family=Audiowide&display=swap');
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .card-slot { perspective: 800px; aspect-ratio: 1 / 1; }
+
+    .card-inner {
+      position: relative;
+      width: 100%; height: 100%;
+      cursor: pointer;
+      transform-style: preserve-3d;
+      transition: transform 320ms cubic-bezier(.2,.8,.2,1.05);
+      border: none; padding: 0; background: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .card-slot.flipped .card-inner,
+    .card-slot.matched .card-inner { transform: rotateY(180deg); }
+    .card-slot.matched .card-inner { cursor: default; }
+
+    .face {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 14px;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      font-size: clamp(26px, 8vw, 42px);
+    }
+    .face.back {
+      background: linear-gradient(150deg, #4c1d95, #7c3aed);
+      border: 1.5px solid rgba(192, 132, 252, 0.45);
+      color: rgba(255,255,255,0.55);
+      font-size: clamp(18px, 5vw, 26px);
+    }
+    .face.front {
+      transform: rotateY(180deg);
+      background: rgba(240, 236, 255, 0.95);
+      border: 1.5px solid rgba(192, 132, 252, 0.6);
+    }
+    .card-slot.matched .face.front {
+      background: rgba(74, 222, 128, 0.92);
+      box-shadow: 0 0 22px rgba(74, 222, 128, 0.55);
+    }
+    .card-slot.shake .card-inner { animation: cardShake 320ms ease-in-out; }
+    @keyframes cardShake {
+      0%, 100% { transform: rotateY(180deg) translateX(0); }
+      25%      { transform: rotateY(180deg) translateX(-5px); }
+      75%      { transform: rotateY(180deg) translateX(5px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="nebula" aria-hidden="true"><b></b><b></b><b></b></div>
+
+  <main class="shell">
+    <div class="topbar">
+      <a class="back" href="../index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Home</a>
+      <h1 class="game-title">Memory</h1>
+    </div>
+
+    <div class="hud">
+      <div class="stat"><span class="stat-label">Pairs</span><span class="stat-value" id="pairs">0/8</span></div>
+      <div class="stat"><span class="stat-label">Moves</span><span class="stat-value" id="moves">0</span></div>
+      <div class="stat"><span class="stat-label">Time</span><span class="stat-value" id="time">0:00</span></div>
+    </div>
+
+    <div class="stage">
+      <div id="grid" aria-label="Memory match board"></div>
+
+      <div class="overlay" id="overlay">
+        <h2 id="ov-title">Memory Match</h2>
+        <p id="ov-text">Flip two cards. If they match they stay open. Clear all eight pairs.</p>
+        <button class="btn" id="ov-btn">Play</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn ghost" id="shuffle"><i class="fa-solid fa-shuffle"></i> Shuffle</button>
+    </div>
+
+    <p class="hint">Best time: <span id="best-time">—</span></p>
+  </main>
+
+  <script src="arcade.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var SYMBOLS = ['🚀', '🪐', '⭐', '🛸', '👽', '🌙', '☄️', '🔭'];
+
+    var grid     = document.getElementById('grid');
+    var pairsEl  = document.getElementById('pairs');
+    var movesEl  = document.getElementById('moves');
+    var timeEl   = document.getElementById('time');
+    var bestEl   = document.getElementById('best-time');
+    var overlay  = document.getElementById('overlay');
+    var ovTitle  = document.getElementById('ov-title');
+    var ovText   = document.getElementById('ov-text');
+    var ovBtn    = document.getElementById('ov-btn');
+
+    var slots = [], first = null, lock = false;
+    var moves = 0, found = 0, seconds = 0, ticker = null, running = false;
+
+    var bestTime = Arcade.readBest('memory-time');
+    showBest();
+
+    function showBest() {
+      bestEl.textContent = bestTime ? fmt(bestTime) : '—';
+    }
+
+    function fmt(s) {
+      var m = Math.floor(s / 60);
+      return m + ':' + String(s % 60).padStart(2, '0');
+    }
+
+    function shuffle(list) {
+      var a = list.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+
+    function build() {
+      grid.innerHTML = '';
+      slots = [];
+      var deck = shuffle(SYMBOLS.concat(SYMBOLS));
+
+      deck.forEach(function (sym, idx) {
+        var slot = document.createElement('div');
+        slot.className = 'card-slot';
+
+        var btn = document.createElement('button');
+        btn.className = 'card-inner';
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Card ' + (idx + 1));
+
+        var back = document.createElement('span');
+        back.className = 'face back';
+        back.textContent = '?';
+
+        var front = document.createElement('span');
+        front.className = 'face front';
+        front.textContent = sym;
+
+        btn.appendChild(back);
+        btn.appendChild(front);
+        slot.appendChild(btn);
+        grid.appendChild(slot);
+
+        slot.dataset.symbol = sym;
+        btn.addEventListener('click', function () { flip(slot); });
+        slots.push(slot);
+      });
+    }
+
+    function newGame() {
+      build();
+      first = null; lock = false;
+      moves = 0; found = 0; seconds = 0;
+      Arcade.setStat(movesEl, 0);
+      Arcade.setStat(pairsEl, '0/8');
+      timeEl.textContent = '0:00';
+      overlay.hidden = true;
+      running = true;
+      clearInterval(ticker);
+      ticker = setInterval(function () {
+        seconds++;
+        timeEl.textContent = fmt(seconds);
+      }, 1000);
+    }
+
+    function flip(slot) {
+      if (!running || lock) return;
+      if (slot.classList.contains('flipped') || slot.classList.contains('matched')) return;
+
+      slot.classList.add('flipped');
+
+      if (!first) { first = slot; return; }
+
+      moves++;
+      Arcade.setStat(movesEl, moves);
+
+      if (first.dataset.symbol === slot.dataset.symbol) {
+        var a = first, b = slot;
+        first = null;
+        setTimeout(function () {
+          a.classList.add('matched'); a.classList.remove('flipped');
+          b.classList.add('matched'); b.classList.remove('flipped');
+        }, 260);
+        found++;
+        Arcade.setStat(pairsEl, found + '/8', true);
+        if (found === SYMBOLS.length) win();
+        return;
+      }
+
+      // Miss — shake both, then turn them back over.
+      lock = true;
+      var x = first, y = slot;
+      first = null;
+      x.classList.add('shake'); y.classList.add('shake');
+      setTimeout(function () {
+        x.classList.remove('flipped', 'shake');
+        y.classList.remove('flipped', 'shake');
+        lock = false;
+      }, 760);
+    }
+
+    function win() {
+      running = false;
+      clearInterval(ticker);
+
+      var record = '';
+      if (!bestTime || seconds < bestTime) {
+        bestTime = seconds;
+        Arcade.writeBest('memory-time', bestTime);
+        showBest();
+        record = ' New best time!';
+      }
+
+      setTimeout(function () {
+        ovTitle.textContent = 'All Matched!';
+        ovText.textContent  = 'Eight pairs in ' + moves + ' moves and ' + fmt(seconds) + '.' + record;
+        ovBtn.textContent   = 'Play Again';
+        overlay.hidden = false;
+      }, 500);
+    }
+
+    ovBtn.addEventListener('click', newGame);
+    document.getElementById('shuffle').addEventListener('click', newGame);
+
+    build();   // face-down deck sits behind the start overlay
+  })();
+  </script>
+</body>
+</html>

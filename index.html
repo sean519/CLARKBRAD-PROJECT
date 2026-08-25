@@ -268,6 +268,413 @@
     .col-bradley .card-video  { --card-color: #ffb38a; --card-color-2: #c08060;
       --card-glow: radial-gradient(circle at 0% 0%, rgba(255,179,138,0.18), transparent 70%); }
 
+    /* ─────────────────────────────────────────────────────────
+       ARCADE — one original per brother, side by side.
+
+       Clark's half is a portal: seven chapter worlds around a gate,
+       energy running OUTWARD, because that game is about travelling
+       out through portals. Bradley's half is a reactor: five arcade
+       classics around a core, energy running INWARD, because that
+       game is what those five fused into. Same geometry, opposite
+       direction — that is the whole point of the pairing.
+
+       Both diagrams share `.orb` for sizing, so there is no separate
+       mobile layout to keep in sync.
+       ───────────────────────────────────────────────────────── */
+    .arcade-strip {
+      position: relative;
+      width: 100%;
+      padding: 26px 24px 28px;
+      border-radius: 26px;
+      border: 1.5px solid rgba(192, 132, 252, 0.24);
+      background: linear-gradient(160deg, rgba(24, 16, 54, 0.72), rgba(12, 10, 30, 0.80));
+      backdrop-filter: blur(22px) saturate(1.3);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 24px 56px rgba(0,0,0,0.35);
+      display: flex; flex-direction: column; align-items: center; gap: 18px;
+    }
+
+    .arcade-head { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .arcade-eyebrow {
+      margin: 0;
+      font-size: 10px; font-weight: 800;
+      letter-spacing: 0.28em; text-transform: uppercase;
+      color: rgba(192, 132, 252, 0.75);
+    }
+    .arcade-head h2 {
+      font-family: 'Audiowide', 'Orbitron', sans-serif;
+      font-size: clamp(26px, 3.6vw, 42px);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin: 0;
+      background: linear-gradient(135deg, #67e8f9 0%, #fff 46%, #c084fc 78%, #4ade80 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .arcade-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      width: 100%;
+    }
+    @media (max-width: 900px) {
+      .arcade-split { grid-template-columns: 1fr; gap: 16px; }
+    }
+
+    .half {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 4px;
+      padding: 20px 18px 22px;
+      border-radius: 22px;
+      border: 1.5px solid var(--h-border);
+      background: var(--h-bg);
+      overflow: hidden;
+    }
+    .half::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 0%, var(--h-glow), transparent 62%);
+      pointer-events: none;
+    }
+    .half-clark {
+      --h-color: #67e8f9; --h-color-2: #2787ff;
+      --h-border: rgba(103, 232, 249, 0.24);
+      --h-bg: linear-gradient(165deg, rgba(8, 30, 64, 0.80), rgba(6, 14, 36, 0.86));
+      --h-glow: rgba(103, 232, 249, 0.14);
+    }
+    .half-bradley {
+      --h-color: #c084fc; --h-color-2: #4ade80;
+      --h-border: rgba(192, 132, 252, 0.26);
+      --h-bg: linear-gradient(165deg, rgba(36, 16, 72, 0.80), rgba(14, 8, 34, 0.86));
+      --h-glow: rgba(192, 132, 252, 0.16);
+    }
+
+    .half-head { position: relative; z-index: 1; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+    .half-tag {
+      margin: 0;
+      font-size: 9.5px; font-weight: 800;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--h-color);
+    }
+    .half-name {
+      font-family: 'Audiowide', 'Orbitron', sans-serif;
+      font-size: clamp(19px, 2.6vw, 30px);
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin: 0;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #fff 0%, var(--h-color) 60%, var(--h-color-2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── shared geometry for both diagrams ─────────────────── */
+    .orb {
+      --size: clamp(252px, 33vw, 380px);
+      --r: calc(var(--size) * 0.375);        /* node orbit radius */
+      position: relative;
+      width: var(--size);
+      height: var(--size);
+      margin: 6px auto 0;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    @media (max-width: 900px) {
+      .orb { --size: clamp(252px, 78vw, 380px); }
+    }
+
+    /* concentric field rings */
+    .field {
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      pointer-events: none;
+      /* The rings are square boxes drawn as circles; rotating a square
+         swings its bounding box out to the diagonal, which widens the
+         page on a phone. Clipping here costs nothing — the circles are
+         inscribed in this box — and keeps the rotation off the layout. */
+      overflow: hidden;
+    }
+    .field::before, .field::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px dashed var(--ring, rgba(192, 132, 252, 0.20));
+    }
+    .field::before { inset: 8%;  animation: spin 90s linear infinite; }
+    .field::after  { inset: 24%; border-style: solid; border-color: var(--ring-2, rgba(74, 222, 128, 0.13));
+                     animation: spin 60s linear reverse infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* a pulse leaving the centre every few seconds */
+    .shock {
+      position: absolute; left: 50%; top: 50%;
+      width: 40%; height: 40%;
+      margin: -20% 0 0 -20%;
+      border-radius: 50%;
+      border: 1.5px solid var(--shock, rgba(74, 222, 128, 0.55));
+      opacity: 0;
+      pointer-events: none;
+      animation: shock 4.5s ease-out infinite;
+    }
+    .shock.late { animation-delay: 2.25s; }
+    @keyframes shock {
+      0%   { transform: scale(0.55); opacity: 0.75; }
+      70%  { opacity: 0; }
+      100% { transform: scale(2.4);  opacity: 0; }
+    }
+
+    /* ── beams: a coloured rail plus a travelling pulse ────── */
+    .beam {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: var(--r); height: 4px;
+      margin-top: -2px;
+      transform-origin: 0 50%;
+      transform: rotate(var(--a));
+      border-radius: 3px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.85) 0%, var(--c) 26%, var(--c) 100%);
+      opacity: 0.42;
+      filter: drop-shadow(0 0 7px var(--c));
+      transition: opacity 220ms;
+    }
+    .beam::after {
+      content: "";
+      position: absolute; inset: -1px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, transparent 0%, var(--c) 35%, #fff 55%, var(--c) 70%, transparent 100%);
+      background-size: 38% 100%;
+      background-repeat: no-repeat;
+      animation: feed 2.6s linear infinite;
+      animation-delay: var(--d);
+    }
+    /* Bradley: the pulse runs from the game inward, into the core */
+    @keyframes feed {
+      from { background-position: 165% 0; }
+      to   { background-position: -55% 0; }
+    }
+    /* Clark: the pulse runs from the gate outward, into the world */
+    .portal .beam::after { animation-name: emit; }
+    @keyframes emit {
+      from { background-position: -55% 0; }
+      to   { background-position: 165% 0; }
+    }
+    .orb.focused .beam { opacity: 0.14; }
+    .orb.focused .beam.hot { opacity: 1; }
+    .orb.focused .beam.hot::after { animation-duration: 0.9s; }
+
+    /* ── nodes on the orbit ────────────────────────────────── */
+    .sat, .chapter {
+      position: absolute;
+      left: 50%; top: 50%;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      border: 1.5px solid var(--c);
+      background: radial-gradient(circle at 50% 30%, rgba(255,255,255,0.12), rgba(8, 6, 26, 0.94));
+      box-shadow: 0 0 20px -4px var(--c), inset 0 0 16px -8px var(--c);
+      color: #e8f0fe;
+      text-decoration: none;
+      z-index: 3;
+      /* place on the orbit, then keep the label upright */
+      transform: rotate(var(--a)) translate(var(--r)) rotate(calc(-1 * var(--a)));
+      transition: box-shadow 220ms, border-color 220ms;
+    }
+    .sat {
+      width: clamp(46px, 8vw, 66px); height: clamp(46px, 8vw, 66px);
+      margin: calc(clamp(46px, 8vw, 66px) / -2) 0 0 calc(clamp(46px, 8vw, 66px) / -2);
+    }
+    .chapter {
+      width: clamp(36px, 6.2vw, 52px); height: clamp(36px, 6.2vw, 52px);
+      margin: calc(clamp(36px, 6.2vw, 52px) / -2) 0 0 calc(clamp(36px, 6.2vw, 52px) / -2);
+    }
+    .sat:hover, .sat:focus-visible, .chapter:hover, .chapter:focus-visible {
+      box-shadow: 0 0 32px -2px var(--c), inset 0 0 20px -6px var(--c);
+      outline: none;
+    }
+
+    .sat-inner {
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
+      animation: bob 6s ease-in-out infinite;
+      animation-delay: var(--d);
+    }
+    @keyframes bob { 0%, 100% { transform: translateY(-2px) scale(1); } 50% { transform: translateY(2px) scale(1.04); } }
+    .sat:hover .sat-inner, .sat:focus-visible .sat-inner { animation-play-state: paused; transform: scale(1.12); }
+    .sat-emoji { font-size: clamp(16px, 3.4vw, 24px); line-height: 1; }
+    .sat-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(7px, 1.3vw, 9px);
+      font-weight: 900;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: #fff;
+      text-align: center;
+    }
+
+    .chapter-no {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(13px, 2.2vw, 18px);
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 12px var(--c);
+      animation: bob 6s ease-in-out infinite;
+      animation-delay: var(--d);
+    }
+    .chapter:hover .chapter-no, .chapter:focus-visible .chapter-no { animation-play-state: paused; transform: scale(1.15); }
+
+    /* ── the centre of each diagram ────────────────────────── */
+    .core, .gate {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 36%; height: 36%;
+      margin: -18% 0 0 -18%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1px;
+      border-radius: 50%;
+      text-decoration: none;
+      color: #fff;
+      overflow: hidden;
+      z-index: 4;
+      transition: transform 240ms cubic-bezier(.2,.8,.2,1.05);
+    }
+    .core:hover, .core:focus-visible, .gate:hover, .gate:focus-visible { transform: scale(1.06); outline: none; }
+    .core > *, .gate > * { position: relative; z-index: 2; }
+
+    /* Bradley's core: hot pinpoint centre falling off into deep space,
+       so it reads as a reactor rather than a flat purple ball */
+    .core {
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,0.95) 0%, rgba(216,180,254,0.55) 9%, transparent 26%),
+        radial-gradient(circle at 50% 34%, #f3e8ff 0%, #c084fc 16%, #7c3aed 44%, #3b0f70 74%, #150430 100%);
+      box-shadow: 0 0 46px -6px rgba(192, 132, 252, 0.85), inset 0 -12px 30px rgba(0,0,0,0.55);
+      animation: corePulse 3.2s ease-in-out infinite;
+    }
+    @keyframes corePulse {
+      0%, 100% { box-shadow: 0 0 40px -8px rgba(192,132,252,0.75), inset 0 -12px 30px rgba(0,0,0,0.55); }
+      50%      { box-shadow: 0 0 68px -2px rgba(74,222,128,0.75),  inset 0 -12px 30px rgba(0,0,0,0.55); }
+    }
+
+    /* Clark's gate: the comic cover seen through a portal */
+    .gate {
+      background: radial-gradient(circle at 50% 40%, #1b3d66 0%, #0a1a38 60%, #050d20 100%);
+      box-shadow: 0 0 46px -6px rgba(103, 232, 249, 0.85), inset 0 -12px 30px rgba(0,0,0,0.55);
+      animation: gatePulse 3.6s ease-in-out infinite;
+    }
+    @keyframes gatePulse {
+      0%, 100% { box-shadow: 0 0 40px -8px rgba(103,232,249,0.7), inset 0 -12px 30px rgba(0,0,0,0.55); }
+      50%      { box-shadow: 0 0 68px -2px rgba(255,211,79,0.6),  inset 0 -12px 30px rgba(0,0,0,0.55); }
+    }
+    .gate-art {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.62;
+      filter: saturate(1.25) contrast(1.08);
+      z-index: 0;
+    }
+    .gate::after {
+      content: "";
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(5, 13, 32, 0.12) 0%, rgba(5, 13, 32, 0.62) 58%, rgba(5,13,32,0.9) 100%);
+      z-index: 1;
+    }
+
+    /* the sweeping containment / event ring */
+    .core::before, .gate::before {
+      content: "";
+      position: absolute; inset: -7px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0 55%, var(--ring-hot) 78%, rgba(255,255,255,0.95) 88%, transparent 100%);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px));
+      animation: spin 6s linear infinite;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .core::before { --ring-hot: rgba(74, 222, 128, 0.9); }
+    .gate::before { --ring-hot: rgba(255, 211, 79, 0.9); animation-direction: reverse; }
+
+    .core-atom { font-size: clamp(18px, 4vw, 30px); line-height: 1; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+    .core-name {
+      font-family: 'Audiowide', 'Orbitron', sans-serif;
+      font-size: clamp(10px, 1.7vw, 14px);
+      letter-spacing: 0.03em; text-transform: uppercase;
+      text-align: center; line-height: 1.15;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.75);
+    }
+    .core-cta {
+      font-size: clamp(7px, 1.2vw, 9px);
+      font-weight: 800;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.3);
+      margin-top: 3px;
+    }
+    .core-badge {
+      position: absolute;
+      top: -5%; left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(8, 4, 24, 0.92);
+      border: 1px solid var(--badge-line);
+      color: var(--badge-ink);
+      font-size: clamp(6.5px, 1.2vw, 9px); font-weight: 800;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      z-index: 5;
+    }
+    .half-bradley .core-badge { --badge-line: rgba(74, 222, 128, 0.6);  --badge-ink: #4ade80; }
+    .half-clark   .core-badge { --badge-line: rgba(255, 211, 79, 0.6);  --badge-ink: #ffd34f; }
+
+    /* ── caption under each diagram ────────────────────────── */
+    .half-note {
+      position: relative; z-index: 1;
+      min-height: 4.6em;
+      margin: 12px 0 0;
+      max-width: 40ch;
+      text-align: center;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: rgba(205, 220, 255, 0.62);
+    }
+    .half-note b { color: #fff; font-weight: 700; }
+    .half-note .arrow { color: var(--h-color); font-weight: 800; padding: 0 3px; }
+
+    /* per-game palettes, shared by a node and its beam */
+    .g-snake    { --c: #4ade80; }
+    .g-2048     { --c: #fbbf24; }
+    .g-flap     { --c: #c084fc; }
+    .g-memory   { --c: #38bdf8; }
+    .g-breakout { --c: #f472b6; }
+
+    /* per-chapter palettes, taken from each chapter's own portal colour */
+    .c-1 { --c: #a65dff; }
+    .c-2 { --c: #ff9f1c; }
+    .c-3 { --c: #39a8ff; }
+    .c-4 { --c: #ff5d62; }
+    .c-5 { --c: #8ce568; }
+    .c-6 { --c: #62bfff; }
+    .c-7 { --c: #ffd34f; }
+
+    .half-clark   .field { --ring: rgba(103, 232, 249, 0.20); --ring-2: rgba(255, 211, 79, 0.13); }
+    .half-clark   .shock { --shock: rgba(255, 211, 79, 0.5); }
+    .half-bradley .field { --ring: rgba(192, 132, 252, 0.20); --ring-2: rgba(74, 222, 128, 0.13); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .field::before, .field::after, .shock, .beam::after, .sat-inner, .chapter-no,
+      .core, .gate, .core::before, .gate::before { animation: none; }
+      .beam { opacity: 0.7; }
+      .shock { display: none; }
+    }
+
     .footer {
       position: fixed; bottom: 12px; left: 0; right: 0;
       text-align: center; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
@@ -276,9 +683,10 @@
     }
   
 
-    /* Desktop keeps centered */
+    /* The reactor makes this page taller than the viewport, and a
+       centred flex column clips its own top once it overflows. */
     body {
-      justify-content: center;
+      justify-content: flex-start;
     }
 
     /* =========================
@@ -595,6 +1003,138 @@
         </a>
       </section>
     </div>
+
+    <!-- ── ARCADE — one original per brother ──────────────── -->
+    <section class="arcade-strip" aria-labelledby="arcade-name">
+      <header class="arcade-head">
+        <p class="arcade-eyebrow">Two originals · one each</p>
+        <h2 id="arcade-name">Arcade</h2>
+      </header>
+
+      <div class="arcade-split">
+
+        <!-- ── CLARK — Portalbound ──────────────────────────
+             Seven chapter worlds orbit the gate; every node opens
+             the game, and the caption tells you what waits there. -->
+        <article class="half half-clark">
+          <header class="half-head">
+            <p class="half-tag">Clark · Story RPG</p>
+            <h3 class="half-name">Portalbound</h3>
+          </header>
+
+          <div class="orb portal" id="portal" role="group" aria-label="Portalbound — seven chapters around the portal gate">
+            <div class="field" aria-hidden="true"></div>
+            <span class="shock" aria-hidden="true"></span>
+            <span class="shock late" aria-hidden="true"></span>
+
+            <i class="beam c-1" style="--a: -90deg;    --d: 0s"    aria-hidden="true"></i>
+            <i class="beam c-2" style="--a: -38.6deg;  --d: -0.4s" aria-hidden="true"></i>
+            <i class="beam c-3" style="--a: 12.9deg;   --d: -0.8s" aria-hidden="true"></i>
+            <i class="beam c-4" style="--a: 64.3deg;   --d: -1.2s" aria-hidden="true"></i>
+            <i class="beam c-5" style="--a: 115.7deg;  --d: -1.6s" aria-hidden="true"></i>
+            <i class="beam c-6" style="--a: 167.1deg;  --d: -2s"   aria-hidden="true"></i>
+            <i class="beam c-7" style="--a: 218.6deg;  --d: -2.4s" aria-hidden="true"></i>
+
+            <a class="gate" href="Clark/rpg-codex/index.html" aria-label="Play Clark: Portalbound, the Codex Edition story RPG">
+              <span class="core-badge">Codex Edition</span>
+              <img class="gate-art" src="Clark/comic/assets/comic-web-640/cover.webp" alt="" aria-hidden="true">
+              <span class="core-name">Portal<br>bound</span>
+              <span class="core-cta">Play</span>
+            </a>
+
+            <a class="chapter c-1" href="Clark/rpg-codex/index.html" style="--a: -90deg"
+               data-note="<b>Chapter 1 · The First Portal</b> <span class='arrow'>→</span> a purple doorway opens onto a fire realm. Boss: the Pi Monster.">
+              <span class="chapter-no" style="--d: 0s">1</span>
+            </a>
+            <a class="chapter c-2" href="Clark/rpg-codex/index.html" style="--a: -38.6deg"
+               data-note="<b>Chapter 2 · Mars Stasis</b> <span class='arrow'>→</span> crashed on Mars, wake the sleeping warriors. Boss: the Stasis Warden.">
+              <span class="chapter-no" style="--d: -0.8s">2</span>
+            </a>
+            <a class="chapter c-3" href="Clark/rpg-codex/index.html" style="--a: 12.9deg"
+               data-note="<b>Chapter 3 · The Prison Engine</b> <span class='arrow'>→</span> crack a four-star lock to free the prisoners. Boss: the Portal Engine.">
+              <span class="chapter-no" style="--d: -1.6s">3</span>
+            </a>
+            <a class="chapter c-4" href="Clark/rpg-codex/index.html" style="--a: 64.3deg"
+               data-note="<b>Chapter 4 · The Shadow Guardian</b> <span class='arrow'>→</span> floating islands and a path of golden leaves. Boss: the Shadow Guardian.">
+              <span class="chapter-no" style="--d: -2.4s">4</span>
+            </a>
+            <a class="chapter c-5" href="Clark/rpg-codex/index.html" style="--a: 115.7deg"
+               data-note="<b>Chapter 5 · The Vine Tower</b> <span class='arrow'>→</span> wind traps, hidden runes, and a stone golem nobody understood.">
+              <span class="chapter-no" style="--d: -3.2s">5</span>
+            </a>
+            <a class="chapter c-6" href="Clark/rpg-codex/index.html" style="--a: 167.1deg"
+               data-note="<b>Chapter 6 · The Raven Tempest</b> <span class='arrow'>→</span> an abandoned wind city under a living storm. Boss: the Raven Tempest.">
+              <span class="chapter-no" style="--d: -4s">6</span>
+            </a>
+            <a class="chapter c-7" href="Clark/rpg-codex/index.html" style="--a: 218.6deg"
+               data-note="<b>Chapter 7 · The Book's Trial</b> <span class='arrow'>→</span> three minutes of lasers, spikes and rhythm for the Leaf Key.">
+              <span class="chapter-no" style="--d: -4.8s">7</span>
+            </a>
+          </div>
+
+          <p class="half-note" id="portal-note" aria-live="polite">
+            Clark's 68-page comic, playable. <b>Seven chapters</b>, seven bosses, 21 comic
+            memories to find — with Bradley calling in Mega Booms. Touch a world to see what is in it.
+          </p>
+        </article>
+
+        <!-- ── BRADLEY — Chain Reaction ─────────────────────
+             Five arcade classics orbit the core they fused into;
+             each satellite still opens the classic it came from. -->
+        <article class="half half-bradley">
+          <header class="half-head">
+            <p class="half-tag">Bradley · Arcade fusion</p>
+            <h3 class="half-name">Chain Reaction</h3>
+          </header>
+
+          <div class="orb reactor" id="reactor" role="group" aria-label="Chain Reaction — five classic games fused into one">
+            <div class="field" aria-hidden="true"></div>
+            <span class="shock" aria-hidden="true"></span>
+            <span class="shock late" aria-hidden="true"></span>
+
+            <i class="beam g-snake"    style="--a: -90deg; --d: 0s"    aria-hidden="true"></i>
+            <i class="beam g-2048"     style="--a: -18deg; --d: -0.6s" aria-hidden="true"></i>
+            <i class="beam g-flap"     style="--a: 54deg;  --d: -1.2s" aria-hidden="true"></i>
+            <i class="beam g-memory"   style="--a: 126deg; --d: -1.8s" aria-hidden="true"></i>
+            <i class="beam g-breakout" style="--a: 198deg; --d: -2.4s" aria-hidden="true"></i>
+
+            <a class="core" href="arcade/chain-reaction.html" aria-label="Play Chain Reaction — the game the five classics became">
+              <span class="core-badge">All five, fused</span>
+              <span class="core-atom" aria-hidden="true">⚛️</span>
+              <span class="core-name">Chain<br>Reaction</span>
+              <span class="core-cta">Play</span>
+            </a>
+
+            <a class="sat g-snake" href="arcade/snake.html" style="--a: -90deg"
+               data-note="<b>Snake</b> <span class='arrow'>→</span> the chain you steer. Eating grows it; crossing yourself ends the run.">
+              <span class="sat-inner" style="--d: 0s"><span class="sat-emoji" aria-hidden="true">🐍</span><span class="sat-name">Snake</span></span>
+            </a>
+            <a class="sat g-2048" href="arcade/2048.html" style="--a: -18deg"
+               data-note="<b>2048</b> <span class='arrow'>→</span> matching atoms at the front fuse and double. The only way to make the chain shorter.">
+              <span class="sat-inner" style="--d: -1.2s"><span class="sat-emoji" aria-hidden="true">🔢</span><span class="sat-name">2048</span></span>
+            </a>
+            <a class="sat g-flap" href="arcade/flappy.html" style="--a: 54deg"
+               data-note="<b>Rocket Flap</b> <span class='arrow'>→</span> a wall with one gap sweeps the reactor. The longer your chain, the harder it is to thread.">
+              <span class="sat-inner" style="--d: -2.4s"><span class="sat-emoji" aria-hidden="true">🚀</span><span class="sat-name">Flap</span></span>
+            </a>
+            <a class="sat g-memory" href="arcade/memory.html" style="--a: 126deg"
+               data-note="<b>Memory Match</b> <span class='arrow'>→</span> atoms flip face-down after a moment. You have to remember what you are about to eat.">
+              <span class="sat-inner" style="--d: -3.6s"><span class="sat-emoji" aria-hidden="true">🧠</span><span class="sat-name">Memory</span></span>
+            </a>
+            <a class="sat g-breakout" href="arcade/breakout.html" style="--a: 198deg"
+               data-note="<b>Breakout</b> <span class='arrow'>→</span> every fusion fires a beam. Clearing the bricks is how you finish a wave.">
+              <span class="sat-inner" style="--d: -4.8s"><span class="sat-emoji" aria-hidden="true">🧱</span><span class="sat-name">Bricks</span></span>
+            </a>
+          </div>
+
+          <p class="half-note" id="reactor-note" aria-live="polite">
+            Five games went in, one came out — steer, fuse, blast, remember, and thread the gap.
+            Touch a game to see what it gave the reactor, or open it on its own.
+          </p>
+        </article>
+
+      </div>
+    </section>
   </main>
 
   
@@ -661,5 +1201,66 @@
   }
 </script>
 
+
+<script>
+/* Both arcade diagrams behave the same way: hovering a node (or
+   tabbing to it, or tapping it) lights that one line and swaps the
+   caption for the node's data-note. Hovering the centre lights every
+   line at once. One wiring function, two diagrams. */
+(function () {
+  'use strict';
+
+  function wire(orbId, noteId, nodeSelector, centreSelector, centreNote) {
+    var orb = document.getElementById(orbId);
+    var note = document.getElementById(noteId);
+    if (!orb || !note) return;
+
+    var idle = note.innerHTML;
+    var beams = [].slice.call(orb.querySelectorAll('.beam'));
+
+    function paletteOf(el) {
+      return (el.className.match(/\b[gc]-[a-z0-9]+/) || [])[0] || null;
+    }
+
+    function light(palette, text) {
+      orb.classList.add('focused');
+      beams.forEach(function (b) {
+        b.classList.toggle('hot', palette === null || b.classList.contains(palette));
+      });
+      if (text) note.innerHTML = text;
+    }
+
+    function release() {
+      orb.classList.remove('focused');
+      beams.forEach(function (b) { b.classList.remove('hot'); });
+      note.innerHTML = idle;
+    }
+
+    [].forEach.call(orb.querySelectorAll(nodeSelector), function (node) {
+      var palette = paletteOf(node), text = node.getAttribute('data-note');
+      ['mouseenter', 'focus', 'touchstart'].forEach(function (evt) {
+        node.addEventListener(evt, function () { light(palette, text); }, { passive: true });
+      });
+      ['mouseleave', 'blur'].forEach(function (evt) { node.addEventListener(evt, release); });
+    });
+
+    var centre = orb.querySelector(centreSelector);
+    if (centre) {
+      ['mouseenter', 'focus'].forEach(function (evt) {
+        centre.addEventListener(evt, function () { light(null, centreNote); }, { passive: true });
+      });
+      ['mouseleave', 'blur'].forEach(function (evt) { centre.addEventListener(evt, release); });
+    }
+  }
+
+  wire('portal', 'portal-note', '.chapter', '.gate',
+       'All seven worlds: punch meteors, solve portal puzzles, and cross every ' +
+       'chapter of <b>Clark\'s comic</b> with Bradley and the Portal Guardian.');
+
+  wire('reactor', 'reactor-note', '.sat', '.core',
+       'All five at once: a chain you steer, that fuses like <b>2048</b>, ' +
+       'blasts bricks, hides its numbers, and has to thread a moving gap.');
+})();
+</script>
 </body>
 </html>

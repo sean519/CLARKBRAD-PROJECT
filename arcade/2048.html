@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="2048 — slide the tiles, match the numbers, reach 2048.">
+  <meta name="theme-color" content="#080418">
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+
+  <title>2048 · Arcade</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/cosmos.css">
+  <link rel="stylesheet" href="arcade.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700;800&family=Audiowide&display=swap');
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      aspect-ratio: 1 / 1;
+      touch-action: none;
+      user-select: none;
+    }
+    .tile {
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: clamp(18px, 6.6vw, 34px);
+      color: #120726;
+      transition: background 120ms;
+    }
+    .tile[data-v="0"] { color: transparent; }
+
+    /* Value ramp — cool violets climbing into hot gold at the top end. */
+    .tile[data-v="2"]    { background: #ede9fe; }
+    .tile[data-v="4"]    { background: #ddd6fe; }
+    .tile[data-v="8"]    { background: #c4b5fd; }
+    .tile[data-v="16"]   { background: #a78bfa; color: #fff; }
+    .tile[data-v="32"]   { background: #8b5cf6; color: #fff; }
+    .tile[data-v="64"]   { background: #7c3aed; color: #fff; }
+    .tile[data-v="128"]  { background: #4ade80; color: #08240f; font-size: clamp(16px, 5.6vw, 30px); }
+    .tile[data-v="256"]  { background: #22c55e; color: #fff;    font-size: clamp(16px, 5.6vw, 30px); }
+    .tile[data-v="512"]  { background: #16a34a; color: #fff;    font-size: clamp(16px, 5.6vw, 30px); }
+    .tile[data-v="1024"] { background: #fbbf24; color: #3b2503; font-size: clamp(13px, 4.6vw, 25px); }
+    .tile[data-v="2048"] { background: #f59e0b; color: #fff;    font-size: clamp(13px, 4.6vw, 25px);
+                           box-shadow: 0 0 26px rgba(245, 158, 11, 0.75); }
+    .tile.big            { font-size: clamp(12px, 4vw, 22px); background: #ef4444; color: #fff; }
+
+    .tile.spawn { animation: tileSpawn 160ms ease-out; }
+    .tile.merge { animation: tileMerge 180ms ease-out; }
+    @keyframes tileSpawn { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes tileMerge { 0% { transform: scale(1); } 55% { transform: scale(1.16); } 100% { transform: scale(1); } }
+  </style>
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="nebula" aria-hidden="true"><b></b><b></b><b></b></div>
+
+  <main class="shell">
+    <div class="topbar">
+      <a class="back" href="../index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Home</a>
+      <h1 class="game-title">2048</h1>
+    </div>
+
+    <div class="hud">
+      <div class="stat"><span class="stat-label">Score</span><span class="stat-value" id="score">0</span></div>
+      <div class="stat"><span class="stat-label">Best</span><span class="stat-value" id="best">0</span></div>
+    </div>
+
+    <div class="stage">
+      <div id="grid" role="grid" aria-label="2048 board"></div>
+
+      <div class="overlay" id="overlay">
+        <h2 id="ov-title">2048</h2>
+        <p id="ov-text">Slide the tiles. Two of the same number join into one. Get to 2048.</p>
+        <button class="btn" id="ov-btn">Play</button>
+      </div>
+    </div>
+
+    <div class="pad" id="pad">
+      <button class="up"    aria-label="Up"><i class="fa-solid fa-chevron-up"></i></button>
+      <button class="left"  aria-label="Left"><i class="fa-solid fa-chevron-left"></i></button>
+      <button class="down"  aria-label="Down"><i class="fa-solid fa-chevron-down"></i></button>
+      <button class="right" aria-label="Right"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+
+    <div class="controls">
+      <button class="btn ghost" id="new-game"><i class="fa-solid fa-rotate-left"></i> New Game</button>
+    </div>
+
+    <p class="hint desktop-only"><kbd>← ↑ ↓ →</kbd> or <kbd>WASD</kbd> to slide · swipe on touch</p>
+  </main>
+
+  <script src="arcade.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var N = 4;
+    var grid    = document.getElementById('grid');
+    var scoreEl = document.getElementById('score');
+    var bestEl  = document.getElementById('best');
+    var overlay = document.getElementById('overlay');
+    var ovTitle = document.getElementById('ov-title');
+    var ovText  = document.getElementById('ov-text');
+    var ovBtn   = document.getElementById('ov-btn');
+
+    var cells = [];
+    for (var i = 0; i < N * N; i++) {
+      var d = document.createElement('div');
+      d.className = 'tile';
+      d.dataset.v = '0';
+      grid.appendChild(d);
+      cells.push(d);
+    }
+
+    var board, score, best, running, wonAlready;
+
+    best = Arcade.readBest('2048');
+    Arcade.setStat(bestEl, best);
+
+    function newGame() {
+      board = [];
+      for (var y = 0; y < N; y++) board.push([0, 0, 0, 0]);
+      score = 0;
+      wonAlready = false;
+      running = true;
+      Arcade.setStat(scoreEl, 0);
+      spawn(); spawn();
+      render();
+      overlay.hidden = true;
+    }
+
+    function spawn() {
+      var free = [];
+      for (var y = 0; y < N; y++)
+        for (var x = 0; x < N; x++)
+          if (!board[y][x]) free.push([x, y]);
+      if (!free.length) return null;
+      var pick = free[Math.floor(Math.random() * free.length)];
+      board[pick[1]][pick[0]] = Math.random() < 0.9 ? 2 : 4;
+      return pick;
+    }
+
+    function render(spawned, merged) {
+      for (var y = 0; y < N; y++) {
+        for (var x = 0; x < N; x++) {
+          var el = cells[y * N + x];
+          var v  = board[y][x];
+          el.dataset.v = String(v);
+          el.textContent = v || '';
+          el.classList.toggle('big', v > 2048);
+          el.classList.remove('spawn', 'merge');
+          if (spawned && spawned[0] === x && spawned[1] === y) el.classList.add('spawn');
+          if (merged && merged[y] && merged[y][x])             el.classList.add('merge');
+        }
+      }
+    }
+
+    /* Collapse one line toward index 0. Returns the new line plus the
+       positions that merged, so render() knows what to pop. */
+    function collapse(line) {
+      var out = [], gained = 0, mergedAt = [];
+      var vals = line.filter(function (v) { return v !== 0; });
+      for (var i = 0; i < vals.length; i++) {
+        if (vals[i] === vals[i + 1]) {
+          var sum = vals[i] * 2;
+          out.push(sum);
+          mergedAt.push(out.length - 1);
+          gained += sum;
+          i++;
+        } else {
+          out.push(vals[i]);
+        }
+      }
+      while (out.length < N) out.push(0);
+      return { line: out, gained: gained, mergedAt: mergedAt };
+    }
+
+    function move(dir) {
+      if (!running) return;
+
+      var moved = false, gained = 0;
+      var mergedMap = [];
+      for (var i = 0; i < N; i++) mergedMap.push([0, 0, 0, 0]);
+
+      for (var i = 0; i < N; i++) {
+        // Read each row/column into a line that always runs "forward",
+        // collapse it, then write it back the same way.
+        var line = [], coords = [];
+        for (var j = 0; j < N; j++) {
+          var x, y;
+          if (dir === 'left')  { x = j;         y = i; }
+          if (dir === 'right') { x = N - 1 - j; y = i; }
+          if (dir === 'up')    { x = i;         y = j; }
+          if (dir === 'down')  { x = i;         y = N - 1 - j; }
+          line.push(board[y][x]);
+          coords.push([x, y]);
+        }
+
+        var res = collapse(line);
+        gained += res.gained;
+
+        for (var j = 0; j < N; j++) {
+          var c = coords[j];
+          if (board[c[1]][c[0]] !== res.line[j]) moved = true;
+          board[c[1]][c[0]] = res.line[j];
+        }
+        res.mergedAt.forEach(function (idx) {
+          var c = coords[idx];
+          mergedMap[c[1]][c[0]] = 1;
+        });
+      }
+
+      if (!moved) return;
+
+      if (gained) {
+        score += gained;
+        Arcade.setStat(scoreEl, score, true);
+        if (score > best) {
+          best = score;
+          Arcade.writeBest('2048', best);
+          Arcade.setStat(bestEl, best);
+        }
+      }
+
+      var spawned = spawn();
+      render(spawned, mergedMap);
+
+      if (!wonAlready && hasValue(2048)) {
+        wonAlready = true;
+        finish('You Win!', 'You built a 2048 tile. Keep going for a bigger one.', 'Keep Playing', true);
+        return;
+      }
+      if (!canMove()) {
+        finish('Game Over', 'No moves left. You scored ' + score + '.', 'Play Again', false);
+      }
+    }
+
+    function hasValue(v) {
+      for (var y = 0; y < N; y++)
+        for (var x = 0; x < N; x++)
+          if (board[y][x] === v) return true;
+      return false;
+    }
+
+    function canMove() {
+      for (var y = 0; y < N; y++) {
+        for (var x = 0; x < N; x++) {
+          if (!board[y][x]) return true;
+          if (x < N - 1 && board[y][x] === board[y][x + 1]) return true;
+          if (y < N - 1 && board[y][x] === board[y + 1][x]) return true;
+        }
+      }
+      return false;
+    }
+
+    /* keepPlaying = the board is still valid behind the overlay. */
+    var resumeAfterOverlay = false;
+    function finish(title, text, btn, keepPlaying) {
+      running = keepPlaying;
+      resumeAfterOverlay = keepPlaying;
+      ovTitle.textContent = title;
+      ovText.textContent  = text;
+      ovBtn.textContent   = btn;
+      overlay.hidden = false;
+    }
+
+    ovBtn.addEventListener('click', function () {
+      if (resumeAfterOverlay) { resumeAfterOverlay = false; overlay.hidden = true; return; }
+      newGame();
+    });
+    document.getElementById('new-game').addEventListener('click', newGame);
+
+    Arcade.bindKeys(move);
+    Arcade.bindPad(document.getElementById('pad'), move);
+    Arcade.onSwipe(grid, move);
+
+    // Empty board behind the start overlay, so the grid isn't blank space.
+    board = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+    running = false;
+    render();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="One-tap flyer — tap to flap, slip through the gaps, don't touch anything.">
+  <meta name="theme-color" content="#080418">
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+
+  <title>Rocket Flap · Arcade</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/cosmos.css">
+  <link rel="stylesheet" href="arcade.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700;800&family=Audiowide&display=swap');
+
+    .shell { max-width: 460px; }
+    #board {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: rgba(4, 2, 14, 0.75);
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="nebula" aria-hidden="true"><b></b><b></b><b></b></div>
+
+  <main class="shell">
+    <div class="topbar">
+      <a class="back" href="../index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Home</a>
+      <h1 class="game-title">Rocket Flap</h1>
+    </div>
+
+    <div class="hud">
+      <div class="stat"><span class="stat-label">Score</span><span class="stat-value" id="score">0</span></div>
+      <div class="stat"><span class="stat-label">Best</span><span class="stat-value" id="best">0</span></div>
+    </div>
+
+    <div class="stage">
+      <canvas id="board" width="400" height="560" aria-label="Rocket Flap game board"></canvas>
+
+      <div class="overlay" id="overlay">
+        <h2 id="ov-title">Rocket Flap</h2>
+        <p id="ov-text">Tap, click, or press Space to flap. Fly through the gaps — one touch and you're done.</p>
+        <button class="btn" id="ov-btn">Play</button>
+      </div>
+    </div>
+
+    <p class="hint desktop-only"><kbd>Space</kbd> or click to flap</p>
+  </main>
+
+  <script src="arcade.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var canvas = document.getElementById('board');
+    var ctx = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+
+    var scoreEl = document.getElementById('score');
+    var bestEl  = document.getElementById('best');
+    var overlay = document.getElementById('overlay');
+    var ovTitle = document.getElementById('ov-title');
+    var ovText  = document.getElementById('ov-text');
+    var ovBtn   = document.getElementById('ov-btn');
+
+    var GRAVITY = 0.42, FLAP = -7.4, GAP = 150, SPACING = 215, GROUND = 40;
+
+    var rocket, pipes, score, best, running, frame, speed, raf, dust;
+
+    best = Arcade.readBest('flappy');
+    Arcade.setStat(bestEl, best);
+
+    function reset() {
+      rocket = { x: 92, y: H / 2, vy: 0, r: 13 };
+      pipes  = [];
+      dust   = [];
+      score  = 0;
+      speed  = 2.5;
+      frame  = 0;
+      for (var i = 0; i < 3; i++) addPipe(W + 120 + i * SPACING);
+      Arcade.setStat(scoreEl, 0);
+    }
+
+    function addPipe(x) {
+      var margin = 60;
+      var top = margin + Math.random() * (H - GROUND - GAP - margin * 2);
+      pipes.push({ x: x, top: top, passed: false });
+    }
+
+    function start() {
+      reset();
+      overlay.hidden = true;
+      running = true;
+      cancelAnimationFrame(raf);
+      loop();
+    }
+
+    function flap() {
+      if (!running) { start(); return; }
+      rocket.vy = FLAP;
+      for (var i = 0; i < 4; i++) {
+        dust.push({ x: rocket.x - 10, y: rocket.y + 6, vx: -1 - Math.random() * 1.5,
+                    vy: (Math.random() - 0.5) * 1.6, life: 1 });
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      if (running) raf = requestAnimationFrame(loop);
+    }
+
+    function update() {
+      frame++;
+
+      rocket.vy += GRAVITY;
+      rocket.y  += rocket.vy;
+
+      for (var i = 0; i < pipes.length; i++) {
+        var p = pipes[i];
+        p.x -= speed;
+
+        if (!p.passed && p.x + 30 < rocket.x) {
+          p.passed = true;
+          score++;
+          Arcade.setStat(scoreEl, score, true);
+          if (speed < 5) speed += 0.06;          // gets faster, but never unfair
+        }
+
+        if (hits(p)) return crash();
+      }
+
+      // recycle pipes that have scrolled off
+      while (pipes.length && pipes[0].x < -70) {
+        pipes.shift();
+        addPipe(pipes[pipes.length - 1].x + SPACING);
+      }
+
+      for (var d = dust.length - 1; d >= 0; d--) {
+        var s = dust[d];
+        s.x += s.vx; s.y += s.vy; s.life -= 0.05;
+        if (s.life <= 0) dust.splice(d, 1);
+      }
+
+      if (rocket.y + rocket.r > H - GROUND || rocket.y - rocket.r < 0) crash();
+    }
+
+    function hits(p) {
+      var PW = 60;
+      if (rocket.x + rocket.r < p.x || rocket.x - rocket.r > p.x + PW) return false;
+      return rocket.y - rocket.r < p.top || rocket.y + rocket.r > p.top + GAP;
+    }
+
+    function crash() {
+      if (!running) return;
+      running = false;
+      cancelAnimationFrame(raf);
+      if (score > best) {
+        best = score;
+        Arcade.writeBest('flappy', best);
+        Arcade.setStat(bestEl, best, true);
+      }
+      ovTitle.textContent = 'Crashed';
+      ovText.textContent  = 'You cleared ' + score + ' gate' + (score === 1 ? '' : 's') + '. Best: ' + best + '.';
+      ovBtn.textContent   = 'Play Again';
+      overlay.hidden = false;
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // parallax star band inside the play area
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      for (var i = 0; i < 26; i++) {
+        var sx = (i * 79 - frame * 0.4) % W;
+        if (sx < 0) sx += W;
+        var sy = (i * 137) % (H - GROUND);
+        ctx.fillRect(sx, sy, 1.6, 1.6);
+      }
+
+      // pipes
+      var PW = 60;
+      for (var p = 0; p < pipes.length; p++) {
+        var pipe = pipes[p];
+        var grad = ctx.createLinearGradient(pipe.x, 0, pipe.x + PW, 0);
+        grad.addColorStop(0,   '#7c3aed');
+        grad.addColorStop(0.5, '#c084fc');
+        grad.addColorStop(1,   '#7c3aed');
+        ctx.fillStyle = grad;
+        ctx.fillRect(pipe.x, 0, PW, pipe.top);
+        ctx.fillRect(pipe.x, pipe.top + GAP, PW, H - GROUND - pipe.top - GAP);
+
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(pipe.x - 4, pipe.top - 12, PW + 8, 12);
+        ctx.fillRect(pipe.x - 4, pipe.top + GAP, PW + 8, 12);
+      }
+
+      // ground
+      ctx.fillStyle = 'rgba(124, 58, 237, 0.35)';
+      ctx.fillRect(0, H - GROUND, W, GROUND);
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(0, H - GROUND, W, 3);
+
+      // exhaust
+      for (var d = 0; d < dust.length; d++) {
+        var s = dust[d];
+        ctx.fillStyle = 'rgba(255, 190, 120, ' + s.life.toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 3 * s.life + 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // rocket — tilts with its velocity
+      ctx.save();
+      ctx.translate(rocket.x, rocket.y);
+      ctx.rotate(Math.max(-0.5, Math.min(1.0, rocket.vy / 12)));
+      ctx.fillStyle = '#f0d4ff';
+      ctx.beginPath();
+      ctx.moveTo(16, 0);
+      ctx.lineTo(-10, -10);
+      ctx.lineTo(-6, 0);
+      ctx.lineTo(-10, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#4ade80';
+      ctx.beginPath();
+      ctx.arc(3, 0, 3.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    canvas.addEventListener('pointerdown', function (e) { e.preventDefault(); flap(); });
+    window.addEventListener('keydown', function (e) {
+      if (e.code !== 'Space' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      flap();
+    });
+    ovBtn.addEventListener('click', start);
+
+    reset();
+    draw();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Chain Reaction — steer a chain of atoms, fuse matching numbers to the beat, blast the reactor open, and thread the sweeping wall.">
+  <meta name="theme-color" content="#080418">
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Clark &amp; Bradley&#x27;s Universe">
+  <meta property="og:title" content="Chain Reaction">
+  <meta property="og:description" content="Five arcade classics fused into one neon reactor: steer, merge, blast, remember, and thread the gap.">
+  <meta property="og:url" content="https://sean519.github.io/CLARKBRAD-PROJECT/arcade/chain-reaction.html">
+  <meta property="og:image" content="https://sean519.github.io/CLARKBRAD-PROJECT/assets/og-cover.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <title>Chain Reaction · Arcade</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/cosmos.css">
+  <link rel="stylesheet" href="arcade.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700;800&family=Audiowide&display=swap');
+
+    /* Sized for a phone, a desktop window and an iPad in either
+       orientation: the board takes whichever is smaller — the column
+       width, or the height left over once the chrome is placed. */
+    .shell { max-width: min(640px, 100%); gap: 12px; }
+    body { overscroll-behavior: none; }
+
+    .stage { padding: 10px; }
+    #board {
+      display: block;
+      width: min(100%, calc(100vh - 330px));
+      min-width: 260px;
+      height: auto;
+      margin: 0 auto;
+      border-radius: 14px;
+      background: #06031a;
+      touch-action: none;
+    }
+    @media (pointer: coarse) {
+      /* the d-pad and the meter row need more room on a tablet */
+      #board { width: min(100%, calc(100vh - 400px)); }
+    }
+    /* An iPad held upright has the height to fit the whole game without
+       scrolling, but only if the board also leaves room for the touch
+       pad — a phone does not, so it keeps the bigger board and scrolls. */
+    @media (pointer: coarse) and (orientation: portrait) and (min-width: 700px) {
+      #board { width: min(100%, calc(100vh - 600px)); }
+    }
+
+    /* ── landscape (iPad on its side, most desktop windows) ───
+       Stacking everything vertically wastes the width and pushes the
+       board off a 768-tall screen. Here the board keeps the left and
+       the whole control column moves to the right, so a run fits on
+       one screen with no scrolling. */
+    @media (orientation: landscape) and (min-width: 760px) and (max-height: 1000px) {
+      .shell {
+        max-width: min(1000px, 100%);
+        display: grid;
+        align-items: start;
+        gap: 10px 16px;
+        grid-template-columns: minmax(0, 1fr) minmax(230px, 280px);
+        /* the trailing spacer row soaks up the slack next to the board,
+           so the control column stays packed at the top — and the pad
+           row collapsing on a desktop (no touch) leaves no hole */
+        grid-template-areas:
+          "bar    bar"
+          "stage  hud"
+          "stage  meters"
+          "stage  pad"
+          "stage  controls"
+          "stage  space"
+          "legend legend";
+        grid-template-rows: auto auto auto auto auto 1fr auto;
+      }
+      .topbar   { grid-area: bar; }
+      .stage    { grid-area: stage; }
+      .hud      { grid-area: hud; }
+      .meters   { grid-area: meters; flex-wrap: wrap; }
+      .pad      { grid-area: pad; justify-self: center; }
+      .controls { grid-area: controls; }
+      .legend   { grid-area: legend; }
+      #board    { width: min(100%, calc(100vh - 190px)); }
+      .legend   { font-size: 11px; }
+      body      { padding-bottom: 14px; }
+    }
+
+    /* ── meter row: chain capacity, lives, scans ───────────── */
+    .meters {
+      width: 100%;
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px;
+      border-radius: 14px;
+      border: 1.5px solid var(--arc-line);
+      background: var(--arc-panel);
+    }
+    .meter { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .meter-label {
+      font-size: 8.5px; font-weight: 800;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--arc-1);
+    }
+    .chain-track { display: flex; gap: 3px; }
+    .chain-track i {
+      flex: 1;
+      height: 12px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: background 120ms, box-shadow 120ms;
+    }
+    .chain-track i.on   { background: var(--arc-1); box-shadow: 0 0 10px -2px var(--arc-1); border-color: transparent; }
+    .chain-track i.warn { background: #fbbf24; box-shadow: 0 0 10px -2px #fbbf24; border-color: transparent; }
+    .chain-track i.hot  { background: #f87171; box-shadow: 0 0 12px -1px #f87171; border-color: transparent; }
+    .chain-track i.edge { border-color: rgba(248, 113, 113, 0.5); }
+
+    .speed-meter { max-width: 110px; }
+    .speed-track {
+      height: 12px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .speed-track i {
+      display: block; height: 100%; width: 0;
+      background: linear-gradient(90deg, var(--arc-1), var(--arc-3));
+      box-shadow: 0 0 10px -2px var(--arc-3);
+    }
+
+    .lives { display: flex; gap: 4px; font-size: 17px; line-height: 1; }
+    .lives span { filter: drop-shadow(0 0 6px rgba(248,113,113,0.8)); }
+    .lives span.spent { filter: grayscale(1) opacity(0.28); }
+
+    .pill {
+      appearance: none; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      border: 1.5px solid var(--arc-line);
+      background: rgba(16, 10, 40, 0.75);
+      color: var(--arc-ink);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 12px; font-weight: 900;
+      letter-spacing: 0.06em;
+      touch-action: manipulation;
+      transition: border-color 160ms, box-shadow 160ms, transform 120ms;
+    }
+    .pill:hover { border-color: var(--arc-1); box-shadow: 0 0 18px -4px var(--arc-1); }
+    .pill:active { transform: scale(0.96); }
+    .pill:disabled { opacity: 0.4; cursor: default; }
+    .pill i { color: var(--arc-1); }
+
+    /* bigger touch targets on tablets */
+    @media (pointer: coarse) {
+      .pad { grid-template-columns: repeat(3, 74px); grid-template-rows: repeat(2, 74px); gap: 10px; }
+      .pad button { font-size: 26px; }
+      .pill { padding: 11px 17px; font-size: 13px; }
+    }
+
+    .overlay ul.rules {
+      margin: 0; padding: 0; list-style: none;
+      display: flex; flex-direction: column; gap: 6px;
+      font-size: 12.5px; line-height: 1.45;
+      color: var(--arc-dim);
+      text-align: left;
+      max-width: 40ch;
+    }
+    .overlay ul.rules b { color: #fff; font-weight: 700; }
+    /* the UA rule for [hidden] is display:none, which the display:flex
+       above outranks — so hiding the rules needs saying twice */
+    .overlay ul.rules[hidden] { display: none; }
+    .overlay .sub { font-size: 11.5px; color: rgba(180,200,255,0.5); margin: 0; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 6px 16px;
+      width: 100%; margin: 0; padding: 0;
+      list-style: none;
+      font-size: 11.5px; line-height: 1.5;
+      color: rgba(200, 215, 255, 0.6);
+    }
+    .legend li { display: flex; gap: 8px; align-items: flex-start; }
+    .legend i { color: var(--arc-1); width: 15px; text-align: center; margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="nebula" aria-hidden="true"><b></b><b></b><b></b></div>
+
+  <main class="shell">
+    <div class="topbar">
+      <a class="back" href="../index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Home</a>
+      <h1 class="game-title">Chain Reaction</h1>
+    </div>
+
+    <div class="hud">
+      <div class="stat"><span class="stat-label">Score</span><span class="stat-value" id="score">0</span></div>
+      <div class="stat"><span class="stat-label">Best</span><span class="stat-value" id="best">0</span></div>
+      <div class="stat"><span class="stat-label">Wave</span><span class="stat-value" id="wave">1</span></div>
+    </div>
+
+    <div class="meters">
+      <div class="meter">
+        <span class="meter-label">Chain <span id="chain-count">0/11</span></span>
+        <div class="chain-track" id="chain-track"></div>
+      </div>
+      <div class="meter speed-meter">
+        <span class="meter-label">Speed</span>
+        <div class="speed-track"><i id="speed-fill"></i></div>
+      </div>
+      <div class="lives" id="lives" aria-label="Lives left"></div>
+      <button class="pill" id="scan-btn" aria-label="Scan the board"><i class="fa-solid fa-eye"></i> <span id="scans">4</span></button>
+    </div>
+
+    <div class="stage">
+      <canvas id="board" width="390" height="390" aria-label="Chain Reaction reactor board"></canvas>
+
+      <div class="overlay" id="overlay">
+        <h2 id="ov-title">Chain Reaction</h2>
+        <ul class="rules" id="ov-rules">
+          <li><b>Hold</b> a direction to speed up. Let go and the chain crawls, so you can think.</li>
+          <li><b>Collect</b> atoms — each one joins the front of your chain.</li>
+          <li><b>Fuse</b> two matching numbers to double them. That is the only way to make the chain shorter.</li>
+          <li><b>Blast</b> — every fusion fires a beam that breaks bricks. Clear them to finish the wave.</li>
+          <li><b>Three lives.</b> Every crash costs one — including filling the chain meter, which melts the reactor down.</li>
+        </ul>
+        <p id="ov-text"></p>
+        <p class="sub" id="ov-sub">Hold arrows / WASD (or the pad) to accelerate · <b>E</b> scan · <b>Space</b> pause</p>
+        <button class="btn" id="ov-btn">Start Reactor</button>
+      </div>
+    </div>
+
+    <div class="pad" id="pad">
+      <button class="up"    aria-label="Up"><i class="fa-solid fa-chevron-up"></i></button>
+      <button class="left"  aria-label="Left"><i class="fa-solid fa-chevron-left"></i></button>
+      <button class="down"  aria-label="Down"><i class="fa-solid fa-chevron-down"></i></button>
+      <button class="right" aria-label="Right"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+
+    <div class="controls">
+      <button class="pill" id="sound-btn" aria-label="Toggle sound"><i class="fa-solid fa-volume-high"></i> Sound</button>
+      <button class="pill" id="restart-btn"><i class="fa-solid fa-rotate-left"></i> Restart</button>
+    </div>
+
+    <ul class="legend">
+      <li><i class="fa-solid fa-gauge-high"></i><span>Hold a direction to accelerate; release to crawl.</span></li>
+      <li><i class="fa-solid fa-circle-nodes"></i><span>The white core is your head — numbers trail behind it.</span></li>
+      <li><i class="fa-solid fa-question"></i><span>Face-down atoms hide their value. Scan, or remember.</span></li>
+      <li><i class="fa-solid fa-cube"></i><span>Bricks are solid. Only a fusion beam opens them.</span></li>
+      <li><i class="fa-solid fa-grip-lines-vertical"></i><span>The sweep wall costs a life — thread its gap.</span></li>
+    </ul>
+  </main>
+
+  <script src="arcade.js"></script>
+  <script>
+  /* ─────────────────────────────────────────────────────────────
+     CHAIN REACTION — the five arcade classics folded into one loop.
+
+       Snake     you steer a chain and die if you cross yourself
+       2048      the two atoms at the front fuse when they match
+       Breakout  every fusion fires a beam; bricks are the objective
+       Memory    atoms flip face-down after a moment — remember them
+       Flappy    a wall with a gap sweeps through; thread it or lose a life
+
+     They all pull on the same rope: chain length. Eating grows it,
+     twelve atoms melts the reactor down, and fusing is the only way
+     back down — but fusing needs the right atom next, which is what
+     the face-down atoms, the bricks and the wall keep you from
+     getting. Remove any one piece and the others stop mattering.
+
+     The presentation runs on a 128 BPM clock: the floor, the grid and
+     the core move on the beat, and the synth loop plays that same
+     beat, so a fusion landing on the downbeat feels like it snapped
+     into the music. None of the RULES are rhythm-locked — the beat is
+     feel, not a timing test, because timing tests are exactly what a
+     kid playing on an iPad does not need.
+     ───────────────────────────────────────────────────────────── */
+  (function () {
+    'use strict';
+
+    var COLS = 13, ROWS = 13, CELL = 30;
+    var MAX_ATOMS = 11;                   /* twelve is a meltdown */
+    var ATOM_TARGET = 7;
+    var START_LIVES = 3;
+    var FACE_UP_MS = 2200;                /* how long a fresh atom shows its value */
+    var SCAN_MS = 1500;
+    var MAX_SCANS = 4;
+    var BPM = 128, BEAT = 60000 / BPM;
+
+    /* Movement is continuous rather than a fixed grid tick. The chain
+       always drifts at CRUISE; holding a direction winds it up toward
+       SPRINT and letting go lets it coast back down. Everything is in
+       cells per second, so the numbers read as speed instead of as
+       timer delays. */
+    var CRUISE_CPS = 1.7;                 /* hands off: a slow think-it-over drift */
+    var SPRINT_CPS = 9.0;                 /* holding a direction, fully wound up */
+    var ACCEL = 11, BRAKE = 7;            /* cells/s gained or shed per second */
+    var SWIPE_BOOST_MS = 700;             /* a swipe cannot be held, so it grants a burst */
+
+    var canvas  = document.getElementById('board');
+    var ctx     = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+
+    var scoreEl = document.getElementById('score');
+    var bestEl  = document.getElementById('best');
+    var waveEl  = document.getElementById('wave');
+    var scansEl = document.getElementById('scans');
+    var scanBtn = document.getElementById('scan-btn');
+    var livesEl = document.getElementById('lives');
+    var trackEl = document.getElementById('chain-track');
+    var speedEl = document.getElementById('speed-fill');
+    var countEl = document.getElementById('chain-count');
+
+    var overlay = document.getElementById('overlay');
+    var ovTitle = document.getElementById('ov-title');
+    var ovRules = document.getElementById('ov-rules');
+    var ovText  = document.getElementById('ov-text');
+    var ovSub   = document.getElementById('ov-sub');
+    var ovBtn   = document.getElementById('ov-btn');
+
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var VALUE_COLORS = {
+      2: '#a5b4fc', 4: '#818cf8', 8: '#c084fc', 16: '#e879f9', 32: '#f472b6',
+      64: '#fb7185', 128: '#fbbf24', 256: '#4ade80', 512: '#22d3ee', 1024: '#ffffff'
+    };
+    var BRICK_COLORS = ['#f472b6', '#c084fc', '#818cf8', '#38bdf8'];
+
+    /* ── sound ─────────────────────────────────────────────────
+       A tiny synth: four-on-the-floor kick, a bass note every bar,
+       hats on the offbeat, and blips for the game events. No audio
+       files, and nothing starts until the player touches something,
+       because browsers refuse to play audio before a gesture. */
+    var Sound = (function () {
+      var actx = null, master = null, timer = null;
+      var enabled = true, step = 0, nextTime = 0;
+      var BASS = [55, 55, 73.42, 65.41];        /* A1 A1 D2 C2 */
+
+      try { enabled = localStorage.getItem('arcade:cr-sound') !== 'off'; } catch (e) {}
+
+      /* Everything here is best-effort: a browser with no audio output,
+         a blocked AudioContext or an exhausted context must never take
+         the game down with it. */
+      function ready() {
+        if (actx) return true;
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) { enabled = false; return false; }
+        try {
+          actx = new AC();
+          master = actx.createGain();
+          master.gain.value = 0.16;
+          master.connect(actx.destination);
+        } catch (e) { enabled = false; actx = null; return false; }
+        return true;
+      }
+
+      function env(node, t, attack, decay, peak) {
+        var g = actx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + attack);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+        node.connect(g); g.connect(master);
+        return g;
+      }
+
+      function kick(t) {
+        var o = actx.createOscillator();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(150, t);
+        o.frequency.exponentialRampToValueAtTime(45, t + 0.11);
+        env(o, t, 0.005, 0.16, 0.9);
+        o.start(t); o.stop(t + 0.2);
+      }
+
+      function bass(t, freq) {
+        var o = actx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(freq, t);
+        var f = actx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(420, t);
+        o.connect(f);
+        env(f, t, 0.01, 0.3, 0.32);
+        o.start(t); o.stop(t + 0.36);
+      }
+
+      function hat(t) {
+        var len = 0.05, buf = actx.createBuffer(1, Math.ceil(actx.sampleRate * len), actx.sampleRate);
+        var d = buf.getChannelData(0);
+        for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+        var s = actx.createBufferSource(); s.buffer = buf;
+        var f = actx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000;
+        s.connect(f);
+        env(f, t, 0.002, 0.04, 0.12);
+        s.start(t);
+      }
+
+      /* eighth-note scheduler with a small lookahead */
+      function schedule() {
+        if (!actx) return;
+        while (nextTime < actx.currentTime + 0.15) {
+          var beat = step % 4;
+          if (beat === 0 || beat === 2) kick(nextTime);
+          if (beat === 0) bass(nextTime, BASS[Math.floor(step / 4) % BASS.length]);
+          if (beat === 1 || beat === 3) hat(nextTime);
+          nextTime += BEAT / 1000 / 2;
+          step++;
+        }
+      }
+
+      function startLoop() {
+        if (!enabled || !ready() || timer) return;
+        if (actx.state === 'suspended') actx.resume();
+        nextTime = actx.currentTime + 0.06;
+        step = 0;
+        timer = setInterval(schedule, 25);
+      }
+
+      function stopLoop() { clearInterval(timer); timer = null; }
+
+      function blip(freq, dur, type, peak) {
+        if (!enabled || !ready()) return;
+        if (actx.state === 'suspended') actx.resume();
+        var t = actx.currentTime;
+        var o = actx.createOscillator();
+        o.type = type || 'triangle';
+        o.frequency.setValueAtTime(freq, t);
+        o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 1.9), t + dur);
+        env(o, t, 0.006, dur, peak || 0.35);
+        o.start(t); o.stop(t + dur + 0.05);
+      }
+
+      function noise(dur, peak) {
+        if (!enabled || !ready()) return;
+        var t = actx.currentTime;
+        var buf = actx.createBuffer(1, Math.ceil(actx.sampleRate * dur), actx.sampleRate);
+        var d = buf.getChannelData(0);
+        for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+        var s = actx.createBufferSource(); s.buffer = buf;
+        var f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900;
+        s.connect(f);
+        env(f, t, 0.004, dur, peak || 0.3);
+        s.start(t);
+      }
+
+      function fall(from, dur) {
+        if (!enabled || !ready()) return;
+        var t = actx.currentTime;
+        var o = actx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(from, t);
+        o.frequency.exponentialRampToValueAtTime(from / 6, t + dur);
+        env(o, t, 0.01, dur, 0.3);
+        o.start(t); o.stop(t + dur + 0.05);
+      }
+
+      return {
+        get enabled() { return enabled; },
+        toggle: function () {
+          enabled = !enabled;
+          try { localStorage.setItem('arcade:cr-sound', enabled ? 'on' : 'off'); } catch (e) {}
+          if (enabled) startLoop(); else stopLoop();
+          return enabled;
+        },
+        music: function (on) { if (on) startLoop(); else stopLoop(); },
+        fuse: function (value, step) {
+          var n = Math.round(Math.log(value) / Math.LN2);          /* 2 -> 1, 4 -> 2 … */
+          blip(180 * Math.pow(1.16, n) + step * 40, 0.16, 'triangle', 0.4);
+        },
+        brick: function () { noise(0.16, 0.34); },
+        eat:   function () { blip(320, 0.07, 'square', 0.16); },
+        scan:  function () { blip(680, 0.12, 'sine', 0.22); },
+        hurt:  function () { fall(240, 0.4); },
+        over:  function () { fall(180, 0.9); },
+        clear: function () {
+          [0, 90, 180, 300].forEach(function (d, i) {
+            setTimeout(function () { blip(330 * Math.pow(1.26, i), 0.18, 'triangle', 0.38); }, d);
+          });
+        }
+      };
+    })();
+
+    /* ── state ─────────────────────────────────────────────── */
+    var cells,        /* [{x,y}] — cells[0] is the core; body follows */
+        vals,         /* [n] — vals[i] is the atom riding cells[i+1] */
+        dir, queued,
+        atoms, bricks,
+        beams, pops, sparks, trail,
+        sweep,
+        score, best, wave, scans, lives, revealUntil,
+        cps, progress, prevCells, held, boostUntil, lastFrame,
+        ticks, spawnAt, rechargeAt, sweepAt, sweepStepAt,
+        shakeUntil, shakeMag, safeUntil,
+        running, paused, over;
+
+    best = Arcade.readBest('chain-reaction');
+
+    function key(x, y) { return x + ',' + y; }
+    function now() { return performance.now(); }
+    function compact(n) { return n < 10000 ? String(n) : (n / 1000).toFixed(n < 100000 ? 1 : 0) + 'k'; }
+
+    /* ── setup ─────────────────────────────────────────────── */
+    function newRun() {
+      score = 0; wave = 1; scans = MAX_SCANS; lives = START_LIVES;
+      resetChain();
+      beams = []; pops = []; sparks = []; trail = [];
+      revealUntil = 0; ticks = 0;
+      shakeUntil = 0; shakeMag = 0; safeUntil = 0;
+      over = false;
+      startWave(1);
+      running = true; paused = false;
+      overlay.hidden = true;
+      Sound.music(true);
+      syncHud();
+    }
+
+    function resetChain() {
+      cells = [{ x: 6, y: 9 }, { x: 6, y: 10 }];
+      vals  = [2];
+      dir = { x: 0, y: -1 };
+      queued = [];
+      trail = [];
+      /* prevCells is where each block is drawn coming FROM; resetting
+         both together stops a respawn from gliding across the board */
+      prevCells = cells.slice();
+      progress = 0;
+      cps = CRUISE_CPS;
+      boostUntil = 0;
+    }
+
+    function startWave(w) {
+      wave = w;
+      atoms  = {};
+      bricks = {};
+      sweep = null;
+      /* Hazards run on wall-clock time, not on the player's steps.
+         Now that crawling is a legitimate tactic, tying the sweep wall
+         to step count would let a player freeze the danger by simply
+         letting go of the keys. */
+      sweepAt = now() + 11000;
+      sweepStepAt = 0;
+      spawnAt = now() + 400;
+      rechargeAt = now() + 7000;
+      scans = Math.min(MAX_SCANS, scans + (w > 1 ? 2 : 0));
+
+      buildBricks(Math.min(12, 3 + w));
+      for (var i = 0; i < ATOM_TARGET; i++) spawnAtom(true);
+      syncHud();
+    }
+
+    /* Bricks come as short walls, not confetti — a run of 3-5 in a line
+       is something you can aim a fusion at, and it reads as Breakout.
+       Runs stay short so the board never seals into rooms. */
+    function buildBricks(count) {
+      var placed = 0, guard = 0;
+      while (placed < count && guard++ < 300) {
+        var horizontal = Math.random() < 0.5;
+        var len = Math.min(count - placed, 3 + Math.floor(Math.random() * 3));
+        var x = Math.floor(Math.random() * (horizontal ? COLS - len : COLS));
+        var y = Math.floor(Math.random() * (horizontal ? ROWS : ROWS - len));
+        var color = BRICK_COLORS[placed % BRICK_COLORS.length];
+
+        var run = [], ok = true;
+        for (var i = 0; i < len; i++) {
+          var bx = x + (horizontal ? i : 0), by = y + (horizontal ? 0 : i);
+          if (nearChain(bx, by, 2) || bricks[key(bx, by)] || touchesWall(bx, by)) { ok = false; break; }
+          run.push([bx, by]);
+        }
+        if (!ok) continue;
+
+        run.forEach(function (c) { bricks[key(c[0], c[1])] = { color: color, born: now() }; });
+        placed += run.length;
+      }
+    }
+
+    /* Keep walls one cell apart so there is always a lane between them. */
+    function touchesWall(x, y) {
+      return [[1,0],[-1,0],[0,1],[0,-1]].some(function (d) { return bricks[key(x + d[0], y + d[1])]; });
+    }
+
+    function nearChain(x, y, r) {
+      for (var i = 0; i < cells.length; i++) {
+        if (Math.abs(cells[i].x - x) <= r && Math.abs(cells[i].y - y) <= r) return true;
+      }
+      return false;
+    }
+
+    function occupied(x, y) {
+      if (bricks[key(x, y)] || atoms[key(x, y)]) return true;
+      for (var i = 0; i < cells.length; i++) if (cells[i].x === x && cells[i].y === y) return true;
+      return false;
+    }
+
+    /* Mostly 2s and 4s: the game is about the order you eat them in,
+       not about waiting for a lucky 64 to drop. */
+    function rollValue() {
+      var r = Math.random();
+      if (wave >= 5 && r > 0.93) return 8;
+      return r > 0.45 ? 2 : 4;
+    }
+
+    function spawnAtom(faceUp) {
+      var guard = 0;
+      while (guard++ < 400) {
+        var x = Math.floor(Math.random() * COLS);
+        var y = Math.floor(Math.random() * ROWS);
+        if (occupied(x, y)) continue;
+        if (sweep && sweep.col === x) continue;
+        atoms[key(x, y)] = {
+          x: x, y: y, value: rollValue(), born: now(),
+          faceUntil: hidesValues() ? now() + (faceUp ? FACE_UP_MS : 1400) : Infinity
+        };
+        return true;
+      }
+      return false;
+    }
+
+    function hidesValues() { return wave >= 3; }   /* waves 1-2 teach the fusing */
+    function hasSweep()    { return wave >= 4; }
+    function countAtoms()  { return Object.keys(atoms).length; }
+
+    /* ── movement ──────────────────────────────────────────────
+       `progress` is how far the chain sits between two cells, 0..1.
+       The renderer interpolates with the same number, which is where
+       the smoothness comes from: the rules still happen on whole
+       cells, but nothing on screen ever snaps. */
+    function boosting() {
+      if (now() < boostUntil) return true;
+      for (var name in held) {
+        if (!held[name]) continue;
+        var v = VECTORS[name];
+        /* holding the reverse cannot turn you, so it must not speed
+           you up either — otherwise it just feeds you to your tail */
+        if (v.x === -dir.x && v.y === -dir.y) continue;
+        return true;
+      }
+      return false;
+    }
+
+    function advance(dt) {
+      /* a finished or paused run coasts to a stop rather than winding
+         the speed meter up behind the overlay */
+      if (!running || paused) { progress = 0; cps = CRUISE_CPS; return; }
+
+      var wound = boosting();
+      var target = wound ? SPRINT_CPS : CRUISE_CPS;
+      var rate = (wound ? ACCEL : BRAKE) * dt;
+      cps = cps < target ? Math.min(target, cps + rate) : Math.max(target, cps - rate);
+
+      progress += cps * dt;
+      /* the guard keeps a stalled tab from replaying a hundred steps
+         in one frame when it comes back */
+      var guard = 0;
+      while (progress >= 1 && running && !paused && guard++ < 4) {
+        progress -= 1;
+        step();
+      }
+      if (progress >= 1) progress = 0;
+    }
+
+    function step() {
+      if (!running || paused) return;
+      ticks++;
+      prevCells = cells.slice();
+
+      if (queued.length) {
+        var next = queued.shift();
+        if (next.x !== -dir.x || next.y !== -dir.y) dir = next;
+      }
+
+      var head = { x: cells[0].x + dir.x, y: cells[0].y + dir.y };
+
+      if (head.x < 0 || head.y < 0 || head.x >= COLS || head.y >= ROWS) return crash('You hit the reactor wall.');
+      if (bricks[key(head.x, head.y)])                                  return crash('You drove into a brick.');
+      for (var i = 0; i < cells.length - 1; i++) {
+        if (cells[i].x === head.x && cells[i].y === head.y) return crash('The chain crossed itself.');
+      }
+      if (sweepBlocks(head.x, head.y)) return crash('The sweep wall caught you.');
+
+      trail.push({ x: cells[0].x, y: cells[0].y, until: now() + 380 });
+
+      var eaten = atoms[key(head.x, head.y)];
+      cells.unshift(head);
+      if (eaten) {
+        delete atoms[key(head.x, head.y)];
+        vals.unshift(eaten.value);
+        Sound.eat();
+        fuse();
+        if (vals.length > MAX_ATOMS) return meltdown();
+      } else {
+        cells.pop();
+      }
+
+      syncHud();
+    }
+
+    /* Everything that must happen at a steady real-world pace, no
+       matter how fast or slow the player is travelling. */
+    function runTimers(t) {
+      if (!running || paused) return;
+
+      if (t >= spawnAt) {
+        spawnAt = t + 400;
+        if (countAtoms() < ATOM_TARGET) spawnAtom(true);
+      }
+
+      /* Slow scan recharge. Without it, a player who forgets the board
+         and has spent every scan has no way left to read it — the run
+         stalls instead of ending, which is the worst of both. */
+      if (t >= rechargeAt) {
+        rechargeAt = t + 7000;
+        if (scans < MAX_SCANS) { scans++; syncHud(); }
+      }
+
+      stepSweep(t);
+    }
+
+    /* ── 2048, but along the chain ─────────────────────────── */
+    function fuse() {
+      var mult = 0;
+      while (vals.length >= 2 && vals[0] === vals[1]) {
+        var merged = vals[0] * 2;
+        vals.splice(0, 2, merged);
+        cells.pop();                                  /* the chain physically shortens */
+        mult++;
+        var gain = merged * mult;
+        score += gain;
+        Sound.fuse(merged, mult);
+        pops.push({ x: cells[0].x, y: cells[0].y, text: '+' + gain, until: now() + 800,
+                    color: mult > 1 ? '#4ade80' : '#ffffff' });
+        shake(mult > 1 ? 7 : 4, 180);
+        fireBeam(merged);
+      }
+      if (mult > 1) {
+        pops.push({ x: cells[0].x, y: cells[0].y - 1, text: 'CHAIN x' + mult,
+                    until: now() + 1100, color: '#4ade80', big: true });
+      }
+      if (score > best) { best = score; Arcade.writeBest('chain-reaction', best); }
+    }
+
+    /* ── Breakout, fired by the fusion ─────────────────────── */
+    function fireBeam(value) {
+      var RAYS = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+      var spread = value >= 32 ? 1 : 0;
+      var broken = 0;
+
+      RAYS.forEach(function (ray) {
+        var x = cells[0].x, y = cells[0].y;
+        while (true) {
+          x += ray.x; y += ray.y;
+          if (x < 0 || y < 0 || x >= COLS || y >= ROWS) break;
+          for (var w = -spread; w <= spread; w++) {
+            var bx = x + (ray.x ? 0 : w), by = y + (ray.x ? w : 0);
+            if (!bricks[key(bx, by)]) continue;
+            var col = bricks[key(bx, by)].color;
+            delete bricks[key(bx, by)];
+            broken++;
+            score += 25;
+            burst(bx, by, col);
+            pops.push({ x: bx, y: by, text: '+25', until: now() + 700, color: '#f472b6' });
+          }
+        }
+        beams.push({ x1: cells[0].x, y1: cells[0].y, x2: x, y2: y,
+                     wide: spread > 0, until: now() + 300 });
+      });
+
+      if (broken) { Sound.brick(); shake(5 + broken, 200); }
+      if (!Object.keys(bricks).length) waveComplete();
+      return broken;
+    }
+
+    function burst(cx, cy, color) {
+      for (var i = 0; i < 10; i++) {
+        var a = Math.random() * Math.PI * 2, s = 0.5 + Math.random() * 2.2;
+        sparks.push({ x: cx * CELL + CELL / 2, y: cy * CELL + CELL / 2,
+                      vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+                      life: 1, color: color });
+      }
+    }
+
+    function shake(mag, ms) {
+      if (reduceMotion) return;
+      shakeMag = Math.max(shakeMag || 0, mag);
+      shakeUntil = Math.max(shakeUntil, now() + ms);
+    }
+
+    function waveComplete() {
+      var bonus = 100 * wave;
+      score += bonus;
+      running = false;
+      Sound.clear();
+
+      var nextWave = wave + 1;
+      var note = nextWave === 3 ? 'New: atoms flip face-down. Remember them, or spend a Scan.'
+               : nextWave === 4 ? 'New: a sweep wall crosses the reactor. Get the whole chain through the gap.'
+               : nextWave === 5 ? 'New: the odd 8 starts dropping, and the reactor runs hotter.'
+               : 'The reactor runs a little faster from here.';
+
+      ovTitle.textContent = 'Wave ' + wave + ' Cleared';
+      ovRules.hidden = true;
+      ovText.textContent = 'Bricks cleared. +' + bonus + ' bonus. ' + note;
+      ovSub.textContent = 'Lives left: ' + lives;
+      ovBtn.textContent = 'Wave ' + nextWave;
+      overlay.hidden = false;
+      syncHud();
+
+      ovBtn.onclick = function () {
+        ovBtn.onclick = null;
+        startWave(nextWave);
+        progress = 0;
+        cps = CRUISE_CPS;
+        running = true;
+        overlay.hidden = true;
+      };
+    }
+
+    /* ── Flappy, turned sideways ───────────────────────────── */
+    function stepSweep(t) {
+      if (!hasSweep()) return;
+
+      if (!sweep) {
+        if (t < sweepAt) return;
+        var gapH = Math.max(5, 7 - Math.floor(wave / 4));
+        sweep = {
+          col: COLS - 1,
+          gapTop: Math.floor(Math.random() * (ROWS - gapH)),
+          gapH: gapH,
+          warnUntil: t + 2600                         /* telegraph before it moves */
+        };
+        sweepStepAt = sweep.warnUntil;
+        return;
+      }
+      if (t < sweep.warnUntil || t < sweepStepAt) return;
+      sweepStepAt = t + 620;
+      sweep.col--;
+
+      if (sweep.col < 0) {
+        sweep = null;
+        sweepAt = t + Math.max(9000, 22000 - wave * 900);
+        return;
+      }
+
+      for (var i = 0; i < cells.length; i++) {
+        if (sweepBlocks(cells[i].x, cells[i].y)) return crash('The sweep wall caught you.');
+      }
+      Object.keys(atoms).forEach(function (k) {
+        var a = atoms[k];
+        if (sweepBlocks(a.x, a.y)) delete atoms[k];
+      });
+    }
+
+    function sweepBlocks(x, y) {
+      if (!sweep || now() < sweep.warnUntil || sweep.col !== x) return false;
+      if (now() < safeUntil) return false;            /* respawn grace */
+      return y < sweep.gapTop || y >= sweep.gapTop + sweep.gapH;
+    }
+
+    /* ── Memory ────────────────────────────────────────────── */
+    function isFaceUp(atom) { return now() < atom.faceUntil || now() < revealUntil; }
+
+    function doScan() {
+      if (!running || paused || scans <= 0) return;
+      scans--;
+      revealUntil = now() + SCAN_MS;
+      Sound.scan();
+      syncHud();
+    }
+
+    /* ── crashing, losing, ending ──────────────────────────── */
+    function crash(reason) {
+      if (now() < safeUntil) return;                  /* still respawning */
+      lives--;
+      shake(14, 320);
+      for (var i = 0; i < cells.length; i++) burst(cells[i].x, cells[i].y, '#f87171');
+
+      if (lives <= 0) { Sound.over(); return end(reason); }
+
+      /* Instant retry, the one thing Geometry Dash gets right: same
+         wave, same score, chain drops back to one atom, and a moment
+         of grace so you are not killed again while re-orienting. */
+      Sound.hurt();
+      resetChain();
+      safeUntil = now() + 1400;
+      sweep = null;
+      sweepAt = now() + 6000;
+      pops.push({ x: 6, y: 7, text: reason.replace(/\.$/, ''), until: now() + 1300, color: '#f87171' });
+      syncHud();
+    }
+
+    /* A meltdown is just another crash: it costs a life and resets the
+       chain, rather than ending a good run outright. Every failure in
+       the game now costs exactly one thing, which is easier to learn
+       than one rule per hazard. */
+    function meltdown() {
+      shake(16, 400);
+      crash('Meltdown — the chain overloaded.');
+    }
+
+    function end(reason) {
+      running = false; over = true;
+      Sound.music(false);
+      if (score > best) { best = score; Arcade.writeBest('chain-reaction', best); }
+      ovTitle.textContent = 'Reactor Down';
+      ovRules.hidden = true;
+      ovText.textContent = reason + ' Wave ' + wave + ', score ' + score + '. Best: ' + best + '.';
+      ovSub.textContent = 'Press Space or hit Retry to go again.';
+      ovBtn.textContent = 'Retry';
+      ovBtn.onclick = null;
+      overlay.hidden = false;
+      syncHud();
+    }
+
+    /* ── HUD ───────────────────────────────────────────────── */
+    var trackCells = [];
+    for (var s = 0; s < MAX_ATOMS; s++) {
+      var seg = document.createElement('i');
+      if (s >= MAX_ATOMS - 2) seg.className = 'edge';
+      trackEl.appendChild(seg);
+      trackCells.push(seg);
+    }
+
+    function syncHud() {
+      Arcade.setStat(scoreEl, compact(score));
+      Arcade.setStat(bestEl, compact(best));
+      Arcade.setStat(waveEl, wave);
+      scansEl.textContent = scans;
+      scanBtn.disabled = scans <= 0;
+
+      var n = vals ? vals.length : 0;
+      countEl.textContent = n + '/' + MAX_ATOMS;
+      trackCells.forEach(function (seg, i) {
+        var on = i < n;
+        var state = !on ? '' : n >= MAX_ATOMS - 1 ? 'hot' : n >= MAX_ATOMS - 3 ? 'warn' : 'on';
+        seg.className = (i >= MAX_ATOMS - 2 ? 'edge ' : '') + state;
+      });
+
+      livesEl.innerHTML = '';
+      for (var i = 0; i < START_LIVES; i++) {
+        var h = document.createElement('span');
+        h.textContent = '♥';
+        if (i >= lives) h.className = 'spent';
+        livesEl.appendChild(h);
+      }
+    }
+
+    /* ── drawing ───────────────────────────────────────────── */
+    var lastSpeedPct = -1;
+    function beatPhase(t) { return (t % BEAT) / BEAT; }
+
+    /* Where block i is drawn right now: between where it was before the
+       last step (prevCells) and where it is now. A block added by eating
+       has no previous cell of its own, so it borrows the old tail's. */
+    function at(i) {
+      var cur = cells[i];
+      if (!prevCells || !prevCells.length) return cur;
+      var prev = prevCells[Math.min(i, prevCells.length - 1)] || cur;
+      var p = running && !paused ? Math.max(0, Math.min(1, progress)) : 1;
+      return { x: prev.x + (cur.x - prev.x) * p, y: prev.y + (cur.y - prev.y) * p };
+    }
+
+    function draw() {
+      var t = now();
+      var punch = Math.pow(1 - beatPhase(t), 3);       /* 1 on the beat, decaying */
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+
+      /* screen shake plus a small breath on the beat */
+      var sx = 0, sy = 0;
+      if (t < shakeUntil) {
+        var k = (shakeUntil - t) / 300;
+        sx = (Math.random() - 0.5) * shakeMag * k;
+        sy = (Math.random() - 0.5) * shakeMag * k;
+      } else { shakeMag = 0; }
+      var scale = reduceMotion ? 1 : 1 + 0.008 * punch;
+      ctx.setTransform(scale, 0, 0, scale, W / 2 * (1 - scale) + sx, H / 2 * (1 - scale) + sy);
+
+      /* floor: scrolling diagonal neon stripes that brighten on the beat */
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      var off = (t / 26) % 56;
+      ctx.strokeStyle = 'rgba(124, 58, 237, ' + (0.10 + 0.14 * punch).toFixed(3) + ')';
+      ctx.lineWidth = 12;
+      for (var i = -H; i < W + H; i += 56) {
+        ctx.beginPath();
+        ctx.moveTo(i + off, 0);
+        ctx.lineTo(i + off - H, H);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.strokeStyle = 'rgba(192, 132, 252, ' + (0.05 + 0.07 * punch).toFixed(3) + ')';
+      ctx.lineWidth = 1;
+      for (var g = 1; g < COLS; g++) {
+        ctx.beginPath();
+        ctx.moveTo(g * CELL + 0.5, 0); ctx.lineTo(g * CELL + 0.5, H);
+        ctx.moveTo(0, g * CELL + 0.5); ctx.lineTo(W, g * CELL + 0.5);
+        ctx.stroke();
+      }
+
+      /* sweep wall — outlined while it telegraphs, solid once it moves */
+      if (sweep) {
+        var warning = sweep.warn > 0;
+        for (var y = 0; y < ROWS; y++) {
+          if (y >= sweep.gapTop && y < sweep.gapTop + sweep.gapH) continue;
+          var px = sweep.col * CELL, py = y * CELL;
+          if (warning) {
+            ctx.strokeStyle = 'rgba(248, 113, 113, ' + (0.3 + 0.5 * punch).toFixed(2) + ')';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(px + 2, py + 2, CELL - 4, CELL - 4);
+          } else {
+            var grad = ctx.createLinearGradient(px, py, px + CELL, py + CELL);
+            grad.addColorStop(0, '#ef4444');
+            grad.addColorStop(1, '#7f1d1d');
+            ctx.fillStyle = grad;
+            roundRect(px + 1, py + 1, CELL - 2, CELL - 2, 4);
+            ctx.fill();
+          }
+        }
+      }
+
+      /* bricks — neon blocks that drop in; the last few pulse */
+      var brickKeys = Object.keys(bricks);
+      brickKeys.forEach(function (k) {
+        var parts = k.split(','), bx = +parts[0] * CELL, by = +parts[1] * CELL;
+        var b = bricks[k];
+        var pop = Math.min(1, (t - b.born) / 220);
+        var inset = 2 + (1 - pop) * 8;
+        ctx.save();
+        ctx.globalAlpha = pop;
+        ctx.fillStyle = b.color;
+        roundRect(bx + inset, by + inset, CELL - inset * 2, CELL - inset * 2, 5);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.fillRect(bx + 5, by + 5, CELL - 10, 3);
+        ctx.restore();
+        if (brickKeys.length <= 3) {
+          ctx.strokeStyle = 'rgba(255,255,255,' + (0.3 + 0.5 * punch).toFixed(2) + ')';
+          ctx.lineWidth = 2;
+          roundRect(bx - 1, by - 1, CELL + 2, CELL + 2, 7);
+          ctx.stroke();
+        }
+      });
+
+      /* atoms — rotating neon squares */
+      Object.keys(atoms).forEach(function (k) {
+        var a = atoms[k];
+        var cx = a.x * CELL + CELL / 2, cy = a.y * CELL + CELL / 2;
+        var up = isFaceUp(a);
+        var col = up ? (VALUE_COLORS[a.value] || '#fff') : '#64748b';   /* dark, but still clearly an object */
+        var r = CELL * 0.32 * (1 + 0.06 * punch);
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate((t / 1400) + (a.x + a.y));
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = col;
+        roundRect(-r, -r, r * 2, r * 2, 5);
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = up ? '#160a2b' : '#e2e8f0';
+        ctx.font = '900 ' + (up ? 13 : 16) + 'px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(up ? String(a.value) : '?', cx, cy + 1);
+      });
+
+      /* the chain's fading trail */
+      trail = trail.filter(function (p) { return p.until > t; });
+      trail.forEach(function (p) {
+        var life = (p.until - t) / 420;
+        ctx.fillStyle = 'rgba(192, 132, 252, ' + (0.20 * life).toFixed(3) + ')';
+        roundRect(p.x * CELL + 7, p.y * CELL + 7, CELL - 14, CELL - 14, 5);
+        ctx.fill();
+      });
+
+      /* Chain, tail first so the front sits on top. Each block is drawn
+         partway between the cell it left and the cell it is entering —
+         `progress` is the same number the rules advance on, so nothing
+         on screen ever snaps even though the logic is still grid-based. */
+      var ghost = t < safeUntil && Math.floor(t / 110) % 2 === 0;
+      ctx.globalAlpha = ghost ? 0.45 : 1;
+      for (var j = cells.length - 1; j >= 1; j--) {
+        var c = at(j), v = vals[j - 1];
+        var col2 = VALUE_COLORS[v] || '#ffffff';
+        ctx.save();
+        ctx.shadowColor = col2;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = col2;
+        roundRect(c.x * CELL + 3, c.y * CELL + 3, CELL - 6, CELL - 6, 7);
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#160a2b';
+        ctx.font = '900 ' + (v >= 100 ? 11 : 13) + 'px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(v), c.x * CELL + CELL / 2, c.y * CELL + CELL / 2 + 1);
+      }
+
+      /* core — a square that snaps with the beat */
+      var h = at(0);
+      var hx = h.x * CELL + CELL / 2, hy = h.y * CELL + CELL / 2;
+      var cr = CELL * 0.30 * (1 + 0.16 * punch);
+      ctx.save();
+      ctx.translate(hx, hy);
+      ctx.rotate(Math.PI / 4 + punch * 0.25);
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = '#ffffff';
+      roundRect(-cr, -cr, cr * 2, cr * 2, 4);
+      ctx.fill();
+      ctx.restore();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(74, 222, 128, ' + (0.45 + 0.45 * punch).toFixed(2) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(hx, hy, CELL * (0.44 + 0.10 * punch), 0, Math.PI * 2);
+      ctx.stroke();
+
+      /* fusion beams */
+      beams = beams.filter(function (b) { return b.until > t; });
+      beams.forEach(function (b) {
+        var a = (b.until - t) / 300;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, ' + a.toFixed(2) + ')';
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 18;
+        ctx.lineWidth = (b.wide ? 16 : 7) * a + 2;
+        ctx.beginPath();
+        ctx.moveTo(b.x1 * CELL + CELL / 2, b.y1 * CELL + CELL / 2);
+        ctx.lineTo(b.x2 * CELL + CELL / 2, b.y2 * CELL + CELL / 2);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      /* sparks */
+      sparks = sparks.filter(function (p) { return p.life > 0; });
+      sparks.forEach(function (p) {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life -= 0.03;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - 2.5, p.y - 2.5, 5, 5);
+        ctx.globalAlpha = 1;
+      });
+
+      /* floating text */
+      pops = pops.filter(function (p) { return p.until > t; });
+      pops.forEach(function (p) {
+        var span = p.big ? 1100 : 800;
+        var life = (p.until - t) / span;
+        ctx.globalAlpha = Math.max(0, Math.min(1, life));
+        ctx.fillStyle = p.color;
+        ctx.font = '900 ' + (p.big ? 17 : 13) + 'px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.text, p.x * CELL + CELL / 2, p.y * CELL + CELL / 2 - (1 - life) * 20);
+        ctx.globalAlpha = 1;
+      });
+
+      /* the speed meter lives in the DOM, so it is written here rather
+         than in syncHud — it changes every frame, not every step */
+      var pct = Math.round(Math.max(0, Math.min(1, (cps - CRUISE_CPS) / (SPRINT_CPS - CRUISE_CPS))) * 100);
+      if (pct !== lastSpeedPct) { speedEl.style.width = pct + '%'; lastSpeedPct = pct; }
+
+      /* objective, bottom-left, on its own plate so a brick sitting in
+         that corner cannot swallow it */
+      var label = 'bricks left: ' + brickKeys.length;
+      ctx.font = '700 12px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'left';
+      var lw = ctx.measureText(label).width;
+      ctx.fillStyle = 'rgba(6, 3, 26, 0.78)';
+      roundRect(5, H - 24, lw + 16, 19, 9);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(230, 240, 255, 0.75)';
+      ctx.fillText(label, 13, H - 10);
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    /* ── input ─────────────────────────────────────────────── */
+    var VECTORS = { up: {x:0,y:-1}, down: {x:0,y:1}, left: {x:-1,y:0}, right: {x:1,y:0} };
+
+    function steer(name) {
+      if (!running || paused) return;
+      var v = VECTORS[name];
+      var last = queued.length ? queued[queued.length - 1] : dir;
+      if (v.x === -last.x && v.y === -last.y) return;
+      if (v.x === last.x && v.y === last.y) return;
+      if (queued.length < 2) queued.push(v);
+    }
+
+    /* Steering and speed are the same gesture now, so the page tracks
+       press/release itself rather than using Arcade.bindKeys, which is
+       one-shot. Note WASD needs 's' for "down", so scanning moved to
+       'E' — the two used to fire together. */
+    var KEY_DIRS = {
+      ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+      w: 'up', s: 'down', a: 'left', d: 'right',
+      W: 'up', S: 'down', A: 'left', D: 'right'
+    };
+
+    function press(name) {
+      if (!VECTORS[name]) return;
+      held[name] = true;
+      steer(name);
+    }
+
+    function release(name) {
+      if (VECTORS[name]) held[name] = false;
+    }
+
+    window.addEventListener('keydown', function (e) {
+      var name = KEY_DIRS[e.key];
+      if (!name) return;
+      e.preventDefault();
+      press(name);
+    });
+    window.addEventListener('keyup', function (e) {
+      var name = KEY_DIRS[e.key];
+      if (name) release(name);
+    });
+    /* a key held while the tab loses focus never sends its keyup */
+    window.addEventListener('blur', function () {
+      for (var k in held) held[k] = false;
+    });
+
+    ['up', 'down', 'left', 'right'].forEach(function (name) {
+      var btn = document.querySelector('#pad .' + name);
+      if (!btn) return;
+      btn.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        if (btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (err) {} }
+        press(name);
+      });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (evt) {
+        btn.addEventListener(evt, function () { release(name); });
+      });
+    });
+
+    /* A swipe cannot be held down, so it hands out a burst instead. */
+    Arcade.onSwipe(canvas, function (name) {
+      steer(name);
+      boostUntil = now() + SWIPE_BOOST_MS;
+    });
+
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'e' || e.key === 'E') { e.preventDefault(); doScan(); return; }
+      if (e.code !== 'Space') return;
+      e.preventDefault();
+      if (!running) { ovBtn.click(); return; }
+      paused = !paused;
+      if (paused) {
+        Sound.music(false);
+        ovTitle.textContent = 'Paused';
+        ovRules.hidden = true;
+        ovText.textContent = 'Reactor held steady.';
+        ovSub.textContent = 'Space or Resume to carry on.';
+        ovBtn.textContent = 'Resume';
+        ovBtn.onclick = function () {
+          ovBtn.onclick = null; paused = false; overlay.hidden = true;
+          Sound.music(true);
+        };
+        overlay.hidden = false;
+      } else {
+        overlay.hidden = true;
+        Sound.music(true);
+      }
+    });
+
+    scanBtn.addEventListener('click', doScan);
+    document.getElementById('restart-btn').addEventListener('click', function () { ovBtn.onclick = null; newRun(); });
+    ovBtn.addEventListener('click', function () { if (!ovBtn.onclick) newRun(); });
+
+    var soundBtn = document.getElementById('sound-btn');
+    function paintSoundBtn() {
+      soundBtn.innerHTML = Sound.enabled
+        ? '<i class="fa-solid fa-volume-high"></i> Sound'
+        : '<i class="fa-solid fa-volume-xmark"></i> Muted';
+    }
+    soundBtn.addEventListener('click', function () { Sound.toggle(); paintSoundBtn(); });
+    paintSoundBtn();
+
+    /* Idle board behind the start overlay. */
+    resetChain();
+    atoms = {}; bricks = {}; beams = []; pops = []; sparks = []; trail = [];
+    sweep = null;
+    score = 0; wave = 1; scans = MAX_SCANS; lives = START_LIVES;
+    ticks = 0; revealUntil = 0;
+    held = { up: false, down: false, left: false, right: false };
+    spawnAt = rechargeAt = sweepAt = sweepStepAt = 0;
+    shakeUntil = 0; shakeMag = 0; safeUntil = 0;
+    running = false; paused = false;
+    buildBricks(4);
+    for (var q = 0; q < ATOM_TARGET; q++) spawnAtom(true);
+    syncHud();
+
+    /* One loop drives everything: it advances the chain by however
+       much time really passed, runs the wall-clock hazards, and draws.
+       Movement is therefore frame-rate independent — a 120Hz iPad and
+       a 60Hz laptop travel at the same cells per second. */
+    (function frame(t) {
+      var dt = lastFrame ? Math.min(0.05, (t - lastFrame) / 1000) : 0;
+      lastFrame = t;
+      advance(dt);
+      runTimers(now());
+      draw();
+      requestAnimationFrame(frame);
+    })(0);
+
+    /* A tiny read-only window into the run, used by the automated
+       smoke test. Nothing in the game reads it back. */
+    window.__chainReaction = {
+      state: function () {
+        return { running: running, over: over, wave: wave, score: score, scans: scans,
+                 lives: lives, chain: vals.slice(),
+                 cps: cps, progress: progress, boosting: boosting(),
+                 cells: cells.map(function (c) { return { x: c.x, y: c.y }; }),
+                 dir: { x: dir.x, y: dir.y },
+                 atoms: Object.keys(atoms).map(function (k) {
+                   return { x: atoms[k].x, y: atoms[k].y, value: atoms[k].value, faceUp: isFaceUp(atoms[k]) };
+                 }),
+                 bricks: Object.keys(bricks),
+                 sweep: sweep ? { col: sweep.col, gapTop: sweep.gapTop, gapH: sweep.gapH,
+                                  warn: Math.max(0, Math.round(sweep.warnUntil - now())) } : null };
+      },
+      steer: steer,
+      hold: function (name, on) { if (VECTORS[name]) held[name] = !!on; },
+      scan: doScan,
+      _startWave: startWave
+    };
+  })();
+  </script>
+</body>
+</html>

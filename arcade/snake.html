@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Classic Snake — eat the stars, grow long, don't bite yourself.">
+  <meta name="theme-color" content="#080418">
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+
+  <title>Snake · Arcade</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../assets/css/cosmos.css">
+  <link rel="stylesheet" href="arcade.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@400;500;700;800&family=Audiowide&display=swap');
+
+    #board {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: rgba(4, 2, 14, 0.75);
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="nebula" aria-hidden="true"><b></b><b></b><b></b></div>
+
+  <main class="shell">
+    <div class="topbar">
+      <a class="back" href="../index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Home</a>
+      <h1 class="game-title">Snake</h1>
+    </div>
+
+    <div class="hud">
+      <div class="stat"><span class="stat-label">Score</span><span class="stat-value" id="score">0</span></div>
+      <div class="stat"><span class="stat-label">Best</span><span class="stat-value" id="best">0</span></div>
+    </div>
+
+    <div class="stage">
+      <canvas id="board" width="440" height="440" aria-label="Snake game board"></canvas>
+
+      <div class="overlay" id="overlay">
+        <h2 id="ov-title">Snake</h2>
+        <p id="ov-text">Eat the stars to grow. Don't hit the wall, and don't bite your own tail.</p>
+        <button class="btn" id="ov-btn">Play</button>
+      </div>
+    </div>
+
+    <div class="pad" id="pad">
+      <button class="up"    aria-label="Up"><i class="fa-solid fa-chevron-up"></i></button>
+      <button class="left"  aria-label="Left"><i class="fa-solid fa-chevron-left"></i></button>
+      <button class="down"  aria-label="Down"><i class="fa-solid fa-chevron-down"></i></button>
+      <button class="right" aria-label="Right"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+
+    <p class="hint desktop-only"><kbd>← ↑ ↓ →</kbd> or <kbd>WASD</kbd> to steer · <kbd>Space</kbd> to pause</p>
+  </main>
+
+  <script src="arcade.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var COLS = 20, ROWS = 20, CELL = 22;      // canvas is COLS*CELL square
+    var canvas = document.getElementById('board');
+    var ctx = canvas.getContext('2d');
+
+    var scoreEl   = document.getElementById('score');
+    var bestEl    = document.getElementById('best');
+    var overlay   = document.getElementById('overlay');
+    var ovTitle   = document.getElementById('ov-title');
+    var ovText    = document.getElementById('ov-text');
+    var ovBtn     = document.getElementById('ov-btn');
+
+    var snake, dir, queued, food, score, best, timer, speed, running, paused;
+
+    best = Arcade.readBest('snake');
+    Arcade.setStat(bestEl, best);
+
+    function reset() {
+      snake  = [{ x: 9, y: 10 }, { x: 8, y: 10 }, { x: 7, y: 10 }];
+      dir    = { x: 1, y: 0 };
+      queued = [];
+      score  = 0;
+      speed  = 140;
+      placeFood();
+      Arcade.setStat(scoreEl, 0);
+    }
+
+    function placeFood() {
+      var free = [];
+      for (var y = 0; y < ROWS; y++) {
+        for (var x = 0; x < COLS; x++) {
+          var hit = false;
+          for (var i = 0; i < snake.length; i++) {
+            if (snake[i].x === x && snake[i].y === y) { hit = true; break; }
+          }
+          if (!hit) free.push({ x: x, y: y });
+        }
+      }
+      food = free[Math.floor(Math.random() * free.length)];
+    }
+
+    function start() {
+      reset();
+      overlay.hidden = true;
+      running = true;
+      paused  = false;
+      tick();
+      schedule();
+    }
+
+    function schedule() {
+      clearTimeout(timer);
+      if (running && !paused) timer = setTimeout(function () { tick(); schedule(); }, speed);
+    }
+
+    function tick() {
+      if (!running || paused) { draw(); return; }
+
+      // One queued turn per tick, so a fast double-tap can't fold the
+      // snake back onto itself inside a single step.
+      if (queued.length) {
+        var next = queued.shift();
+        if (next.x !== -dir.x || next.y !== -dir.y) dir = next;
+      }
+
+      var head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+      if (head.x < 0 || head.y < 0 || head.x >= COLS || head.y >= ROWS) return gameOver();
+      for (var i = 0; i < snake.length - 1; i++) {
+        if (snake[i].x === head.x && snake[i].y === head.y) return gameOver();
+      }
+
+      snake.unshift(head);
+
+      if (head.x === food.x && head.y === food.y) {
+        score += 10;
+        Arcade.setStat(scoreEl, score, true);
+        if (score % 50 === 0 && speed > 70) speed -= 8;   // a little faster every 5 stars
+        placeFood();
+      } else {
+        snake.pop();
+      }
+
+      draw();
+    }
+
+    function gameOver() {
+      running = false;
+      clearTimeout(timer);
+      if (score > best) {
+        best = score;
+        Arcade.writeBest('snake', best);
+        Arcade.setStat(bestEl, best, true);
+      }
+      ovTitle.textContent = 'Game Over';
+      ovText.textContent  = 'You scored ' + score + '. Best so far: ' + best + '.';
+      ovBtn.textContent   = 'Play Again';
+      overlay.hidden = false;
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // grid
+      ctx.strokeStyle = 'rgba(192, 132, 252, 0.07)';
+      ctx.lineWidth = 1;
+      for (var g = 1; g < COLS; g++) {
+        ctx.beginPath();
+        ctx.moveTo(g * CELL + 0.5, 0); ctx.lineTo(g * CELL + 0.5, canvas.height);
+        ctx.moveTo(0, g * CELL + 0.5); ctx.lineTo(canvas.width, g * CELL + 0.5);
+        ctx.stroke();
+      }
+
+      // food — a glowing star
+      if (food) {
+        var fx = food.x * CELL + CELL / 2, fy = food.y * CELL + CELL / 2;
+        ctx.save();
+        ctx.shadowColor = '#4ade80';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = '#4ade80';
+        ctx.beginPath();
+        ctx.arc(fx, fy, CELL * 0.30, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // snake — head brightest, tail fading
+      for (var i = snake.length - 1; i >= 0; i--) {
+        var s = snake[i];
+        var t = 1 - (i / (snake.length + 4));
+        ctx.fillStyle = i === 0
+          ? '#f0d4ff'
+          : 'rgba(192, 132, 252, ' + (0.35 + 0.55 * t).toFixed(3) + ')';
+        roundRect(s.x * CELL + 2, s.y * CELL + 2, CELL - 4, CELL - 4, 6);
+        ctx.fill();
+      }
+
+      // eyes, so the head reads as a head
+      if (snake.length) {
+        var h = snake[0];
+        var cx = h.x * CELL + CELL / 2, cy = h.y * CELL + CELL / 2;
+        ctx.fillStyle = '#1a0a2e';
+        ctx.beginPath();
+        ctx.arc(cx + dir.x * 3 - dir.y * 3, cy + dir.y * 3 - dir.x * 3, 2, 0, Math.PI * 2);
+        ctx.arc(cx + dir.x * 3 + dir.y * 3, cy + dir.y * 3 + dir.x * 3, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y,     x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x,     y + h, r);
+      ctx.arcTo(x,     y + h, x,     y,     r);
+      ctx.arcTo(x,     y,     x + w, y,     r);
+      ctx.closePath();
+    }
+
+    var VECTORS = {
+      up:    { x:  0, y: -1 },
+      down:  { x:  0, y:  1 },
+      left:  { x: -1, y:  0 },
+      right: { x:  1, y:  0 }
+    };
+
+    function steer(name) {
+      if (!running) return;
+      var v = VECTORS[name];
+      var last = queued.length ? queued[queued.length - 1] : dir;
+      if (v.x === -last.x && v.y === -last.y) return;   // no instant reverse
+      if (v.x === last.x && v.y === last.y) return;
+      if (queued.length < 2) queued.push(v);
+    }
+
+    Arcade.bindKeys(steer);
+    Arcade.bindPad(document.getElementById('pad'), steer);
+    Arcade.onSwipe(canvas, steer);
+
+    window.addEventListener('keydown', function (e) {
+      if (e.code !== 'Space') return;
+      e.preventDefault();
+      if (!running) { start(); return; }
+      paused = !paused;
+      if (paused) {
+        clearTimeout(timer);
+        ovTitle.textContent = 'Paused';
+        ovText.textContent  = 'Take your time.';
+        ovBtn.textContent   = 'Resume';
+        overlay.hidden = false;
+      } else {
+        overlay.hidden = true;
+        schedule();
+      }
+    });
+
+    ovBtn.addEventListener('click', function () {
+      if (paused) { paused = false; overlay.hidden = true; schedule(); return; }
+      start();
+    });
+
+    reset();
+    draw();
+  })();
+  </script>
+</body>
+</html>
