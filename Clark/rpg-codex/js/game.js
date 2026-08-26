@@ -296,6 +296,8 @@
         attackCooldown: .5 + Math.random() * 1.2,
         contactCooldown: 0,
         chargeTime: 0,
+        windupTime: 0,
+        attackDirection: { x: 1, y: 0 },
         phase: Math.random() * Math.PI * 2,
         facingX: 1
       };
@@ -1039,6 +1041,7 @@
       maxHp: spec.hp,
       active: true,
       attackTimer: 1.2,
+      attackPattern: 0,
       moveTimer: 0,
       invulnerable: 0,
       angle: 0
@@ -1126,9 +1129,9 @@
 
   function fireMonsterAttack(enemy) {
     const aimed = normalize(player.x - enemy.x, player.y - enemy.y);
-    const count = enemy.type === "wisp" ? 3 : 1;
+    const count = enemy.type === "wisp" ? 3 : 2;
     for (let index = 0; index < count; index += 1) {
-      const spread = (index - (count - 1) / 2) * .2;
+      const spread = (index - (count - 1) / 2) * (enemy.type === "wisp" ? .28 : .15);
       const angle = Math.atan2(aimed.y, aimed.x) + spread;
       const speed = enemy.type === "wisp" ? 220 : 285;
       game.enemyProjectiles.push({
@@ -1139,7 +1142,10 @@
         life: 3.2,
         color: enemy.color,
         damage: enemy.damage,
-        monsterShot: true
+        monsterShot: true,
+        shape: enemy.type === "wisp" ? "storm" : "star",
+        turnRate: enemy.type === "wisp" ? (index - 1) * .34 : 0,
+        age: 0
       });
     }
     particles.burst(enemy.x, enemy.y, enemy.color, 7, 80);
@@ -1154,12 +1160,21 @@
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - delta);
       enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
       enemy.chargeTime = Math.max(0, enemy.chargeTime - delta);
+      const previousWindup = enemy.windupTime;
+      enemy.windupTime = Math.max(0, enemy.windupTime - delta);
+      if (previousWindup > 0 && enemy.windupTime === 0) enemy.chargeTime = enemy.type === "thornling" ? .4 : .28;
       const away = distance(enemy, player);
       const toward = normalize(player.x - enemy.x, player.y - enemy.y);
       let direction = { x: 0, y: 0 };
       let speed = enemy.speed;
 
-      if (enemy.behavior === "ranged" && away < 430) {
+      if (enemy.windupTime > 0) {
+        direction = { x: 0, y: 0 };
+      } else if (enemy.chargeTime > 0) {
+        direction = enemy.attackDirection;
+        speed *= enemy.type === "thornling" ? 3.05 : 2.25;
+        if (Math.floor(enemy.chargeTime * 40) % 3 === 0) particles.burst(enemy.x, enemy.y, enemy.color, 2, 35);
+      } else if (enemy.behavior === "ranged" && away < 430) {
         if (away > 245) direction = toward;
         else if (away < 145) direction = { x: -toward.x, y: -toward.y };
         else direction = { x: -toward.y * .45, y: toward.x * .45 };
@@ -1169,13 +1184,13 @@
         }
       } else if (away < 390) {
         direction = toward;
-        if (enemy.behavior === "charger") {
-          if (enemy.chargeTime > 0) speed *= 2.65;
-          else if (away < 270 && enemy.attackCooldown <= 0) {
-            enemy.chargeTime = .32;
-            enemy.attackCooldown = 1.75;
-            particles.burst(enemy.x, enemy.y, enemy.color, 8, 95);
-          }
+        const canSpecial = (enemy.type === "thornling" && away < 285) || (enemy.type === "slime" && away < 220);
+        if (canSpecial && enemy.attackCooldown <= 0) {
+          enemy.windupTime = enemy.type === "thornling" ? .42 : .28;
+          enemy.attackCooldown = enemy.type === "thornling" ? 1.85 : 1.45;
+          enemy.attackDirection = toward;
+          direction = { x: 0, y: 0 };
+          particles.burst(enemy.x, enemy.y, enemy.color, 8, 95);
         }
       } else {
         const homeDistance = Math.hypot(enemy.homeX - enemy.x, enemy.homeY - enemy.y);
@@ -1208,33 +1223,61 @@
     boss.x = clamp(boss.x + direction.x * movement * delta, 100, 1180);
     boss.y = clamp(boss.y + direction.y * movement * delta + Math.sin(boss.moveTimer * 2.4) * 22 * delta, 90, 630);
     if (boss.attackTimer <= 0) {
-      boss.attackTimer = boss.type === "raven" ? .75 : boss.type === "engine" ? .9 : 1.15;
+      const cooldowns = { pi: 1.2, warden: 1.02, engine: 1.38, shadow: 1.08, raven: .82 };
+      boss.attackTimer = cooldowns[boss.type] || 1.15;
       fireBossAttack(boss);
     }
   }
 
   function fireBossAttack(boss) {
     const aimed = normalize(player.x - boss.x, player.y - boss.y);
-    const count = boss.type === "raven" || boss.type === "shadow" ? 5 : boss.type === "pi" ? 3 : 1;
-    for (let index = 0; index < count; index += 1) {
-      const spread = (index - (count - 1) / 2) * .22;
-      const angle = Math.atan2(aimed.y, aimed.x) + spread;
-      const speed = boss.type === "engine" ? 330 : 245;
+    const aimedAngle = Math.atan2(aimed.y, aimed.x);
+    const launch = (angle, speed, options = {}) => {
       game.enemyProjectiles.push({
         x: boss.x, y: boss.y,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-        radius: boss.type === "pi" ? 15 : 11,
-        life: 4,
-        color: boss.type === "warden" ? "#6dff9a" : "#b85dff",
-        damage: 1
+        radius: options.radius || 11,
+        life: options.life || 4,
+        color: options.color || "#b85dff",
+        damage: options.damage || 1,
+        shape: options.shape || "orb",
+        turnRate: options.turnRate || 0,
+        age: 0,
+        bossShot: boss.type
       });
+    };
+
+    if (boss.type === "pi") {
+      for (let index = -1; index <= 1; index += 1) launch(aimedAngle + index * .24, 225 + Math.abs(index) * 18, { radius: 15, color: "#d78aff", shape: "pi", turnRate: index * .08 });
+    } else if (boss.type === "warden") {
+      const colors = ["#39a8ff", "#a65dff", "#ff9f1c", "#7ee568"];
+      const color = colors[boss.attackPattern % colors.length];
+      for (let index = -1; index <= 1; index += 1) launch(aimedAngle + index * .17, 270, { radius: 12, color, shape: "crystal" });
+    } else if (boss.type === "engine") {
+      const offset = boss.attackPattern * .31;
+      for (let index = 0; index < 8; index += 1) launch(offset + index * Math.PI / 4, 205, { radius: 11, color: index % 2 ? "#ba57ff" : "#69e5ff", shape: "gear", life: 4.8 });
+    } else if (boss.type === "shadow") {
+      for (let index = -2; index <= 2; index += 1) launch(aimedAngle + index * .23, 238, { radius: 13, color: "#c77dff", shape: "crescent", turnRate: -index * .045 });
+    } else if (boss.type === "raven") {
+      for (let index = -3; index <= 3; index += 1) launch(aimedAngle + index * .16, 300 + (3-Math.abs(index))*12, { radius: 10, color: index % 2 ? "#8da2d9" : "#38496f", shape: "feather" });
+    } else {
+      launch(aimedAngle, 245);
     }
+    boss.attackPattern += 1;
+    particles.burst(boss.x, boss.y, game.chapter.palette.glow, boss.type === "engine" ? 18 : 9, 105);
     sound.play("bolt");
   }
 
   function updateProjectiles(delta) {
     const updateList = list => {
       list.forEach(projectile => {
+        projectile.age = (projectile.age || 0) + delta;
+        if (projectile.turnRate) {
+          const speed = Math.hypot(projectile.vx, projectile.vy);
+          const angle = Math.atan2(projectile.vy, projectile.vx) + projectile.turnRate * delta;
+          projectile.vx = Math.cos(angle) * speed;
+          projectile.vy = Math.sin(angle) * speed;
+        }
         projectile.x += projectile.vx * delta;
         projectile.y += projectile.vy * delta;
         projectile.life -= delta;
@@ -1640,6 +1683,12 @@
       ctx.save();ctx.rotate(game.sceneTime*2.2);ctx.globalAlpha=clamp(game.aimTargetTime/.3,0,1);ctx.strokeStyle="#fff3a5";ctx.shadowColor="#ffd34f";ctx.shadowBlur=12;ctx.lineWidth=3;
       for(let quadrant=0;quadrant<4;quadrant+=1){ctx.beginPath();ctx.arc(0,2,enemy.radius+13,quadrant*Math.PI/2+.16,quadrant*Math.PI/2+.64);ctx.stroke();}ctx.restore();
     }
+    if(enemy.windupTime>0){
+      const warning=1-clamp(enemy.windupTime/(enemy.type==="thornling"?.42:.28),0,1);ctx.save();ctx.globalAlpha=.38+warning*.42;ctx.strokeStyle=enemy.type==="thornling"?"#ffcf55":"#d6a4ff";ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=12;ctx.lineWidth=3;
+      if(enemy.type==="thornling"){ctx.rotate(Math.atan2(enemy.attackDirection.y,enemy.attackDirection.x));ctx.setLineDash([10,7]);ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.setLineDash([]);}
+      else{ctx.beginPath();ctx.arc(0,5,enemy.radius+10+warning*13,0,Math.PI*2);ctx.stroke();}
+      ctx.restore();
+    }
     ctx.fillStyle="rgba(30,38,33,.26)";ctx.beginPath();ctx.ellipse(0,enemy.radius*.78,enemy.radius*1.05,enemy.radius*.38,0,0,Math.PI*2);ctx.fill();
     ctx.translate(0,hover);
     if (hitBlink) ctx.globalAlpha=.42;
@@ -1660,7 +1709,12 @@
 
   function drawBoss(ctx, boss) {
     if(!boss?.active)return;
-    ctx.save();ctx.translate(boss.x,boss.y);const pulse=1+Math.sin(game.sceneTime*4)*.035;ctx.scale(pulse,pulse);ctx.globalAlpha=boss.invulnerable>0?.55:1;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;
+    ctx.save();ctx.translate(boss.x,boss.y);
+    if(!boss.peaceful&&boss.attackTimer<.34){const warning=1-clamp(boss.attackTimer/.34,0,1);ctx.save();ctx.globalAlpha=.3+warning*.55;ctx.strokeStyle=game.chapter.palette.glow;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;ctx.lineWidth=4;ctx.rotate(boss.type==="raven"?Math.atan2(player.y-boss.y,player.x-boss.x):game.sceneTime*1.4);
+      if(boss.type==="engine"){for(let i=0;i<8;i+=1){const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*55,Math.sin(a)*55);ctx.lineTo(Math.cos(a)*(82+warning*24),Math.sin(a)*(82+warning*24));ctx.stroke();}}
+      else if(boss.type==="raven"){for(const spread of[-.48,.48]){ctx.beginPath();ctx.moveTo(25,0);ctx.lineTo(Math.cos(spread)*(125+warning*35),Math.sin(spread)*(125+warning*35));ctx.stroke();}}
+      else{ctx.beginPath();ctx.arc(0,0,boss.radius+14+warning*16,0,Math.PI*2);ctx.stroke();}ctx.restore();}
+    const pulse=1+Math.sin(game.sceneTime*4)*.035;ctx.scale(pulse,pulse);ctx.globalAlpha=boss.invulnerable>0?.55:1;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;
     if(boss.type==="pi"&&art.piMonster.complete&&art.piMonster.naturalWidth){
       ctx.fillStyle="rgba(38,29,51,.3)";ctx.beginPath();ctx.ellipse(0,50,75,24,0,0,Math.PI*2);ctx.fill();
       ctx.drawImage(art.piMonster,-92,-94,184,168);ctx.shadowBlur=0;ctx.restore();return;
@@ -1681,9 +1735,36 @@
     ctx.shadowBlur=0;ctx.restore();
   }
 
+  function drawHostileProjectile(ctx, projectile) {
+    const angle = Math.atan2(projectile.vy, projectile.vx);
+    const radius = projectile.radius;
+    ctx.save();ctx.translate(projectile.x,projectile.y);ctx.rotate(angle);
+    ctx.strokeStyle=projectile.color;ctx.shadowColor=projectile.color;ctx.shadowBlur=14;ctx.lineCap="round";ctx.lineWidth=Math.max(3,radius*.55);
+    ctx.globalAlpha=.35;ctx.beginPath();ctx.moveTo(-radius*.4,0);ctx.lineTo(-radius*2.5,0);ctx.stroke();ctx.globalAlpha=1;
+    ctx.fillStyle=projectile.color;ctx.strokeStyle="rgba(255,255,255,.8)";ctx.lineWidth=2;
+    if(projectile.shape==="star"){
+      ctx.rotate((projectile.age||0)*5);ctx.beginPath();for(let i=0;i<8;i+=1){const a=i*Math.PI/4,r=i%2===0?radius:radius*.42;const x=Math.cos(a)*r,y=Math.sin(a)*r;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();ctx.stroke();
+    }else if(projectile.shape==="storm"){
+      ctx.rotate((projectile.age||0)*4);ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle="#eef4ff";ctx.lineWidth=2;ctx.beginPath();for(let a=0;a<Math.PI*3;a+=.2){const r=a*radius/(Math.PI*3),x=Math.cos(a)*r,y=Math.sin(a)*r;if(a===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();
+    }else if(projectile.shape==="pi"){
+      ctx.rotate(-angle);ctx.font=`900 ${radius*2.1}px Georgia`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("π",0,1);ctx.strokeText("π",0,1);
+    }else if(projectile.shape==="crystal"){
+      ctx.beginPath();ctx.moveTo(radius*1.2,0);ctx.lineTo(0,-radius*.72);ctx.lineTo(-radius*.8,0);ctx.lineTo(0,radius*.72);ctx.closePath();ctx.fill();ctx.stroke();
+    }else if(projectile.shape==="gear"){
+      ctx.rotate((projectile.age||0)*5);ctx.beginPath();for(let i=0;i<16;i+=1){const a=i*Math.PI/8,r=i%2===0?radius*1.18:radius*.72;const x=Math.cos(a)*r,y=Math.sin(a)*r;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#132748";ctx.beginPath();ctx.arc(0,0,radius*.32,0,Math.PI*2);ctx.fill();
+    }else if(projectile.shape==="crescent"){
+      ctx.strokeStyle=projectile.color;ctx.lineWidth=radius*.62;ctx.beginPath();ctx.arc(0,0,radius*.9,-1.15,1.15);ctx.stroke();ctx.strokeStyle="rgba(255,255,255,.8)";ctx.lineWidth=2;ctx.stroke();
+    }else if(projectile.shape==="feather"){
+      ctx.beginPath();ctx.moveTo(radius*1.5,0);ctx.quadraticCurveTo(0,-radius*.75,-radius*.9,0);ctx.quadraticCurveTo(0,radius*.75,radius*1.5,0);ctx.fill();ctx.stroke();ctx.strokeStyle="#dce6ff";ctx.beginPath();ctx.moveTo(-radius*.65,0);ctx.lineTo(radius*1.1,0);ctx.stroke();
+    }else{
+      ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function drawProjectiles(ctx) {
     game.projectiles.forEach(projectile=>{ctx.fillStyle=projectile.color;ctx.shadowColor=projectile.color;ctx.shadowBlur=16;ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.radius,0,Math.PI*2);ctx.fill();});
-    game.enemyProjectiles.forEach(projectile=>{ctx.fillStyle=projectile.color;ctx.shadowColor=projectile.color;ctx.shadowBlur=13;ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.radius,0,Math.PI*2);ctx.fill();});
+    game.enemyProjectiles.forEach(projectile=>drawHostileProjectile(ctx,projectile));
     ctx.shadowBlur=0;
     game.attacks.forEach(attack=>{
       if(attack.type==="slash"){
