@@ -78,6 +78,11 @@
           { id: "green", x: 700, y: 500, color: "#7ee568", label: "Green Star" }
         ]
       },
+      cooperation: {
+        prompt: "Team up: stand on the blue plate and send Bradley to the orange plate",
+        plateA: { x: 865, y: 190, color: "#39a8ff", label: "Clark's plate" },
+        plateB: { x: 865, y: 520, color: "#ff9f1c", label: "Bradley's plate" }
+      },
       boss: { name: "Portal Engine", type: "engine", hp: 16, x: 1000, y: 350, color: "#727a89" },
       memories: [{ x: 190, y: 170 }, { x: 555, y: 350 }, { x: 1030, y: 590 }],
       dialogue: [
@@ -191,7 +196,7 @@
           { id: "note-4", x: 695, y: 500, color: "#ff9f1c", label: "Note 4", number: 4 }
         ]
       },
-      boss: { name: "The Final Gate", type: "gate", hp: 1, x: 1000, y: 350, color: "#d9bc4a", peaceful: true },
+      boss: { name: "The Bookbound Sovereign", type: "final", hp: 30, x: 1000, y: 350, color: "#6f4930" },
       memories: [{ x: 180, y: 170 }, { x: 565, y: 355 }, { x: 985, y: 580 }],
       dialogue: [
         ["Portal Guardian", "Three minutes. Listen to the Bird, trust your friends, and follow the rhythm."],

@@ -49,6 +49,11 @@
       codes.forEach(code => this.pressed.delete(code));
       return hit;
     }
+    consumeReleased(...codes) {
+      const hit = codes.some(code => this.released.has(code));
+      codes.forEach(code => this.released.delete(code));
+      return hit;
+    }
     movement() {
       let x = this.touchVector.x;
       let y = this.touchVector.y;

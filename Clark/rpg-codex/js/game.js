@@ -59,6 +59,7 @@
     endingChapters: document.querySelector("#endingChapters"),
     endingMenu: document.querySelector("#endingMenu"),
     companionButton: document.querySelector("#companionButton"),
+    companionAction: document.querySelector("#companionAction"),
     companionCooldown: document.querySelector("#companionCooldown"),
     weaponButton: document.querySelector("#weaponButton"),
     weaponIcon: document.querySelector("#weaponIcon"),
@@ -195,10 +196,10 @@
     invulnerable: 0, attackCooldown: 0, dashCooldown: 0, dashTime: 0,
     shieldTime: 0, selectedAbility: "fist", moving: false, walkCycle: 0,
     weapon: save.weapon === "hammer" && save.unlockedChapter >= 3 ? "hammer" : "leafblade", comboStep: 0, comboTimer: 0, attackKind: "leafblade", touchAttackHeld: false,
-    attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }
+    attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }, hammerCharging: false, hammerCharge: 0, perfectDodgeTime: 0
   };
 
-  const bradley = { x: 80, y: 390, radius: 20, cooldown: 0, facing: { x: 1, y: 0 } };
+  const bradley = { x: 80, y: 390, radius: 20, cooldown: 0, facing: { x: 1, y: 0 }, command: "follow", target: null };
   const bird = { x: 70, y: 320, angle: 0 };
   const guardian = { x: 55, y: 275, angle: 0 };
 
@@ -297,6 +298,7 @@
         contactCooldown: 0,
         chargeTime: 0,
         windupTime: 0,
+        marked: 0,
         attackDirection: { x: 1, y: 0 },
         phase: Math.random() * Math.PI * 2,
         facingX: 1
@@ -324,6 +326,8 @@
     game.activeTargets = new Set();
     game.brokenTargets = new Map();
     game.puzzleSolved = false;
+    game.coopSolved = false;
+    game.coopPuzzle = game.chapter.cooperation ? { ...game.chapter.cooperation } : null;
     game.portalActive = false;
     game.portalTransitioning = false;
     game.aimTarget = null;
@@ -352,6 +356,9 @@
     player.attackCooldown = 0;
     player.attackTime = 0;
     player.attackDirection = { x: 1, y: 0 };
+    player.hammerCharging = false;
+    player.hammerCharge = 0;
+    player.perfectDodgeTime = 0;
     player.comboStep = 0;
     player.comboTimer = 0;
     player.touchAttackHeld = false;
@@ -363,6 +370,8 @@
     bradley.x = player.x - 45;
     bradley.y = player.y + 35;
     bradley.cooldown = 0;
+    bradley.command = "follow";
+    bradley.target = null;
     bird.x = player.x - 50;
     bird.y = player.y - 35;
     guardian.x = player.x - 75;
@@ -528,6 +537,8 @@
     if (changed) {
       player.comboStep = 0;
       player.comboTimer = 0;
+      player.hammerCharging = false;
+      player.hammerCharge = 0;
       player.attackCooldown = Math.min(player.attackCooldown, .12);
       save.weapon = key;
       store.save(save);
@@ -595,6 +606,10 @@
     dom.touchDash.querySelector("small").textContent = `Dash · ${skillCost("dash", rank)}`;
     dom.touchShield.querySelector("small").textContent = `Shield · ${skillCost("shield", rank)}`;
     dom.touchCompanion.querySelector("small").textContent = bradley.cooldown > 0 ? `${bradley.cooldown.toFixed(1)}s` : "Boom";
+    const cooperationMode = game.phase === "cooperation" && !!game.coopPuzzle;
+    if (dom.companionAction) dom.companionAction.textContent = cooperationMode ? "Send Bradley" : "Mega Boom";
+    dom.companionButton.setAttribute("aria-label", cooperationMode ? "Send Bradley to the orange plate" : "Bradley Mega Boom");
+    dom.touchCompanion.querySelector("small").textContent = cooperationMode ? (bradley.command === "station" ? "Waiting" : "Send") : (bradley.cooldown > 0 ? `${bradley.cooldown.toFixed(1)}s` : "Boom");
     if (game.boss?.active) {
       dom.bossBar.hidden = false;
       dom.bossName.textContent = game.boss.name;
@@ -630,6 +645,8 @@
     player.invulnerable = Math.max(0, player.invulnerable - delta);
     player.attackCooldown = Math.max(0, player.attackCooldown - delta);
     player.attackTime = Math.max(0, player.attackTime - delta);
+    player.perfectDodgeTime = Math.max(0, player.perfectDodgeTime - delta);
+    if (player.hammerCharging) player.hammerCharge = Math.min(1, player.hammerCharge + delta / .75);
     player.comboTimer = Math.max(0, player.comboTimer - delta);
     if (player.comboTimer === 0) player.comboStep = 0;
     player.dashCooldown = Math.max(0, player.dashCooldown - delta);
@@ -658,10 +675,22 @@
     if (input.consume("KeyX")) selectWeapon("hammer");
     if (input.consume("KeyR")) cycleWeapon();
     if (input.consume("ShiftLeft", "ShiftRight")) useDash();
-    if (input.consume("Space", "KeyJ", "KeyK")) useSelectedAbility();
+    if (input.consume("Space", "KeyJ", "KeyK")) {
+      if (player.weapon === "hammer" && player.selectedAbility === "fist") {
+        player.hammerCharging = true;
+        player.hammerCharge = 0;
+        showComicWord("CHARGE!", "#ffb347");
+      } else useSelectedAbility();
+    }
+    if (player.hammerCharging && input.consumeReleased("Space", "KeyJ", "KeyK")) {
+      player.hammerCharging = false;
+      useCometHammer(player.hammerCharge);
+      player.hammerCharge = 0;
+    }
     if (input.consume("KeyQ")) useCompanion();
     if (input.consume("KeyE", "Enter")) interact();
-    if (player.touchAttackHeld && player.attackCooldown <= 0) useWeapon();
+    if (player.touchAttackHeld && player.weapon === "hammer") player.hammerCharging = true;
+    if (player.touchAttackHeld && player.weapon !== "hammer" && player.attackCooldown <= 0) useWeapon();
 
     game.memoryObjects.forEach(memory => {
       if (!memory.collected && distance(player, memory) < 34) collectMemory(memory);
@@ -679,7 +708,7 @@
     player.dashCooldown = .88 - rank * .07;
     player.invulnerable = Math.max(player.invulnerable, .28 + rank * .04);
     if (rank >= 3) {
-      const impact = { x: player.x + player.facing.x * 68, y: player.y + player.facing.y * 68, radius: 62 + rank * 5, life: .26, color: "#69e5ff" };
+      const impact = { x: player.x + player.facing.x * 68, y: player.y + player.facing.y * 68, radius: 62 + rank * 5, life: .26, color: "#69e5ff", consumeMark: true };
       game.attacks.push(impact);
       damageEnemies(impact, rank === 4 ? 2 : 1);
       damageBoss(impact, rank === 4 ? 2 : 1);
@@ -754,7 +783,8 @@
       angle: Math.atan2(direction.y, direction.x),
       type: finisher ? "spin" : "slash",
       comboStep: player.comboStep,
-      color: "#b7ff9b"
+      color: "#b7ff9b",
+      consumeMark: true
     };
     game.attacks.push(hit);
     particles.burst(hit.x, hit.y, "#d9ffb7", finisher ? 20 : 11, finisher ? 210 : 155);
@@ -766,9 +796,10 @@
     damageBoss(hit, damage);
   }
 
-  function useCometHammer() {
+  function useCometHammer(charge = 0) {
     const rank = weaponRank();
     const direction = assistedAim(220);
+    const chargePower = clamp(charge, 0, 1);
     player.comboStep = 0;
     player.comboTimer = 0;
     player.attackCooldown = .7;
@@ -780,9 +811,9 @@
     const hit = {
       x: player.x + direction.x * 42,
       y: player.y + direction.y * 42,
-      radius: 88 + (rank - 1) * 6,
-      life: .42,
-      maxLife: .42,
+      radius: 88 + (rank - 1) * 6 + chargePower * 22,
+      life: .42 + chargePower * .08,
+      maxLife: .42 + chargePower * .08,
       angle: Math.atan2(direction.y, direction.x),
       type: "smash",
       color: "#ff9f1c"
@@ -790,11 +821,12 @@
     game.attacks.push(hit);
     particles.burst(hit.x, hit.y, "#ffb347", 24 + rank * 3, 245);
     sound.play("boom");
-    game.shake = 9 + rank;
-    showComicWord(rank === 4 ? "COMET CRASH!" : "KRAKOOM!", "#ff9f1c");
-    damageBreakTargets(hit, 3);
-    damageEnemies(hit, 2 + Math.floor((rank - 1) / 2));
-    damageBoss(hit, 2 + Math.floor((rank - 1) / 2));
+    game.shake = 9 + rank + chargePower * 5;
+    showComicWord(chargePower > .65 || rank === 4 ? "COMET CRASH!" : "KRAKOOM!", "#ff9f1c");
+    damageBreakTargets(hit, 3 + Math.floor(chargePower * 2));
+    const damage = Math.round((2 + Math.floor((rank - 1) / 2)) * (1 + chargePower * .65));
+    damageEnemies({ ...hit, consumeMark: true }, damage);
+    damageBoss(hit, damage);
   }
 
   function fireBolt() {
@@ -817,7 +849,8 @@
         radius: rank === 4 ? 11 : 9,
         life: 1.45 + rank * .08,
         damage: rank >= 4 ? 3 : rank >= 2 ? 2 : 1,
-        color: rank === 4 ? "#d6a4ff" : "#69e5ff"
+        color: rank === 4 ? "#d6a4ff" : "#69e5ff",
+        marks: rank >= 2
       });
     }
     sound.play("bolt");
@@ -843,6 +876,10 @@
   }
 
   function useCompanion() {
+    if (game.phase === "cooperation" && game.coopPuzzle) {
+      commandBradleyToPlate();
+      return;
+    }
     if (game.chapter.id < 2 || bradley.cooldown > 0) return;
     const rank = skillRank();
     bradley.cooldown = companionCooldownMax(rank);
@@ -858,6 +895,21 @@
     game.shake = 12;
     showComicWord(rank === 4 ? "ULTRA BOOM!" : "MEGA BOOM!", "#ff9f1c");
     announce(`Bradley fired Rank ${ROMAN_RANKS[rank - 1]} Mega Boom.`);
+  }
+
+  function commandBradleyToPlate() {
+    if (!game.coopPuzzle) return;
+    if (bradley.command === "station") {
+      bradley.command = "follow";
+      bradley.target = null;
+      showComicWord("COME ON!", "#69e5ff");
+      announce("Bradley is following Clark again.");
+    } else {
+      bradley.command = "station";
+      bradley.target = game.coopPuzzle.plateB;
+      showComicWord("HOLD!", "#ff9f1c");
+      announce("Bradley is moving to the orange plate.");
+    }
   }
 
   function damageBreakTargets(hit, amount) {
@@ -893,7 +945,13 @@
     game.enemies.forEach(enemy => {
       if (!enemy.active || enemy.invulnerable > 0) return;
       if (distance(hit, enemy) > (hit.radius || 0) + enemy.radius) return;
-      enemy.hp -= amount;
+      const markedBonus = hit.consumeMark && enemy.marked > 0 ? 1.75 : 1;
+      const dealt = Math.max(1, Math.round(amount * markedBonus));
+      enemy.hp -= dealt;
+      if (hit.consumeMark && enemy.marked > 0) {
+        enemy.marked = 0;
+        particles.burst(enemy.x, enemy.y, "#d6a4ff", 9, 140);
+      }
       enemy.invulnerable = .13;
       const knock = normalize(enemy.x - hit.x, enemy.y - hit.y);
       moveCircle(enemy, knock.x * 16, knock.y * 16, true);
@@ -1050,11 +1108,18 @@
   function solvePuzzle() {
     if (game.puzzleSolved) return;
     game.puzzleSolved = true;
-    game.phase = "boss";
     gainExperience(60);
     sound.play("success");
     showComicWord("PORTAL POWER!", "#8ce568");
     particles.burst(game.chapter.portal.x, game.chapter.portal.y, game.chapter.palette.glow, 36, 220);
+    if (game.coopPuzzle && !game.coopSolved) {
+      game.phase = "cooperation";
+      showComicWord("TEAMWORK!", "#8ce568");
+      setObjective(game.coopPuzzle.prompt);
+      announce(game.coopPuzzle.prompt + ". Press Q or tap Bradley's button to send him.");
+      return;
+    }
+    game.phase = "boss";
     spawnBoss();
   }
 
@@ -1139,7 +1204,18 @@
       }
       if (away > 430) { entity.x = target.x - 45; entity.y = target.y + 35; }
     };
-    if (game.chapter.id >= 2) follow(bradley, player, 62, 225);
+    if (game.chapter.id >= 2) {
+      if (game.phase === "cooperation" && bradley.command === "station" && bradley.target) {
+        const away = distance(bradley, bradley.target);
+        if (away > 8) {
+          const direction = normalize(bradley.target.x - bradley.x, bradley.target.y - bradley.y);
+          const step = Math.min(225 * delta, away - 8);
+          bradley.x += direction.x * step;
+          bradley.y += direction.y * step;
+          bradley.facing = direction;
+        }
+      } else follow(bradley, player, 62, 225);
+    }
     if (game.chapter.id >= 5) {
       bird.angle += delta * 2.2;
       bird.x = lerp(bird.x, player.x - 38 + Math.cos(bird.angle) * 25, .08);
@@ -1150,6 +1226,23 @@
       guardian.x = lerp(guardian.x, player.x - 72 + Math.cos(guardian.angle) * 20, .055);
       guardian.y = lerp(guardian.y, player.y - 52 + Math.sin(guardian.angle) * 16, .055);
     }
+  }
+
+  function updateCooperationPuzzle() {
+    if (game.phase !== "cooperation" || !game.coopPuzzle || game.coopSolved) return;
+    const playerReady = distance(player, game.coopPuzzle.plateA) < 52;
+    const bradleyReady = distance(bradley, game.coopPuzzle.plateB) < 52;
+    if (!playerReady || !bradleyReady) return;
+    game.coopSolved = true;
+    game.phase = "boss";
+    bradley.command = "follow";
+    bradley.target = null;
+    setObjective(`Defeat ${game.chapter.boss.name}`);
+    showComicWord("TEAMWORK!", "#8ce568");
+    announce("Teamwork complete. The boss is vulnerable.");
+    particles.burst(game.coopPuzzle.plateA.x, game.coopPuzzle.plateA.y, "#8ce568", 18, 130);
+    particles.burst(game.coopPuzzle.plateB.x, game.coopPuzzle.plateB.y, "#8ce568", 18, 130);
+    spawnBoss();
   }
 
   function fireMonsterAttack(enemy) {
@@ -1185,6 +1278,7 @@
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - delta);
       enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
       enemy.chargeTime = Math.max(0, enemy.chargeTime - delta);
+      enemy.marked = Math.max(0, (enemy.marked || 0) - delta);
       const previousWindup = enemy.windupTime;
       enemy.windupTime = Math.max(0, enemy.windupTime - delta);
       if (previousWindup > 0 && enemy.windupTime === 0) enemy.chargeTime = enemy.type === "thornling" ? .4 : .28;
@@ -1242,13 +1336,13 @@
     boss.moveTimer += delta;
     boss.angle += delta;
     const direction = normalize(player.x - boss.x, player.y - boss.y);
-    const desiredDistance = ["engine", "warden", "raven"].includes(boss.type) ? 260 : 150;
+    const desiredDistance = ["engine", "warden", "raven", "final"].includes(boss.type) ? 260 : 150;
     const away = distance(player, boss);
     const movement = away > desiredDistance ? 48 : away < desiredDistance - 70 ? -35 : 0;
     boss.x = clamp(boss.x + direction.x * movement * delta, 100, 1180);
     boss.y = clamp(boss.y + direction.y * movement * delta + Math.sin(boss.moveTimer * 2.4) * 22 * delta, 90, 630);
     if (boss.attackTimer <= 0) {
-      const cooldowns = { pi: 1.2, warden: 1.02, engine: 1.38, shadow: 1.08, raven: .82 };
+      const cooldowns = { pi: 1.2, warden: 1.02, engine: 1.38, shadow: 1.08, raven: .82, final: .88 };
       boss.attackTimer = cooldowns[boss.type] || 1.15;
       fireBossAttack(boss);
     }
@@ -1285,6 +1379,16 @@
       for (let index = -2; index <= 2; index += 1) launch(aimedAngle + index * .23, 238, { radius: 13, color: "#c77dff", shape: "crescent", turnRate: -index * .045 });
     } else if (boss.type === "raven") {
       for (let index = -3; index <= 3; index += 1) launch(aimedAngle + index * .16, 300 + (3-Math.abs(index))*12, { radius: 10, color: index % 2 ? "#8da2d9" : "#38496f", shape: "feather" });
+    } else if (boss.type === "final") {
+      const healthRatio = boss.hp / boss.maxHp;
+      const phase = healthRatio <= .34 ? 3 : healthRatio <= .67 ? 2 : 1;
+      const count = phase === 3 ? 9 : phase === 2 ? 7 : 5;
+      const spread = phase === 3 ? .18 : .22;
+      for (let index = 0; index < count; index += 1) {
+        const offset = index - (count - 1) / 2;
+        launch(aimedAngle + offset * spread, 235 + phase * 22, { radius: 12 + phase, color: phase === 3 ? "#ffd34f" : phase === 2 ? "#d6a4ff" : "#8ce568", shape: "rune", turnRate: offset * .018, life: 4.4 });
+      }
+      if (phase >= 2) launch(aimedAngle + Math.PI, 185, { radius: 14, color: "#ff9f1c", shape: "rune", life: 4.4 });
     } else {
       launch(aimedAngle, 245);
     }
@@ -1314,6 +1418,7 @@
 
     game.projectiles.forEach(projectile => {
       if (projectile.life > 0 && game.enemies.some(enemy => enemy.active && circleHit(projectile, enemy))) {
+        if (projectile.marks) markEnemies(projectile);
         damageEnemies(projectile, projectile.damage);
         projectile.life = 0;
       }
@@ -1343,7 +1448,28 @@
     game.attacks = game.attacks.filter(attack => attack.life > 0);
   }
 
+  function markEnemies(hit) {
+    game.enemies.forEach(enemy => {
+      if (!enemy.active || !circleHit(hit, enemy)) return;
+      enemy.marked = 3.2;
+      particles.burst(enemy.x, enemy.y, "#d6a4ff", 6, 90);
+    });
+  }
+
   function hurtPlayer(amount, source) {
+    if (player.dashTime > 0) {
+      player.perfectDodgeTime = .55;
+      player.energy = Math.min(player.maxEnergy, player.energy + 8);
+      const counter = { x: player.x + player.facing.x * 38, y: player.y + player.facing.y * 38, radius: 72, life: .3, maxLife: .3, type: "perfect", color: "#8ce568", consumeMark: true };
+      game.attacks.push(counter);
+      damageEnemies(counter, 1);
+      damageBoss(counter, 1);
+      particles.burst(player.x, player.y, "#d9ffb7", 18, 190);
+      sound.play("shield");
+      showComicWord("PERFECT!", "#8ce568");
+      announce("Perfect dodge. Counterattack ready.");
+      return;
+    }
     if (player.invulnerable > 0 || player.shieldTime > 0) return;
     player.health = Math.max(0, player.health - amount);
     player.invulnerable = 1;
@@ -1391,6 +1517,7 @@
     game.camera.x = lerp(game.camera.x, player.x, cameraEase);
     game.camera.y = lerp(game.camera.y, player.y, cameraEase);
     updateCompanions(delta);
+    updateCooperationPuzzle();
     updateEnemies(delta);
     updateBoss(delta);
     updateProjectiles(delta);
@@ -1592,12 +1719,35 @@
         ctx.restore();
       });
     }
+    if (game.phase === "cooperation" && game.coopPuzzle) drawCooperationPuzzle(ctx);
+  }
+
+  function drawCooperationPuzzle(ctx) {
+    const pulse = 1 + Math.sin(game.sceneTime * 4) * .08;
+    const drawPlate = (plate, occupied, label) => {
+      ctx.save(); ctx.translate(plate.x, plate.y);
+      ctx.globalAlpha = occupied ? 1 : .72;
+      ctx.fillStyle = occupied ? "#8ce568" : "rgba(8,13,28,.7)";
+      ctx.strokeStyle = occupied ? "#f2ffbd" : plate.color;
+      ctx.shadowColor = occupied ? "#8ce568" : plate.color;
+      ctx.shadowBlur = occupied ? 24 : 12;
+      ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.ellipse(0, 0, 46 * pulse, 25 * pulse, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0; ctx.fillStyle = occupied ? "#18301c" : plate.color; ctx.font = "900 13px Trebuchet MS"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 0, 1);
+      ctx.restore();
+    };
+    const playerReady = distance(player, game.coopPuzzle.plateA) < 52;
+    const bradleyReady = distance(bradley, game.coopPuzzle.plateB) < 52;
+    ctx.save(); ctx.globalAlpha = .28; ctx.strokeStyle = "#e7f6c6"; ctx.setLineDash([8, 10]); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(game.coopPuzzle.plateA.x, game.coopPuzzle.plateA.y); ctx.lineTo(game.coopPuzzle.plateB.x, game.coopPuzzle.plateB.y); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    drawPlate(game.coopPuzzle.plateA, playerReady, "CLARK");
+    drawPlate(game.coopPuzzle.plateB, bradleyReady, "BRADLEY");
   }
 
   function drawClark(ctx) {
     const blink = player.invulnerable > 0 && Math.floor(game.sceneTime * 14) % 2 === 0;
     ctx.save();ctx.translate(player.x,player.y);
     const attacking = player.attackTime > 0;
+    const charging = player.hammerCharging;
     const stepPhase = (player.walkCycle % 1) * Math.PI;
     const hop = player.moving && !attacking ? Math.sin(stepPhase) : 0;
     const landing = player.moving && !attacking ? Math.pow(Math.abs(Math.cos(stepPhase)), 10) : 0;
@@ -1605,6 +1755,7 @@
     const shadowScale = 1 - hop * .2;
     ctx.save();ctx.scale(shadowScale,shadowScale);ctx.fillStyle="rgba(35,57,34,.28)";ctx.beginPath();ctx.ellipse(0,31,34,13,0,0,Math.PI*2);ctx.fill();ctx.restore();
     ctx.translate(0,bob);
+    if (charging) { ctx.strokeStyle="#ffb347";ctx.shadowColor="#ff7a21";ctx.shadowBlur=18;ctx.lineWidth=5;ctx.globalAlpha=.5+.45*player.hammerCharge;ctx.beginPath();ctx.arc(0,0,43+player.hammerCharge*15,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;ctx.shadowBlur=0; }
     if (blink) ctx.globalAlpha=.35;
     if (art.clark.complete && art.clark.naturalWidth) {
       const attackProgress = attacking ? clamp(1 - player.attackTime / player.attackDuration, 0, 1) : 0;
@@ -1671,6 +1822,7 @@
   function drawBradley(ctx) {
     if(game.chapter.id<2)return;
     ctx.save();ctx.translate(bradley.x,bradley.y);ctx.strokeStyle="#11131a";ctx.lineWidth=5;ctx.lineCap="round";
+    if (game.phase === "cooperation" && bradley.command === "station") { ctx.strokeStyle="#ff9f1c";ctx.shadowColor="#ff9f1c";ctx.shadowBlur=16;ctx.lineWidth=4;ctx.setLineDash([6,5]);ctx.beginPath();ctx.arc(0,0,31+Math.sin(game.sceneTime*4)*3,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0; }
     ctx.strokeStyle="#171721";ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-7,18);ctx.lineTo(-10,36);ctx.moveTo(7,18);ctx.lineTo(11,36);ctx.stroke();
     ctx.fillStyle="#8e6334";roundedRect(ctx,-15,-2,30,29,8);ctx.fill();ctx.stroke();
     ctx.fillStyle="#f29a19";ctx.beginPath();ctx.arc(0,-14,22,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -1744,6 +1896,15 @@
       ctx.fillStyle="rgba(38,29,51,.3)";ctx.beginPath();ctx.ellipse(0,50,75,24,0,0,Math.PI*2);ctx.fill();
       ctx.drawImage(art.piMonster,-92,-94,184,168);ctx.shadowBlur=0;ctx.restore();return;
     }
+    if (boss.type === "final") {
+      ctx.fillStyle="rgba(38,29,22,.3)";ctx.beginPath();ctx.ellipse(0,58,78,24,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#8b5a3c";ctx.strokeStyle="#241a18";ctx.lineWidth=7;roundedRect(ctx,-70,-48,140,108,18);ctx.fill();ctx.stroke();
+      ctx.fillStyle="#f6e6bb";ctx.strokeStyle="#5d3a2b";ctx.lineWidth=4;roundedRect(ctx,-54,-38,108,86,11);ctx.fill();ctx.stroke();
+      ctx.fillStyle="#5c3828";ctx.fillRect(-5,-38,10,86);
+      ctx.strokeStyle="#d6a04e";ctx.shadowColor="#ffd34f";ctx.shadowBlur=14;ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,4,30,0,Math.PI*2);ctx.stroke();ctx.fillStyle="#6a4c2d";ctx.font="900 38px Georgia";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("✦",0,6);
+      ctx.fillStyle="#ffd34f";ctx.strokeStyle="#4b2e24";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-34,-55);ctx.lineTo(-20,-79);ctx.lineTo(-2,-60);ctx.lineTo(17,-82);ctx.lineTo(34,-55);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.shadowBlur=0;ctx.restore();return;
+    }
     ctx.strokeStyle="#0b0c13";ctx.lineWidth=7;ctx.fillStyle=boss.color;
     if(boss.type==="raven"){
       ctx.beginPath();ctx.moveTo(-70,0);ctx.quadraticCurveTo(-20,-70,0,-25);ctx.quadraticCurveTo(35,-70,75,-10);ctx.quadraticCurveTo(35,10,10,28);ctx.quadraticCurveTo(-30,25,-70,0);ctx.fill();ctx.stroke();ctx.fillStyle="#fff";ctx.beginPath();ctx.ellipse(14,-21,7,4,-.2,0,Math.PI*2);ctx.fill();
@@ -1781,6 +1942,8 @@
       ctx.strokeStyle=projectile.color;ctx.lineWidth=radius*.62;ctx.beginPath();ctx.arc(0,0,radius*.9,-1.15,1.15);ctx.stroke();ctx.strokeStyle="rgba(255,255,255,.8)";ctx.lineWidth=2;ctx.stroke();
     }else if(projectile.shape==="feather"){
       ctx.beginPath();ctx.moveTo(radius*1.5,0);ctx.quadraticCurveTo(0,-radius*.75,-radius*.9,0);ctx.quadraticCurveTo(0,radius*.75,radius*1.5,0);ctx.fill();ctx.stroke();ctx.strokeStyle="#dce6ff";ctx.beginPath();ctx.moveTo(-radius*.65,0);ctx.lineTo(radius*1.1,0);ctx.stroke();
+    }else if(projectile.shape==="rune"){
+      ctx.rotate((projectile.age||0)*2.6);ctx.beginPath();for(let i=0;i<6;i+=1){const a=-Math.PI/2+i*Math.PI/3;const r=radius*(i%2?0.62:1.1);const x=Math.cos(a)*r,y=Math.sin(a)*r;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#fff6c8";ctx.font=`900 ${radius*1.05}px Georgia`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("✦",0,1);
     }else{
       ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();
     }
@@ -1814,6 +1977,10 @@
         ctx.strokeStyle="#ffae42";ctx.shadowColor="#ff6f24";ctx.shadowBlur=24;ctx.lineWidth=18*(1-progress)+4;ctx.beginPath();ctx.ellipse(0,7,radius,radius*.48,0,0,Math.PI*2);ctx.stroke();
         ctx.strokeStyle="#fff0b8";ctx.shadowBlur=8;ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,7,radius+4,(radius+4)*.48,0,0,Math.PI*2);ctx.stroke();
         ctx.fillStyle="rgba(92,52,33,.38)";for(let i=0;i<7;i+=1){const angle=i*Math.PI*2/7;const rockDistance=radius*.7;ctx.beginPath();ctx.arc(Math.cos(angle)*rockDistance,7+Math.sin(angle)*rockDistance*.45,3+4*(1-progress),0,Math.PI*2);ctx.fill();}ctx.restore();
+      }else if(attack.type==="perfect"){
+        const progress=clamp(1-attack.life/attack.maxLife,0,1);
+        const radius=attack.radius*(.35+progress*.65);
+        ctx.save();ctx.translate(attack.x,attack.y);ctx.globalAlpha=(1-progress)*.9;ctx.strokeStyle="#d9ffb7";ctx.shadowColor="#8ce568";ctx.shadowBlur=24;ctx.lineWidth=10*(1-progress)+3;ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.stroke();ctx.strokeStyle="#fff7d0";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,radius+8,-.9,1.9);ctx.stroke();ctx.restore();
       }else{
         ctx.globalAlpha=clamp(attack.life/.25,0,.45);ctx.fillStyle=attack.color;ctx.beginPath();ctx.arc(attack.x,attack.y,attack.radius,0,Math.PI*2);ctx.fill();
       }
@@ -1823,6 +1990,7 @@
   function currentObjectiveTarget() {
     if(game.phase==="portal")return game.chapter.portal;
     if(game.phase==="boss")return game.boss;
+    if(game.phase==="cooperation"&&game.coopPuzzle)return game.coopPuzzle.plateA;
     const puzzle=game.chapter.puzzle;
     if(puzzle.type==="push")return puzzle.goal;
     if(puzzle.type==="break")return puzzle.targets.find(target=>!game.activeTargets.has(target.id));
@@ -1934,8 +2102,8 @@
     dom.weaponSlots.forEach(slot=>slot.addEventListener("click",()=>selectWeapon(slot.dataset.weapon)));
     dom.companionButton.addEventListener("click",useCompanion);
     dom.endingChapters.addEventListener("click",()=>{dom.endingOverlay.hidden=true;showChapters();});dom.endingMenu.addEventListener("click",showMenu);
-    dom.touchAttack.addEventListener("pointerdown",event=>{event.preventDefault();player.touchAttackHeld=true;useWeapon();});dom.touchWeapon.addEventListener("pointerdown",event=>{event.preventDefault();cycleWeapon();});dom.touchBolt.addEventListener("pointerdown",event=>{event.preventDefault();useTouchAbility("bolt");});dom.touchShield.addEventListener("pointerdown",event=>{event.preventDefault();useTouchAbility("shield");});dom.touchDash.addEventListener("pointerdown",event=>{event.preventDefault();useDash();});dom.touchInteract.addEventListener("pointerdown",event=>{event.preventDefault();interact();});dom.touchCompanion.addEventListener("pointerdown",event=>{event.preventDefault();useCompanion();});
-    const stopTouchAttack=()=>{player.touchAttackHeld=false;};
+    dom.touchAttack.addEventListener("pointerdown",event=>{event.preventDefault();player.touchAttackHeld=true;if(player.weapon === "hammer"){player.hammerCharging=true;player.hammerCharge=0;showComicWord("CHARGE!", "#ffb347");}else useWeapon();});dom.touchWeapon.addEventListener("pointerdown",event=>{event.preventDefault();cycleWeapon();});dom.touchBolt.addEventListener("pointerdown",event=>{event.preventDefault();useTouchAbility("bolt");});dom.touchShield.addEventListener("pointerdown",event=>{event.preventDefault();useTouchAbility("shield");});dom.touchDash.addEventListener("pointerdown",event=>{event.preventDefault();useDash();});dom.touchInteract.addEventListener("pointerdown",event=>{event.preventDefault();interact();});dom.touchCompanion.addEventListener("pointerdown",event=>{event.preventDefault();useCompanion();});
+    const stopTouchAttack=()=>{if(player.touchAttackHeld&&player.weapon === "hammer"&&player.hammerCharging){player.hammerCharging=false;useCometHammer(player.hammerCharge);player.hammerCharge=0;}player.touchAttackHeld=false;};
     window.addEventListener("pointerup",stopTouchAttack);window.addEventListener("pointercancel",stopTouchAttack);window.addEventListener("blur",stopTouchAttack);
     window.addEventListener("resize",resizeCanvas);
     window.addEventListener("orientationchange",()=>requestAnimationFrame(resizeCanvas));

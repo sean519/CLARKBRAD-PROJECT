@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#071127">
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <title>Clark: Portalbound · Codex Edition</title>
-  <link rel="stylesheet" href="css/rpg.css?v=20260826-ch7keys">
+  <link rel="stylesheet" href="css/rpg.css?v=20260826-combat2">
 </head>
 <body>
   <main class="app" id="app">
@@ -85,7 +85,7 @@
         <button class="ability is-locked" data-ability="bolt" type="button"><kbd>2</kbd><span class="ability-icon">✦</span><strong>Star Bolt<small data-skill-rank="bolt">Rank I</small></strong></button>
         <button class="ability is-locked" data-ability="dash" type="button"><kbd>3</kbd><span class="ability-icon">➜</span><strong>Rocket Dash<small data-skill-rank="dash">Rank I</small></strong></button>
         <button class="ability is-locked" data-ability="shield" type="button"><kbd>4</kbd><span class="ability-icon">◈</span><strong>Leaf Shield<small data-skill-rank="shield">Rank I</small></strong></button>
-        <button class="companion-ability" id="companionButton" type="button"><kbd>Q</kbd><span>◎</span><strong>Bradley<br>Mega Boom<small data-skill-rank="companion">Rank I</small></strong><i id="companionCooldown"></i></button>
+        <button class="companion-ability" id="companionButton" type="button"><kbd>Q</kbd><span>◎</span><strong>Bradley<br><span id="companionAction">Mega Boom</span><small data-skill-rank="companion">Rank I</small></strong><i id="companionCooldown"></i></button>
       </footer>
 
       <div class="touch-ui" id="touchUi" aria-label="Touch controls">
@@ -151,16 +151,16 @@
         <h2 id="howTitle">How to Play</h2>
         <div class="how-grid">
           <div><kbd>WASD</kbd><kbd>↑↓←→</kbd><strong>Move Clark</strong></div>
-          <div><kbd>Space</kbd><kbd>J</kbd><strong>Weapon attack / hold on touch</strong></div>
+          <div><kbd>Space</kbd><kbd>J</kbd><strong>Attack / hold Hammer to charge</strong></div>
           <div><kbd>Z</kbd><kbd>X</kbd><strong>Equip Leafblade / Hammer</strong></div>
           <div><kbd>R</kbd><strong>Cycle weapons</strong></div>
           <div><kbd>Touch</kbd><strong>Walk into or tap an active Portal</strong></div>
           <div><kbd>E</kbd><kbd>Enter</kbd><strong>Interact</strong></div>
-          <div><kbd>Q</kbd><strong>Call companion</strong></div>
+          <div><kbd>Q</kbd><strong>Call Bradley / send him to a plate</strong></div>
           <div><kbd>1–4</kbd><strong>Weapon / instant skills</strong></div>
           <div><kbd>Shift</kbd><strong>Rocket dash</strong></div>
         </div>
-        <p>Follow the glowing objective marker. Watch the warning rings and charge lines: every monster has a different attack pattern. Chain three Leafblade swings, switch to the Comet Hammer for a heavy smash, and use number keys for instant skills. Comic memories improve weapons and skills through Rank IV.</p>
+        <p>Follow the glowing objective marker. Watch the warning rings and charge lines: every monster has a different attack pattern. Chain three Leafblade swings, hold the Comet Hammer for a stronger smash, dash through attacks for a perfect counter, and use number keys for instant skills.</p>
       </div>
     </section>
 
@@ -183,8 +183,8 @@
   </main>
 
   <div class="sr-only" id="liveRegion" aria-live="polite"></div>
-  <script src="js/data.js?v=20260826-ch7keys"></script>
-  <script src="js/engine.js?v=20260826-ch7keys"></script>
-  <script src="js/game.js?v=20260826-ch7keys"></script>
+  <script src="js/data.js?v=20260826-combat2"></script>
+  <script src="js/engine.js?v=20260826-combat2"></script>
+  <script src="js/game.js?v=20260826-combat2"></script>
 </body>
 </html>
