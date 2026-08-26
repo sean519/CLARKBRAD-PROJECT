@@ -649,10 +649,11 @@
       : false;
     moveCircle(player, dx, dy, pushedBlock);
 
-    if (input.consume("Digit1")) selectAbility("fist");
-    if (input.consume("Digit2")) useTouchAbility("bolt");
-    if (input.consume("Digit3")) useDash();
-    if (input.consume("Digit4")) useTouchAbility("shield");
+    const rhythmKeyHandled = handleRhythmKeyboardInput();
+    if (!rhythmKeyHandled && input.consume("Digit1")) selectAbility("fist");
+    if (!rhythmKeyHandled && input.consume("Digit2")) useTouchAbility("bolt");
+    if (!rhythmKeyHandled && input.consume("Digit3")) useDash();
+    if (!rhythmKeyHandled && input.consume("Digit4")) useTouchAbility("shield");
     if (input.consume("KeyZ")) selectWeapon("leafblade");
     if (input.consume("KeyX")) selectWeapon("hammer");
     if (input.consume("KeyR")) cycleWeapon();
@@ -934,7 +935,7 @@
     if (game.chapter.puzzle.type === "break" || game.chapter.puzzle.type === "push") return null;
     let nearest = null;
     game.chapter.puzzle.targets.forEach(target => {
-      if (game.activeTargets.has(target.id)) return;
+      if (game.chapter.puzzle.type !== "rhythm" && game.activeTargets.has(target.id)) return;
       const away = distance(player, { ...target, radius: 25 });
       const reach = usesTouchControls() ? 108 : 72;
       if (away < reach && (!nearest || away < nearest.distance)) nearest = { type: "puzzle", target, distance: away };
@@ -984,7 +985,7 @@
   }
 
   function handleStageTap(event) {
-    if (!usesTouchControls() || !game.portalActive || game.portalTransitioning || game.mode !== "playing") return;
+    if (!usesTouchControls() || game.portalTransitioning || game.mode !== "playing") return;
     const rect = dom.canvas.getBoundingClientRect();
     const canvasX = event.clientX - rect.left;
     const canvasY = event.clientY - rect.top;
@@ -992,10 +993,33 @@
       x: (canvasX - game.viewport.offsetX) / game.viewport.scale,
       y: (canvasY - game.viewport.offsetY) / game.viewport.scale
     };
+    if (!game.puzzleSolved && game.chapter.puzzle.type === "rhythm") {
+      const tappedKey = game.chapter.puzzle.targets.find(target =>
+        distance(worldPoint, target) < 62 && distance(player, target) < 155
+      );
+      if (tappedKey) {
+        event.preventDefault();
+        activatePuzzleTarget(tappedKey);
+        return;
+      }
+    }
+    if (!game.portalActive) return;
     if (distance(worldPoint, game.chapter.portal) < 145 && distance(player, game.chapter.portal) < 190) {
       event.preventDefault();
       completeChapter();
     }
+  }
+
+  function handleRhythmKeyboardInput() {
+    const puzzle = game.chapter.puzzle;
+    if (game.puzzleSolved || game.phase !== "puzzle" || puzzle.type !== "rhythm") return false;
+    for (let number = 1; number <= 4; number += 1) {
+      if (!input.consume(`Digit${number}`, `Numpad${number}`)) continue;
+      const target = puzzle.targets.find(item => item.number === number);
+      if (target) activatePuzzleTarget(target);
+      return true;
+    }
+    return false;
   }
 
   function activatePuzzleTarget(target) {
@@ -1005,6 +1029,7 @@
     const uniqueKey = target.id;
     if (match === expected) {
       game.puzzleProgress += 1;
+      if (puzzle.type === "rhythm") game.activeTargets.clear();
       game.activeTargets.add(uniqueKey);
       particles.burst(target.x, target.y, target.color, 15, 120);
       const noteName = target.number ? `note${target.number}` : "click";

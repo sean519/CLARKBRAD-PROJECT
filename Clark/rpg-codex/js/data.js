@@ -177,7 +177,7 @@
       reward: "Final reward: The Leaf Key",
       palette: { ground: "#3d5138", ground2: "#182c27", line: "#71865b", glow: "#ffd34f", sky: "#62bde2" },
       environment: "final-trial",
-      objective: "Play the rhythm: 1, 3, 2, 4, 2",
+      objective: "Play the keys: 1, 3, 2, 4, 2",
       start: { x: 95, y: 350 },
       portal: { x: 1145, y: 350, color: "#ffd34f" },
       timed: 180,
