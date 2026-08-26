@@ -31,7 +31,7 @@
 
     onKeyDown(event) {
       const code = event.code;
-      const gameKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyW", "KeyA", "KeyS", "KeyD", "KeyJ", "KeyK", "KeyQ", "KeyE", "KeyR", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Enter", "Escape", "KeyP"];
+      const gameKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyW", "KeyA", "KeyS", "KeyD", "KeyJ", "KeyK", "KeyQ", "KeyE", "KeyR", "KeyZ", "KeyX", "ShiftLeft", "ShiftRight", "Digit1", "Digit2", "Digit3", "Digit4", "Enter", "Escape", "KeyP"];
       if (gameKeys.includes(code) && !["INPUT", "TEXTAREA", "BUTTON"].includes(document.activeElement?.tagName)) event.preventDefault();
       if (!this.down.has(code)) this.pressed.add(code);
       this.down.add(code);
@@ -125,6 +125,7 @@
         xp: 0,
         maxHealth: 6,
         maxEnergy: 100,
+        weapon: "leafblade",
         muted: false
       };
     }
@@ -140,6 +141,7 @@
         loaded.xp = Math.max(0, Number(loaded.xp) || 0);
         loaded.maxHealth = clamp(Number(loaded.maxHealth) || 6, 6, 12);
         loaded.maxEnergy = clamp(Number(loaded.maxEnergy) || 100, 100, 160);
+        loaded.weapon = ["leafblade", "hammer"].includes(loaded.weapon) ? loaded.weapon : "leafblade";
         loaded.completed = Array.isArray(loaded.completed) ? loaded.completed.filter(Number.isFinite) : [];
         loaded.memories = Array.isArray(loaded.memories) ? loaded.memories.filter(value => typeof value === "string") : [];
         loaded.muted = Boolean(loaded.muted);

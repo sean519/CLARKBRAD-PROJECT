@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#071127">
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <title>Clark: Portalbound · Codex Edition</title>
-  <link rel="stylesheet" href="css/rpg.css">
+  <link rel="stylesheet" href="css/rpg.css?v=20260825-skills">
 </head>
 <body>
   <main class="app" id="app">
@@ -20,7 +20,7 @@
       <div class="menu-panel">
         <p class="edition">Codex Edition · Story RPG</p>
         <h1 id="gameTitle"><span>Clark:</span> Portalbound</h1>
-        <p class="menu-copy">Chain Portal Leafblade combos, unlock the Comet Hammer, solve ancient portal puzzles, and cross seven hand-painted worlds with Bradley, Bird, and the mysterious Portal Guardian.</p>
+        <p class="menu-copy">Battle roaming hand-painted monsters, chain Portal Leafblade combos, unlock the Comet Hammer, and cross seven worlds with Bradley, Bird, and the mysterious Portal Guardian.</p>
         <div class="menu-actions">
           <button class="primary" id="continueButton" type="button">Continue Adventure</button>
           <button id="newGameButton" type="button">New Adventure</button>
@@ -66,14 +66,26 @@
           <strong id="bossName">Boss</strong>
           <div><span id="bossHealth"></span></div>
         </div>
+        <div class="weapon-dock" id="weaponDock" aria-label="Weapon selection">
+          <div class="weapon-dock-head"><span>Weapon</span><strong id="weaponDockRank">Rank I</strong></div>
+          <div class="weapon-slots">
+            <button class="weapon-slot is-active" data-weapon="leafblade" type="button" aria-label="Equip Portal Leafblade">
+              <span>⚔</span><strong>Leafblade</strong><small>Fast combo</small>
+            </button>
+            <button class="weapon-slot is-locked" data-weapon="hammer" type="button" aria-label="Equip Comet Hammer">
+              <span>◆</span><strong>Hammer</strong><small>Chapter 3</small>
+            </button>
+          </div>
+          <div class="combo-pips" id="comboPips" aria-label="Leafblade combo"><i></i><i></i><i></i><span>3-hit combo</span></div>
+        </div>
       </div>
 
       <footer class="ability-bar">
         <button class="ability weapon-ability is-active" id="weaponButton" data-ability="fist" type="button" aria-label="Select or switch weapon"><kbd>1/R</kbd><span class="ability-icon" id="weaponIcon">⚔</span><strong><span id="weaponName">Leafblade</span><small id="weaponRank">Rank I</small></strong></button>
-        <button class="ability is-locked" data-ability="bolt" type="button"><kbd>2</kbd><span class="ability-icon">✦</span><strong>Star Bolt</strong></button>
-        <button class="ability is-locked" data-ability="dash" type="button"><kbd>3</kbd><span class="ability-icon">➜</span><strong>Rocket Dash</strong></button>
-        <button class="ability is-locked" data-ability="shield" type="button"><kbd>4</kbd><span class="ability-icon">◈</span><strong>Leaf Shield</strong></button>
-        <button class="companion-ability" id="companionButton" type="button"><kbd>Q</kbd><span>◎</span><strong>Bradley<br>Mega Boom</strong><i id="companionCooldown"></i></button>
+        <button class="ability is-locked" data-ability="bolt" type="button"><kbd>2</kbd><span class="ability-icon">✦</span><strong>Star Bolt<small data-skill-rank="bolt">Rank I</small></strong></button>
+        <button class="ability is-locked" data-ability="dash" type="button"><kbd>3</kbd><span class="ability-icon">➜</span><strong>Rocket Dash<small data-skill-rank="dash">Rank I</small></strong></button>
+        <button class="ability is-locked" data-ability="shield" type="button"><kbd>4</kbd><span class="ability-icon">◈</span><strong>Leaf Shield<small data-skill-rank="shield">Rank I</small></strong></button>
+        <button class="companion-ability" id="companionButton" type="button"><kbd>Q</kbd><span>◎</span><strong>Bradley<br>Mega Boom<small data-skill-rank="companion">Rank I</small></strong><i id="companionCooldown"></i></button>
       </footer>
 
       <div class="touch-ui" id="touchUi" aria-label="Touch controls">
@@ -81,10 +93,10 @@
         <div class="touch-actions">
           <button id="touchInteract" type="button" aria-label="Interact"><span>E</span><small id="touchInteractLabel">Use</small></button>
           <button id="touchWeapon" type="button" aria-label="Switch weapon">R</button>
-          <button id="touchCompanion" type="button" aria-label="Companion ability">Q</button>
-          <button id="touchBolt" type="button" aria-label="Fire Star Bolt">✦</button>
-          <button id="touchShield" type="button" aria-label="Use Leaf Shield">◈</button>
-          <button id="touchDash" type="button" aria-label="Dash">↗</button>
+          <button id="touchCompanion" type="button" aria-label="Companion ability"><span>◎</span><small>Boom</small></button>
+          <button id="touchBolt" type="button" aria-label="Fire Star Bolt"><span>✦</span><small>Bolt</small></button>
+          <button id="touchShield" type="button" aria-label="Use Leaf Shield"><span>◈</span><small>Shield</small></button>
+          <button id="touchDash" type="button" aria-label="Dash"><span>↗</span><small>Dash</small></button>
           <button class="touch-attack" id="touchAttack" type="button" aria-label="Swing Leafblade">⚔</button>
         </div>
       </div>
@@ -139,14 +151,16 @@
         <h2 id="howTitle">How to Play</h2>
         <div class="how-grid">
           <div><kbd>WASD</kbd><kbd>↑↓←→</kbd><strong>Move Clark</strong></div>
-          <div><kbd>Space</kbd><kbd>J</kbd><strong>Weapon attack / combo</strong></div>
-          <div><kbd>R</kbd><strong>Switch weapon</strong></div>
+          <div><kbd>Space</kbd><kbd>J</kbd><strong>Weapon attack / hold on touch</strong></div>
+          <div><kbd>Z</kbd><kbd>X</kbd><strong>Equip Leafblade / Hammer</strong></div>
+          <div><kbd>R</kbd><strong>Cycle weapons</strong></div>
+          <div><kbd>Touch</kbd><strong>Walk into or tap an active Portal</strong></div>
           <div><kbd>E</kbd><kbd>Enter</kbd><strong>Interact</strong></div>
           <div><kbd>Q</kbd><strong>Call companion</strong></div>
-          <div><kbd>1–4</kbd><strong>Choose ability</strong></div>
+          <div><kbd>1–4</kbd><strong>Weapon / instant skills</strong></div>
           <div><kbd>Shift</kbd><strong>Rocket dash</strong></div>
         </div>
-        <p>Follow the glowing objective marker. Chain three Leafblade swings for a finishing spin, or switch to the Comet Hammer after Chapter 2 for a heavy area smash. Comic memories automatically improve both weapons. Your progress saves automatically.</p>
+        <p>Follow the glowing objective marker. Chain three Leafblade swings for a finishing spin, or switch to the Comet Hammer for a heavy area smash. Number keys cast skills instantly. Comic memories improve weapons and every skill through Rank IV. Your progress saves automatically.</p>
       </div>
     </section>
 
@@ -169,8 +183,8 @@
   </main>
 
   <div class="sr-only" id="liveRegion" aria-live="polite"></div>
-  <script src="js/data.js"></script>
-  <script src="js/engine.js"></script>
-  <script src="js/game.js"></script>
+  <script src="js/data.js?v=20260825-skills"></script>
+  <script src="js/engine.js?v=20260825-skills"></script>
+  <script src="js/game.js?v=20260825-skills"></script>
 </body>
 </html>

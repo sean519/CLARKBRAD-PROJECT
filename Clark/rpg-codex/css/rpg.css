@@ -95,9 +95,26 @@ kbd { display: inline-block; min-width: 24px; padding: 3px 6px; border: 1px soli
 .boss-bar div { height: 10px; margin-top: 5px; border-radius: 10px; overflow: hidden; background: #30151d; }
 .boss-bar span { display: block; width: 100%; height: 100%; background: linear-gradient(90deg,#ff394e,#ff9d38); transition: width .15s; }
 
+.weapon-dock { position: absolute; left: max(14px,env(safe-area-inset-left)); top: 14px; z-index: 9; width: 250px; padding: 8px; border: 1px solid rgba(255,255,255,.42); border-radius: 16px; background: rgba(246,242,211,.9); color: #2e3c31; box-shadow: 0 8px 24px rgba(35,50,35,.2); backdrop-filter: blur(8px); }
+.weapon-dock-head { display: flex; justify-content: space-between; align-items: center; padding: 0 3px 6px; }
+.weapon-dock-head span, .weapon-dock-head strong { color: #6b765e; font-size: 8px; font-weight: 1000; letter-spacing: .1em; text-transform: uppercase; }
+.weapon-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.weapon-slot { min-height: 48px; padding: 5px 7px; display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 1px 5px; border-color: rgba(72,91,63,.24); border-radius: 11px; color: #3a493c; background: rgba(255,255,255,.62); text-align: left; }
+.weapon-slot > span { grid-row: 1 / 3; color: #6aa358; font-size: 23px; text-align: center; }
+.weapon-slot strong { font-size: 9px; line-height: 1; }
+.weapon-slot small { color: #74806c; font-size: 7px; font-weight: 800; line-height: 1; }
+.weapon-slot.is-active { border-color: #69a85c; background: #e6f0c9; box-shadow: inset 0 0 0 2px rgba(105,168,92,.18), 0 3px 10px rgba(55,84,46,.16); }
+.weapon-slot[data-weapon="hammer"] > span { color: #e47729; }
+.weapon-slot.is-locked { opacity: .48; filter: grayscale(.65); }
+.combo-pips { height: 13px; display: flex; align-items: center; gap: 4px; padding: 5px 4px 0; }
+.combo-pips i { width: 20px; height: 4px; border-radius: 4px; background: rgba(68,89,58,.18); transition: background .1s, transform .1s; }
+.combo-pips i.is-filled { background: #78b963; transform: scaleY(1.35); box-shadow: 0 0 7px rgba(105,190,91,.55); }
+.combo-pips span { margin-left: auto; color: #77816f; font-size: 7px; font-weight: 900; text-transform: uppercase; }
+
 .ability-bar { min-height: 68px; display: grid; grid-template-columns: repeat(4, minmax(105px,1fr)) minmax(145px,1.2fr); gap: 8px; padding: 7px 12px max(7px,env(safe-area-inset-bottom)); background: rgba(250,247,226,.97); border-top: 1px solid rgba(78,103,69,.24); box-shadow: 0 -4px 18px rgba(48,68,41,.12); z-index: 5; }
 .ability, .companion-ability { min-height: 52px; padding: 5px 9px; display: grid; grid-template-columns: auto auto 1fr; gap: 7px; align-items: center; position: relative; text-align: left; }
 .ability strong, .companion-ability strong { font-size: 10px; line-height: 1.1; }
+.ability strong small, .companion-ability strong small { display: block; margin-top: 3px; color: #75816d; font-size: 7px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
 .weapon-ability strong { display: flex; flex-direction: column; gap: 2px; }
 .weapon-ability small { color: #6f7f65; font-size: 8px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .ability-icon, .companion-ability > span { color: var(--cyan); font-size: 22px; }
@@ -145,12 +162,17 @@ kbd { display: inline-block; min-width: 24px; padding: 3px 6px; border: 1px soli
 .touch-actions { width: 174px; height: 138px; position: relative; pointer-events: auto; }
 .touch-actions button { position: absolute; width: 54px; min-height: 54px; padding: 0; border-radius: 50%; background: rgba(9,18,39,.78); touch-action: none; box-shadow: 0 5px 16px rgba(0,0,0,.24); }
 .touch-actions button:active { transform: scale(.92); background: rgba(24,43,76,.94); }
+#touchBolt, #touchShield, #touchDash, #touchCompanion { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; line-height: 1; }
+#touchBolt span, #touchShield span, #touchDash span, #touchCompanion span { font-size: 19px; font-weight: 1000; }
+#touchBolt small, #touchShield small, #touchDash small, #touchCompanion small { font-size: 7px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.touch-actions button.is-unavailable { opacity: .42; filter: grayscale(.7); box-shadow: none; }
+.touch-actions button.is-ready { border-color: rgba(255,255,255,.62); box-shadow: 0 0 0 3px rgba(105,229,255,.1), 0 5px 16px rgba(0,0,0,.24); }
 #touchInteract { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
 #touchInteract span { font-size: 17px; font-weight: 1000; }
 #touchInteract small { margin-top: 3px; font-size: 8px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
 #touchInteract.is-ready { border-color: #ffd34f; background: rgba(75,54,13,.88); box-shadow: 0 0 0 4px rgba(255,211,79,.15), 0 5px 18px rgba(0,0,0,.28); }
 #touchInteract.is-portal { color: #10221b; background: #ffd34f; }
-#touchInteract { left: 0; bottom: 0; } #touchWeapon { left: 0; top: 0; color: #ffd34f; } #touchCompanion { left: 56px; top: 0; } #touchDash { right: 0; bottom: 0; }
+#touchInteract { left: 0; bottom: 0; } #touchWeapon { left: 0; top: 0; color: #ffd34f; } #touchCompanion { left: 56px; top: 0; } #touchBolt { color: #69e5ff; } #touchShield { color: #8ce568; } #touchDash { right: 0; bottom: 0; }
 .touch-actions .touch-attack { right: 5px; top: 0; width: 66px; min-height: 66px; color: #101522; background: var(--gold); font-size: 28px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
@@ -161,13 +183,18 @@ kbd { display: inline-block; min-width: 24px; padding: 3px 6px; border: 1px soli
   .interaction-prompt { bottom: 166px; min-height: 48px; padding: 10px 18px; font-size: 14px; }
   .touch-stick { width: 136px; height: 136px; background: rgba(5,10,24,.46); }
   .touch-stick span { left: 39px; top: 39px; width: 54px; height: 54px; }
-  .touch-actions { width: 224px; height: 154px; }
+  .touch-actions { width: 300px; height: 154px; }
   .touch-actions button { width: 62px; min-height: 62px; }
   #touchWeapon { left: 0; top: 2px; }
   #touchCompanion { left: 72px; top: 2px; }
+  #touchBolt { left: 144px; top: 8px; }
+  #touchShield { right: 80px; bottom: 0; }
   #touchInteract { left: 0; bottom: 0; width: 96px; border-radius: 31px; }
   #touchDash { right: 0; bottom: 0; }
   .touch-actions .touch-attack { right: 0; top: 0; width: 78px; min-height: 78px; font-size: 31px; }
+  .weapon-dock { top: 10px; width: 264px; padding: 9px; }
+  .weapon-slot { min-height: 54px; }
+  .weapon-slot > span { font-size: 26px; }
 }
 @media (max-width: 760px) {
   .menu-screen.is-active { grid-template-columns: 1fr; }
@@ -187,6 +214,14 @@ kbd { display: inline-block; min-width: 24px; padding: 3px 6px; border: 1px soli
   .dialogue-card .portrait::before, .dialogue-card .portrait::after { top:20px; width:6px; height:12px; }
   .dialogue-card .portrait::before { left:15px; } .dialogue-card .portrait::after { right:15px; }
   .chapter-grid, .how-grid { grid-template-columns: 1fr; }
+  .weapon-dock { width: 154px; }
+  .weapon-dock-head { padding-bottom: 4px; }
+  .weapon-slots { gap: 5px; }
+  .weapon-slot { min-height: 50px; grid-template-columns: 1fr; place-items: center; padding: 4px; text-align: center; }
+  .weapon-slot > span { grid-row: auto; font-size: 24px; }
+  .weapon-slot strong { font-size: 8px; }
+  .weapon-slot small, .combo-pips span { display: none; }
+  .combo-pips i { flex: 1; }
 }
 @media (max-height: 560px) {
   .hud { min-height: 44px; padding-block: 4px; }
@@ -195,11 +230,14 @@ kbd { display: inline-block; min-width: 24px; padding: 3px 6px; border: 1px soli
   .interaction-prompt { bottom: 112px; min-height: 40px; padding-block: 7px; }
   .touch-stick { width: 92px; height: 92px; }
   .touch-stick span { left: 27px; top: 27px; width: 36px; height: 36px; }
-  .touch-actions { width: 188px; height: 108px; }
+  .touch-actions { width: 250px; height: 108px; }
   .touch-actions button { width: 48px; min-height: 48px; }
   #touchCompanion { left: 54px; }
+  #touchBolt { left: 108px; }
+  #touchShield { right: 58px; }
   #touchInteract { width: 82px; }
   .touch-actions .touch-attack { width: 58px; min-height: 58px; font-size: 25px; }
+  .weapon-dock { top: 6px; transform: scale(.86); transform-origin: top left; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

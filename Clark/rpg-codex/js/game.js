@@ -64,11 +64,18 @@
     weaponIcon: document.querySelector("#weaponIcon"),
     weaponName: document.querySelector("#weaponName"),
     weaponRank: document.querySelector("#weaponRank"),
+    weaponDockRank: document.querySelector("#weaponDockRank"),
+    weaponSlots: [...document.querySelectorAll("[data-weapon]")],
+    comboPips: [...document.querySelectorAll("#comboPips i")],
+    comboLabel: document.querySelector("#comboPips span"),
+    skillRanks: [...document.querySelectorAll("[data-skill-rank]")],
     abilityButtons: [...document.querySelectorAll("[data-ability]")],
     touchStick: document.querySelector("#touchStick"),
     touchStickKnob: document.querySelector("#touchStick span"),
     touchAttack: document.querySelector("#touchAttack"),
     touchWeapon: document.querySelector("#touchWeapon"),
+    touchBolt: document.querySelector("#touchBolt"),
+    touchShield: document.querySelector("#touchShield"),
     touchDash: document.querySelector("#touchDash"),
     touchInteract: document.querySelector("#touchInteract"),
     touchInteractLabel: document.querySelector("#touchInteractLabel"),
@@ -91,6 +98,7 @@
   ];
   const art = {
     backgrounds: Array(BACKGROUND_SOURCES.length).fill(null),
+    monsters: {},
     clark: Object.assign(new Image(), { src: "assets/chapter1/clark.webp" }),
     piMonster: Object.assign(new Image(), { src: "assets/chapter1/pi-monster.webp" }),
     leafblade: Object.assign(new Image(), { src: "assets/chapter1/leafblade.webp" }),
@@ -102,6 +110,27 @@
   };
   const WEAPON_ORDER = ["leafblade", "hammer"];
   const ROMAN_RANKS = ["I", "II", "III", "IV"];
+  const MONSTER_SOURCES = {
+    slime: "assets/monsters/rift-slime.webp",
+    drone: "assets/monsters/star-drone.webp",
+    thornling: "assets/monsters/thornling.webp",
+    wisp: "assets/monsters/storm-wisp.webp"
+  };
+  const MONSTER_TYPES = {
+    slime: { name: "Rift Slime", hp: 3, radius: 25, speed: 78, behavior: "melee", damage: 1, xp: 8, width: 82, height: 75, color: "#a65dff" },
+    drone: { name: "Star Drone", hp: 4, radius: 25, speed: 66, behavior: "ranged", damage: 1, xp: 10, width: 82, height: 82, color: "#69e5ff" },
+    thornling: { name: "Thornling", hp: 4, radius: 26, speed: 92, behavior: "charger", damage: 1, xp: 10, width: 80, height: 80, color: "#8ce568" },
+    wisp: { name: "Storm Wisp", hp: 3, radius: 24, speed: 84, behavior: "ranged", damage: 1, xp: 11, width: 76, height: 80, color: "#ffd34f" }
+  };
+  const CHAPTER_ENCOUNTERS = {
+    1: [["slime",280,525],["slime",530,345],["slime",865,535],["slime",905,185]],
+    2: [["slime",245,455],["slime",505,350],["slime",760,585],["drone",920,300]],
+    3: [["drone",245,570],["drone",545,345],["drone",900,155],["drone",910,560],["slime",770,365]],
+    4: [["drone",275,350],["wisp",500,555],["wisp",740,430],["wisp",910,235],["slime",985,540]],
+    5: [["thornling",245,555],["thornling",515,175],["thornling",810,540],["thornling",930,175],["slime",870,330]],
+    6: [["thornling",270,320],["thornling",610,535],["wisp",520,155],["wisp",855,535],["wisp",975,265],["drone",760,300]],
+    7: [["thornling",255,570],["drone",295,350],["wisp",520,545],["slime",600,335],["wisp",825,170],["drone",915,520]]
+  };
   const input = new Input();
   const sound = new Sound();
   const store = new SaveStore(SAVE_KEY);
@@ -120,6 +149,8 @@
     puzzleSolved: false,
     portalActive: false,
     portalTransitioning: false,
+    aimTarget: null,
+    aimTargetTime: 0,
     sceneTime: 0,
     timeLeft: null,
     shake: 0,
@@ -132,6 +163,7 @@
     attacks: [],
     projectiles: [],
     enemyProjectiles: [],
+    enemies: [],
     memoryObjects: [],
     obstacles: [],
     boss: null,
@@ -148,6 +180,13 @@
     return art.backgrounds[chapterId];
   }
 
+  function loadMonsterArt(type) {
+    if (!art.monsters[type] && MONSTER_SOURCES[type]) {
+      art.monsters[type] = Object.assign(new Image(), { src: MONSTER_SOURCES[type] });
+    }
+    return art.monsters[type];
+  }
+
   const player = {
     x: 120, y: 360, radius: 23,
     health: save.maxHealth, maxHealth: save.maxHealth,
@@ -155,7 +194,7 @@
     speed: 245, facing: { x: 1, y: 0 },
     invulnerable: 0, attackCooldown: 0, dashCooldown: 0, dashTime: 0,
     shieldTime: 0, selectedAbility: "fist", moving: false, walkCycle: 0,
-    weapon: "leafblade", comboStep: 0, comboTimer: 0, attackKind: "leafblade",
+    weapon: save.weapon === "hammer" && save.unlockedChapter >= 3 ? "hammer" : "leafblade", comboStep: 0, comboTimer: 0, attackKind: "leafblade", touchAttackHeld: false,
     attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }
   };
 
@@ -240,6 +279,29 @@
     }));
   }
 
+  function createEnemies(chapter) {
+    game.enemies = (CHAPTER_ENCOUNTERS[chapter.id] || []).map(([type, x, y], index) => {
+      const spec = MONSTER_TYPES[type];
+      loadMonsterArt(type);
+      return {
+        ...spec,
+        id: `${chapter.id}-${index}`,
+        type,
+        x, y,
+        homeX: x,
+        homeY: y,
+        maxHp: spec.hp,
+        active: true,
+        invulnerable: 0,
+        attackCooldown: .5 + Math.random() * 1.2,
+        contactCooldown: 0,
+        chargeTime: 0,
+        phase: Math.random() * Math.PI * 2,
+        facingX: 1
+      };
+    });
+  }
+
   function chapterObstacles(chapter) {
     const common = [
       { x: 0, y: 0, w: WORLD_WIDTH, h: 34 },
@@ -262,11 +324,14 @@
     game.puzzleSolved = false;
     game.portalActive = false;
     game.portalTransitioning = false;
+    game.aimTarget = null;
+    game.aimTargetTime = 0;
     game.sceneTime = 0;
     game.timeLeft = game.chapter.timed || null;
     game.attacks = [];
     game.projectiles = [];
     game.enemyProjectiles = [];
+    createEnemies(game.chapter);
     game.boss = null;
     game.obstacles = chapterObstacles(game.chapter);
     loadBackground(game.chapter.id);
@@ -287,6 +352,7 @@
     player.attackDirection = { x: 1, y: 0 };
     player.comboStep = 0;
     player.comboTimer = 0;
+    player.touchAttackHeld = false;
     if (save.unlockedChapter < WEAPONS[player.weapon].unlockChapter) player.weapon = "leafblade";
     player.dashCooldown = 0;
     player.dashTime = 0;
@@ -405,23 +471,37 @@
     });
     dom.companionButton.disabled = game.chapter.id < 2;
     dom.companionButton.classList.toggle("is-locked", game.chapter.id < 2);
+    dom.touchBolt.hidden = game.chapter.id < Data.abilityUnlocks.bolt;
+    dom.touchDash.hidden = game.chapter.id < Data.abilityUnlocks.dash;
+    dom.touchShield.hidden = game.chapter.id < Data.abilityUnlocks.shield;
+    dom.touchCompanion.hidden = game.chapter.id < 2;
     selectAbility(player.selectedAbility);
   }
 
-  function selectAbility(name) {
+  function selectAbility(name, announceSelection = true) {
     const unlock = Data.abilityUnlocks[name] || 1;
     if (game.chapter.id < unlock) return;
     player.selectedAbility = name;
     dom.abilityButtons.forEach(button => button.classList.toggle("is-active", button.dataset.ability === name));
-    announce(`${name === "fist" ? WEAPONS[player.weapon].name : name.replace(/^./, character => character.toUpperCase())} selected.`);
+    if (announceSelection) announce(`${name === "fist" ? WEAPONS[player.weapon].name : name.replace(/^./, character => character.toUpperCase())} selected.`);
   }
 
   function weaponRank() {
     return Math.min(4, 1 + Math.floor(save.memories.length / 5));
   }
 
+  function skillRank() { return weaponRank(); }
+  function skillCost(name, rank = skillRank()) {
+    const costs = {
+      bolt: [14, 13, 12, 10],
+      dash: [12, 11, 10, 9],
+      shield: [18, 17, 15, 14]
+    };
+    return costs[name]?.[rank - 1] || 0;
+  }
+  function companionCooldownMax(rank = skillRank()) { return 6 - (rank - 1) * .5; }
+
   function cycleWeapon() {
-    const currentIndex = WEAPON_ORDER.indexOf(player.weapon);
     const candidates = WEAPON_ORDER.filter(key => save.unlockedChapter >= WEAPONS[key].unlockChapter);
     if (candidates.length < 2) {
       selectAbility("fist");
@@ -429,15 +509,35 @@
       announce("The Comet Hammer unlocks after completing Chapter 2.");
       return;
     }
-    const next = WEAPON_ORDER[(currentIndex + 1) % WEAPON_ORDER.length];
-    player.weapon = next;
-    player.comboStep = 0;
-    player.comboTimer = 0;
-    player.attackCooldown = Math.min(player.attackCooldown, .12);
-    selectAbility("fist");
+    const currentIndex = candidates.indexOf(player.weapon);
+    selectWeapon(candidates[(currentIndex + 1) % candidates.length]);
+  }
+
+  function selectWeapon(key, feedback = true) {
+    const weapon = WEAPONS[key];
+    if (!weapon) return false;
+    if (save.unlockedChapter < weapon.unlockChapter) {
+      showComicWord("LOCKED!", "#ffd34f");
+      announce(`${weapon.name} unlocks after completing Chapter 2.`);
+      return false;
+    }
+    const changed = player.weapon !== key;
+    player.weapon = key;
+    if (changed) {
+      player.comboStep = 0;
+      player.comboTimer = 0;
+      player.attackCooldown = Math.min(player.attackCooldown, .12);
+      save.weapon = key;
+      store.save(save);
+    }
+    selectAbility("fist", false);
     updateWeaponHud();
-    sound.play("click");
-    showComicWord(next === "hammer" ? "HEAVY!" : "QUICK!", next === "hammer" ? "#ff9f1c" : "#b7ff9b");
+    if (feedback && changed) {
+      sound.play("click");
+      showComicWord(key === "hammer" ? "HEAVY!" : "QUICK!", key === "hammer" ? "#ff9f1c" : "#b7ff9b");
+      announce(`${weapon.name} equipped.`);
+    }
+    return true;
   }
 
   function updateWeaponHud() {
@@ -446,10 +546,25 @@
     dom.weaponIcon.textContent = weapon.icon;
     dom.weaponName.textContent = weapon.shortName;
     dom.weaponRank.textContent = `Rank ${ROMAN_RANKS[rank - 1]} · R switch`;
+    dom.weaponDockRank.textContent = `Rank ${ROMAN_RANKS[rank - 1]}`;
     dom.weaponButton.title = `${weapon.name}, Rank ${ROMAN_RANKS[rank - 1]}. Press R or click again to switch.`;
     dom.touchAttack.textContent = weapon.icon;
-    dom.touchAttack.setAttribute("aria-label", `Attack with ${weapon.name}`);
+    dom.touchAttack.setAttribute("aria-label", `Hold to attack with ${weapon.name}`);
     dom.touchWeapon.hidden = save.unlockedChapter < WEAPONS.hammer.unlockChapter;
+    dom.touchWeapon.textContent = player.weapon === "hammer" ? "⚔" : "◆";
+    dom.touchWeapon.setAttribute("aria-label", `Switch to ${player.weapon === "hammer" ? WEAPONS.leafblade.name : WEAPONS.hammer.name}`);
+    dom.weaponSlots.forEach(slot => {
+      const slotWeapon = WEAPONS[slot.dataset.weapon];
+      const locked = save.unlockedChapter < slotWeapon.unlockChapter;
+      slot.classList.toggle("is-active", slot.dataset.weapon === player.weapon);
+      slot.classList.toggle("is-locked", locked);
+      slot.setAttribute("aria-pressed", String(slot.dataset.weapon === player.weapon));
+      slot.setAttribute("aria-disabled", String(locked));
+      const hint = slot.querySelector("small");
+      if (hint) hint.textContent = locked ? "X · Chapter 3" : slot.dataset.weapon === "hammer" ? "X · Heavy smash" : "Z · Fast combo";
+    });
+    dom.comboPips.forEach((pip, index) => pip.classList.toggle("is-filled", player.weapon === "leafblade" && index < player.comboStep));
+    dom.comboLabel.textContent = player.weapon === "hammer" ? "Heavy smash" : "3-hit combo";
   }
 
   function updateHud() {
@@ -459,8 +574,25 @@
     dom.chapterReadout.textContent = `Chapter ${game.chapter.id}`;
     dom.memoryReadout.textContent = `${save.memories.length}/21`;
     updateWeaponHud();
-    const cooldownPercent = bradley.cooldown > 0 ? bradley.cooldown / 6 * 100 : 0;
+    const rank = skillRank();
+    dom.skillRanks.forEach(label => {
+      const skill = label.dataset.skillRank;
+      const cost = skill === "companion" ? "" : ` · ${skillCost(skill, rank)} EP`;
+      label.textContent = `Rank ${ROMAN_RANKS[rank - 1]}${cost}`;
+    });
+    const cooldownPercent = bradley.cooldown > 0 ? bradley.cooldown / companionCooldownMax(rank) * 100 : 0;
     dom.companionCooldown.style.width = `${cooldownPercent}%`;
+    const boltUnavailable = player.attackCooldown > 0 || player.energy < skillCost("bolt", rank);
+    const dashUnavailable = player.dashCooldown > 0 || player.energy < skillCost("dash", rank);
+    const shieldUnavailable = player.attackCooldown > 0 || player.energy < skillCost("shield", rank) || player.shieldTime > 0;
+    [[dom.touchBolt,boltUnavailable],[dom.touchDash,dashUnavailable],[dom.touchShield,shieldUnavailable],[dom.touchCompanion,bradley.cooldown>0]].forEach(([button,unavailable]) => {
+      button.classList.toggle("is-unavailable", unavailable);
+      button.classList.toggle("is-ready", !unavailable);
+    });
+    dom.touchBolt.querySelector("small").textContent = `Bolt · ${skillCost("bolt", rank)}`;
+    dom.touchDash.querySelector("small").textContent = `Dash · ${skillCost("dash", rank)}`;
+    dom.touchShield.querySelector("small").textContent = `Shield · ${skillCost("shield", rank)}`;
+    dom.touchCompanion.querySelector("small").textContent = bradley.cooldown > 0 ? `${bradley.cooldown.toFixed(1)}s` : "Boom";
     if (game.boss?.active) {
       dom.bossBar.hidden = false;
       dom.bossName.textContent = game.boss.name;
@@ -516,14 +648,17 @@
     moveCircle(player, dx, dy, pushedBlock);
 
     if (input.consume("Digit1")) selectAbility("fist");
-    if (input.consume("Digit2")) selectAbility("bolt");
-    if (input.consume("Digit3")) selectAbility("dash");
-    if (input.consume("Digit4")) selectAbility("shield");
+    if (input.consume("Digit2")) useTouchAbility("bolt");
+    if (input.consume("Digit3")) useDash();
+    if (input.consume("Digit4")) useTouchAbility("shield");
+    if (input.consume("KeyZ")) selectWeapon("leafblade");
+    if (input.consume("KeyX")) selectWeapon("hammer");
     if (input.consume("KeyR")) cycleWeapon();
     if (input.consume("ShiftLeft", "ShiftRight")) useDash();
     if (input.consume("Space", "KeyJ", "KeyK")) useSelectedAbility();
     if (input.consume("KeyQ")) useCompanion();
     if (input.consume("KeyE", "Enter")) interact();
+    if (player.touchAttackHeld && player.attackCooldown <= 0) useWeapon();
 
     game.memoryObjects.forEach(memory => {
       if (!memory.collected && distance(player, memory) < 34) collectMemory(memory);
@@ -533,14 +668,24 @@
   }
 
   function useDash() {
-    if (game.chapter.id < 3 || player.dashCooldown > 0 || player.energy < 12) return;
-    player.energy -= 12;
-    player.dashTime = .24;
-    player.dashCooldown = .8;
-    player.invulnerable = Math.max(player.invulnerable, .3);
-    particles.burst(player.x, player.y, "#ff9f1c", 12, 130);
+    const rank = skillRank();
+    const cost = skillCost("dash", rank);
+    if (game.chapter.id < 3 || player.dashCooldown > 0 || player.energy < cost) return;
+    player.energy -= cost;
+    player.dashTime = .22 + rank * .025;
+    player.dashCooldown = .88 - rank * .07;
+    player.invulnerable = Math.max(player.invulnerable, .28 + rank * .04);
+    if (rank >= 3) {
+      const impact = { x: player.x + player.facing.x * 68, y: player.y + player.facing.y * 68, radius: 62 + rank * 5, life: .26, color: "#69e5ff" };
+      game.attacks.push(impact);
+      damageEnemies(impact, rank === 4 ? 2 : 1);
+      damageBoss(impact, rank === 4 ? 2 : 1);
+      damageBreakTargets(impact, 1);
+    }
+    if (rank === 4) player.shieldTime = Math.max(player.shieldTime, .42);
+    particles.burst(player.x, player.y, "#ff9f1c", 12 + rank * 3, 130 + rank * 20);
     sound.play("attack");
-    showComicWord("WHOOSH!", "#69e5ff");
+    showComicWord(rank >= 3 ? "WIND RUSH!" : "WHOOSH!", "#69e5ff");
   }
 
   function useSelectedAbility() {
@@ -551,13 +696,42 @@
     else useWeapon();
   }
 
+  function useTouchAbility(name) {
+    if (game.mode !== "playing" || player.attackCooldown > 0) return;
+    if (game.chapter.id < (Data.abilityUnlocks[name] || 1)) return;
+    if (name === "bolt") fireBolt();
+    else if (name === "shield") useShield();
+  }
+
+  function assistedAim(maxRange) {
+    const targets = game.enemies.filter(enemy => enemy.active);
+    if (game.boss?.active && !game.boss.peaceful) targets.push(game.boss);
+    let nearest = null;
+    targets.forEach(target => {
+      const away = distance(player, target);
+      if (away > maxRange || (nearest && away >= nearest.away)) return;
+      const direction = normalize(target.x - player.x, target.y - player.y);
+      const facingDot = direction.x * player.facing.x + direction.y * player.facing.y;
+      if (!usesTouchControls() && facingDot < .05) return;
+      nearest = { away, direction, target };
+    });
+    if (nearest) {
+      player.facing = nearest.direction;
+      game.aimTarget = nearest.target;
+      game.aimTargetTime = .55;
+    }
+    return nearest?.direction || player.facing;
+  }
+
   function useWeapon() {
+    if (player.attackCooldown > 0 || game.mode !== "playing") return;
     if (player.weapon === "hammer") useCometHammer();
     else useLeafblade();
   }
 
   function useLeafblade() {
     const rank = weaponRank();
+    const direction = assistedAim(205);
     player.comboStep = player.comboTimer > 0 ? player.comboStep % 3 + 1 : 1;
     player.comboTimer = .62;
     const finisher = player.comboStep === 3;
@@ -565,16 +739,16 @@
     player.attackDuration = finisher ? .4 : .27;
     player.attackTime = player.attackDuration;
     player.attackKind = finisher ? "leafblade-finisher" : "leafblade";
-    player.attackDirection = { ...player.facing };
-    moveCircle(player, player.facing.x * (finisher ? 24 : 17), player.facing.y * (finisher ? 24 : 17));
+    player.attackDirection = { ...direction };
+    moveCircle(player, direction.x * (finisher ? 24 : 17), direction.y * (finisher ? 24 : 17));
     const radius = finisher ? 76 + rank * 2 : 52 + rank * 2;
     const hit = {
-      x: player.x + player.facing.x * (finisher ? 30 : 58),
-      y: player.y + player.facing.y * (finisher ? 30 : 58),
+      x: player.x + direction.x * (finisher ? 30 : 58),
+      y: player.y + direction.y * (finisher ? 30 : 58),
       radius,
       life: finisher ? .32 : .22,
       maxLife: finisher ? .32 : .22,
-      angle: Math.atan2(player.facing.y, player.facing.x),
+      angle: Math.atan2(direction.y, direction.x),
       type: finisher ? "spin" : "slash",
       comboStep: player.comboStep,
       color: "#b7ff9b"
@@ -585,26 +759,28 @@
     showComicWord(finisher ? "LEAFSTORM!" : player.comboStep === 2 ? "SWOOSH!" : "SLASH!", "#b7ff9b");
     const damage = (rank >= 3 ? 2 : 1) + (finisher ? 1 : 0);
     damageBreakTargets(hit, finisher ? 2 : 1);
+    damageEnemies(hit, damage);
     damageBoss(hit, damage);
   }
 
   function useCometHammer() {
     const rank = weaponRank();
+    const direction = assistedAim(220);
     player.comboStep = 0;
     player.comboTimer = 0;
     player.attackCooldown = .7;
     player.attackDuration = .58;
     player.attackTime = player.attackDuration;
     player.attackKind = "hammer";
-    player.attackDirection = { ...player.facing };
-    moveCircle(player, player.facing.x * 11, player.facing.y * 11);
+    player.attackDirection = { ...direction };
+    moveCircle(player, direction.x * 11, direction.y * 11);
     const hit = {
-      x: player.x + player.facing.x * 42,
-      y: player.y + player.facing.y * 42,
+      x: player.x + direction.x * 42,
+      y: player.y + direction.y * 42,
       radius: 88 + (rank - 1) * 6,
       life: .42,
       maxLife: .42,
-      angle: Math.atan2(player.facing.y, player.facing.x),
+      angle: Math.atan2(direction.y, direction.x),
       type: "smash",
       color: "#ff9f1c"
     };
@@ -614,49 +790,71 @@
     game.shake = 9 + rank;
     showComicWord(rank === 4 ? "COMET CRASH!" : "KRAKOOM!", "#ff9f1c");
     damageBreakTargets(hit, 3);
+    damageEnemies(hit, 2 + Math.floor((rank - 1) / 2));
     damageBoss(hit, 2 + Math.floor((rank - 1) / 2));
   }
 
   function fireBolt() {
-    if (player.energy < 14) return;
-    player.energy -= 14;
-    player.attackCooldown = .28;
-    game.projectiles.push({
-      x: player.x + player.facing.x * 30,
-      y: player.y + player.facing.y * 30,
-      vx: player.facing.x * 580,
-      vy: player.facing.y * 580,
-      radius: 9,
-      life: 1.5,
-      damage: 1,
-      color: "#69e5ff"
-    });
+    const rank = skillRank();
+    const cost = skillCost("bolt", rank);
+    if (player.energy < cost) return;
+    const direction = assistedAim(540);
+    player.energy -= cost;
+    player.attackCooldown = rank >= 3 ? .36 : .28;
+    const count = rank >= 3 ? 3 : 1;
+    const baseAngle = Math.atan2(direction.y, direction.x);
+    for (let index = 0; index < count; index += 1) {
+      const spread = (index - (count - 1) / 2) * .14;
+      const angle = baseAngle + spread;
+      game.projectiles.push({
+        x: player.x + Math.cos(angle) * 30,
+        y: player.y + Math.sin(angle) * 30,
+        vx: Math.cos(angle) * (580 + rank * 18),
+        vy: Math.sin(angle) * (580 + rank * 18),
+        radius: rank === 4 ? 11 : 9,
+        life: 1.45 + rank * .08,
+        damage: rank >= 4 ? 3 : rank >= 2 ? 2 : 1,
+        color: rank === 4 ? "#d6a4ff" : "#69e5ff"
+      });
+    }
     sound.play("bolt");
-    showComicWord("ZAP!", "#69e5ff");
+    showComicWord(rank >= 3 ? "STAR BURST!" : "ZAP!", rank === 4 ? "#d6a4ff" : "#69e5ff");
   }
 
   function useShield() {
-    if (player.energy < 18) return;
-    player.energy -= 18;
+    const rank = skillRank();
+    const cost = skillCost("shield", rank);
+    if (player.energy < cost || player.shieldTime > 0) return;
+    player.energy -= cost;
     player.attackCooldown = .35;
-    player.shieldTime = 1.25;
+    player.shieldTime = 1.18 + rank * .22;
+    if (rank >= 3) {
+      const burst = { x: player.x, y: player.y, radius: 68 + rank * 6, life: .28, color: "#8ce568" };
+      game.attacks.push(burst);
+      damageEnemies(burst, rank === 4 ? 2 : 1);
+      damageBoss(burst, 1);
+    }
     sound.play("shield");
-    particles.burst(player.x, player.y, "#8ce568", 14, 100);
-    showComicWord("SHIELD!", "#8ce568");
+    particles.burst(player.x, player.y, "#8ce568", 14 + rank * 3, 100 + rank * 15);
+    showComicWord(rank >= 3 ? "LEAF BURST!" : "SHIELD!", "#8ce568");
   }
 
   function useCompanion() {
     if (game.chapter.id < 2 || bradley.cooldown > 0) return;
-    bradley.cooldown = 6;
-    const target = game.boss?.active ? game.boss : { x: player.x + player.facing.x * 170, y: player.y + player.facing.y * 170, radius: 55 };
+    const rank = skillRank();
+    bradley.cooldown = companionCooldownMax(rank);
+    const nearestEnemy = game.enemies.filter(enemy=>enemy.active).sort((a,b)=>distance(player,a)-distance(player,b))[0];
+    const target = game.boss?.active ? game.boss : nearestEnemy || { x: player.x + player.facing.x * 170, y: player.y + player.facing.y * 170, radius: 55 };
+    const blast = { x: target.x, y: target.y, radius: 82 + rank * 9, life: .25, color: "#ff9f1c" };
     particles.burst(target.x, target.y, "#ff9f1c", 28, 250);
-    game.attacks.push({ x: target.x, y: target.y, radius: 90, life: .25, color: "#ff9f1c" });
-    damageBreakTargets(target, 3);
-    damageBoss(target, 3);
+    game.attacks.push(blast);
+    damageBreakTargets(blast, 2 + rank);
+    damageEnemies(blast, 2 + rank);
+    damageBoss(blast, 2 + rank);
     sound.play("boom");
     game.shake = 12;
-    showComicWord("MEGA BOOM!", "#ff9f1c");
-    announce("Bradley fired Mega Boom.");
+    showComicWord(rank === 4 ? "ULTRA BOOM!" : "MEGA BOOM!", "#ff9f1c");
+    announce(`Bradley fired Rank ${ROMAN_RANKS[rank - 1]} Mega Boom.`);
   }
 
   function damageBreakTargets(hit, amount) {
@@ -688,6 +886,28 @@
     if (boss.hp <= 0) defeatBoss();
   }
 
+  function damageEnemies(hit, amount) {
+    game.enemies.forEach(enemy => {
+      if (!enemy.active || enemy.invulnerable > 0) return;
+      if (distance(hit, enemy) > (hit.radius || 0) + enemy.radius) return;
+      enemy.hp -= amount;
+      enemy.invulnerable = .13;
+      const knock = normalize(enemy.x - hit.x, enemy.y - hit.y);
+      moveCircle(enemy, knock.x * 16, knock.y * 16, true);
+      particles.burst(enemy.x, enemy.y, enemy.color, 10, 150);
+      if (enemy.hp <= 0) defeatEnemy(enemy);
+    });
+  }
+
+  function defeatEnemy(enemy) {
+    if (!enemy.active) return;
+    enemy.active = false;
+    particles.burst(enemy.x, enemy.y, enemy.color, 22, 215);
+    sound.play("pickup");
+    showComicWord(enemy.type === "drone" ? "SHORTED!" : enemy.type === "thornling" ? "TUMBLED!" : "POOF!", enemy.color);
+    gainExperience(enemy.xp);
+  }
+
   function collectMemory(memory) {
     const previousRank = weaponRank();
     memory.collected = true;
@@ -698,8 +918,8 @@
     sound.play("pickup");
     const upgradedRank = weaponRank();
     if (upgradedRank > previousRank) {
-      showComicWord(`WEAPONS ${ROMAN_RANKS[upgradedRank - 1]}!`, "#ff9f1c");
-      announce(`Weapon rank upgraded to ${ROMAN_RANKS[upgradedRank - 1]}. Both weapons are stronger.`);
+      showComicWord(`SKILLS ${ROMAN_RANKS[upgradedRank - 1]}!`, "#ff9f1c");
+      announce(`Adventure rank upgraded to ${ROMAN_RANKS[upgradedRank - 1]}. Weapons and skills are stronger.`);
     } else {
       showComicWord("MEMORY!", "#ffd34f");
       announce(`Comic memory found. ${save.memories.length} of 21.`);
@@ -714,7 +934,8 @@
     game.chapter.puzzle.targets.forEach(target => {
       if (game.activeTargets.has(target.id)) return;
       const away = distance(player, { ...target, radius: 25 });
-      if (away < 72 && (!nearest || away < nearest.distance)) nearest = { type: "puzzle", target, distance: away };
+      const reach = usesTouchControls() ? 108 : 72;
+      if (away < reach && (!nearest || away < nearest.distance)) nearest = { type: "puzzle", target, distance: away };
     });
     return nearest;
   }
@@ -722,7 +943,7 @@
   function determineInteraction() {
     const target = nearestPuzzleTarget();
     if (target) return target;
-    if (game.boss?.active && game.boss.peaceful && distance(player, game.boss) < 115) return { type: "peacefulBoss", target: game.boss };
+    if (game.boss?.active && game.boss.peaceful && distance(player, game.boss) < (usesTouchControls() ? 150 : 115)) return { type: "peacefulBoss", target: game.boss };
     const portalReach = usesTouchControls() ? 150 : 100;
     if (game.portalActive && distance(player, game.chapter.portal) < portalReach) return { type: "portal", target: game.chapter.portal };
     return null;
@@ -851,6 +1072,10 @@
 
   function defeatBoss() {
     if (game.boss) game.boss.active = false;
+    game.enemies.forEach(enemy => {
+      if (enemy.active) particles.burst(enemy.x, enemy.y, enemy.color, 6, 90);
+      enemy.active = false;
+    });
     game.phase = "portal";
     game.portalActive = true;
     game.enemyProjectiles = [];
@@ -897,6 +1122,76 @@
       guardian.x = lerp(guardian.x, player.x - 72 + Math.cos(guardian.angle) * 20, .055);
       guardian.y = lerp(guardian.y, player.y - 52 + Math.sin(guardian.angle) * 16, .055);
     }
+  }
+
+  function fireMonsterAttack(enemy) {
+    const aimed = normalize(player.x - enemy.x, player.y - enemy.y);
+    const count = enemy.type === "wisp" ? 3 : 1;
+    for (let index = 0; index < count; index += 1) {
+      const spread = (index - (count - 1) / 2) * .2;
+      const angle = Math.atan2(aimed.y, aimed.x) + spread;
+      const speed = enemy.type === "wisp" ? 220 : 285;
+      game.enemyProjectiles.push({
+        x: enemy.x, y: enemy.y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: enemy.type === "wisp" ? 9 : 8,
+        life: 3.2,
+        color: enemy.color,
+        damage: enemy.damage,
+        monsterShot: true
+      });
+    }
+    particles.burst(enemy.x, enemy.y, enemy.color, 7, 80);
+    sound.play("bolt");
+  }
+
+  function updateEnemies(delta) {
+    game.enemies.forEach(enemy => {
+      if (!enemy.active) return;
+      enemy.phase += delta * (enemy.type === "slime" ? 4.4 : 2.8);
+      enemy.invulnerable = Math.max(0, enemy.invulnerable - delta);
+      enemy.attackCooldown = Math.max(0, enemy.attackCooldown - delta);
+      enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
+      enemy.chargeTime = Math.max(0, enemy.chargeTime - delta);
+      const away = distance(enemy, player);
+      const toward = normalize(player.x - enemy.x, player.y - enemy.y);
+      let direction = { x: 0, y: 0 };
+      let speed = enemy.speed;
+
+      if (enemy.behavior === "ranged" && away < 430) {
+        if (away > 245) direction = toward;
+        else if (away < 145) direction = { x: -toward.x, y: -toward.y };
+        else direction = { x: -toward.y * .45, y: toward.x * .45 };
+        if (enemy.attackCooldown <= 0 && away < 390) {
+          enemy.attackCooldown = enemy.type === "wisp" ? 1.85 : 1.55;
+          fireMonsterAttack(enemy);
+        }
+      } else if (away < 390) {
+        direction = toward;
+        if (enemy.behavior === "charger") {
+          if (enemy.chargeTime > 0) speed *= 2.65;
+          else if (away < 270 && enemy.attackCooldown <= 0) {
+            enemy.chargeTime = .32;
+            enemy.attackCooldown = 1.75;
+            particles.burst(enemy.x, enemy.y, enemy.color, 8, 95);
+          }
+        }
+      } else {
+        const homeDistance = Math.hypot(enemy.homeX - enemy.x, enemy.homeY - enemy.y);
+        direction = homeDistance > 55
+          ? normalize(enemy.homeX - enemy.x, enemy.homeY - enemy.y)
+          : { x: Math.cos(enemy.phase) * .35, y: Math.sin(enemy.phase * .8) * .35 };
+        speed *= .42;
+      }
+
+      enemy.facingX = Math.abs(direction.x) > .04 ? direction.x : enemy.facingX;
+      moveCircle(enemy, direction.x * speed * delta, direction.y * speed * delta, true);
+      if (away < player.radius + enemy.radius + 7 && enemy.contactCooldown <= 0) {
+        enemy.contactCooldown = 1.05;
+        hurtPlayer(enemy.damage, enemy);
+      }
+    });
   }
 
   function updateBoss(delta) {
@@ -950,18 +1245,22 @@
     game.attacks.forEach(attack => { attack.life -= delta; });
 
     game.projectiles.forEach(projectile => {
-      if (game.boss?.active && !game.boss.peaceful && circleHit(projectile, game.boss)) {
+      if (projectile.life > 0 && game.enemies.some(enemy => enemy.active && circleHit(projectile, enemy))) {
+        damageEnemies(projectile, projectile.damage);
+        projectile.life = 0;
+      }
+      if (projectile.life > 0 && game.boss?.active && !game.boss.peaceful && circleHit(projectile, game.boss)) {
         damageBoss(projectile, projectile.damage);
         projectile.life = 0;
       }
-      if (game.chapter.puzzle.type === "break") damageBreakTargets(projectile, 1);
+      if (projectile.life > 0 && game.chapter.puzzle.type === "break") damageBreakTargets(projectile, 1);
     });
 
     game.enemyProjectiles.forEach(projectile => {
       if (projectile.life <= 0) return;
       if (player.shieldTime > 0 && distance(projectile, player) < player.radius + projectile.radius + 35) {
         const outward = normalize(projectile.x - player.x, projectile.y - player.y);
-        game.projectiles.push({ ...projectile, vx: outward.x * 480, vy: outward.y * 480, color: "#8ce568", damage: 2, life: 1.5 });
+        game.projectiles.push({ ...projectile, vx: outward.x * (470 + skillRank() * 25), vy: outward.y * (470 + skillRank() * 25), color: "#8ce568", damage: 1 + Math.ceil(skillRank() / 2), life: 1.5 });
         projectile.life = 0;
         particles.burst(projectile.x, projectile.y, "#8ce568", 8, 100);
         sound.play("shield");
@@ -1016,6 +1315,7 @@
 
   function update(delta) {
     game.sceneTime += delta;
+    game.aimTargetTime = Math.max(0, game.aimTargetTime - delta);
     game.flash = Math.max(0, game.flash - delta);
     game.shake = Math.max(0, game.shake - 30 * delta);
     updatePlayer(delta);
@@ -1023,6 +1323,7 @@
     game.camera.x = lerp(game.camera.x, player.x, cameraEase);
     game.camera.y = lerp(game.camera.y, player.y, cameraEase);
     updateCompanions(delta);
+    updateEnemies(delta);
     updateBoss(delta);
     updateProjectiles(delta);
     particles.update(delta);
@@ -1278,7 +1579,7 @@
       }
       ctx.drawImage(art.clark, spriteX, spriteY, spriteWidth, spriteHeight);
       ctx.restore();
-      if(player.shieldTime>0){ctx.strokeStyle="#9ce98c";ctx.shadowColor="#d8ffb2";ctx.shadowBlur=24;ctx.lineWidth=6;ctx.beginPath();ctx.ellipse(0,-19,52,58,0,0,Math.PI*2);ctx.stroke();}
+      if(player.shieldTime>0){const shieldSize=skillRank()*3;ctx.strokeStyle="#9ce98c";ctx.shadowColor="#d8ffb2";ctx.shadowBlur=24+shieldSize;ctx.lineWidth=6;ctx.beginPath();ctx.ellipse(0,-19,52+shieldSize,58+shieldSize,0,0,Math.PI*2);ctx.stroke();}
       ctx.globalAlpha=1;ctx.shadowBlur=0;
       ctx.fillStyle="rgba(251,248,220,.92)";ctx.strokeStyle="rgba(70,91,55,.35)";ctx.lineWidth=2;roundedRect(ctx,-30,-100,60,18,9);ctx.fill();ctx.stroke();
       ctx.fillStyle="#364b31";ctx.font="800 10px Trebuchet MS";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("CLARK",0,-91);
@@ -1295,7 +1596,7 @@
     const eyeX=Math.cos(faceAngle)*7,eyeY=Math.sin(faceAngle)*4;
     ctx.fillStyle="#111";ctx.beginPath();ctx.ellipse(eyeX-6,eyeY-18,3.5,7,0,0,Math.PI*2);ctx.ellipse(eyeX+7,eyeY-18,3.5,7,0,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle="#111";ctx.lineWidth=3;ctx.beginPath();ctx.arc(eyeX,eyeY-11,8,.2,Math.PI-.2);ctx.stroke();
-    if(player.shieldTime>0){ctx.strokeStyle="#8ce568";ctx.shadowColor="#8ce568";ctx.shadowBlur=20;ctx.lineWidth=7;ctx.beginPath();ctx.arc(0,0,42,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;}
+    if(player.shieldTime>0){ctx.strokeStyle="#8ce568";ctx.shadowColor="#8ce568";ctx.shadowBlur=20;ctx.lineWidth=7;ctx.beginPath();ctx.arc(0,0,42+skillRank()*3,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;}
     ctx.restore();ctx.globalAlpha=1;
   }
 
@@ -1325,6 +1626,36 @@
     for(const side of[-1,1]){ctx.beginPath();ctx.ellipse(side*20,4,18,8,side*.8,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.ellipse(side*17,-8,15,6,side*.8,0,Math.PI*2);ctx.fill();ctx.stroke();}
     ctx.fillStyle="#111429";ctx.strokeStyle="#ffd34f";ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-4,17,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.strokeStyle="#69e5ff";ctx.lineWidth=3;ctx.beginPath();for(let a=0;a<Math.PI*4;a+=.18){const r=a*1.05,x=Math.cos(a)*r,y=-4+Math.sin(a)*r;if(a===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();ctx.restore();
+  }
+
+  function drawEnemy(ctx, enemy) {
+    if (!enemy.active) return;
+    const monsterArt = art.monsters[enemy.type] || loadMonsterArt(enemy.type);
+    const hover = enemy.type === "drone" || enemy.type === "wisp"
+      ? Math.sin(enemy.phase) * 7 - 9
+      : Math.abs(Math.sin(enemy.phase)) * -3;
+    const hitBlink = enemy.invulnerable > 0 && Math.floor(game.sceneTime * 22) % 2 === 0;
+    ctx.save();ctx.translate(enemy.x,enemy.y);
+    if (game.aimTarget === enemy && game.aimTargetTime > 0) {
+      ctx.save();ctx.rotate(game.sceneTime*2.2);ctx.globalAlpha=clamp(game.aimTargetTime/.3,0,1);ctx.strokeStyle="#fff3a5";ctx.shadowColor="#ffd34f";ctx.shadowBlur=12;ctx.lineWidth=3;
+      for(let quadrant=0;quadrant<4;quadrant+=1){ctx.beginPath();ctx.arc(0,2,enemy.radius+13,quadrant*Math.PI/2+.16,quadrant*Math.PI/2+.64);ctx.stroke();}ctx.restore();
+    }
+    ctx.fillStyle="rgba(30,38,33,.26)";ctx.beginPath();ctx.ellipse(0,enemy.radius*.78,enemy.radius*1.05,enemy.radius*.38,0,0,Math.PI*2);ctx.fill();
+    ctx.translate(0,hover);
+    if (hitBlink) ctx.globalAlpha=.42;
+    const flip = enemy.facingX < 0 ? -1 : 1;
+    const squash = enemy.type === "slime" ? 1 + Math.sin(enemy.phase) * .045 : 1;
+    ctx.save();ctx.scale(flip/squash,squash);
+    if (monsterArt?.complete && monsterArt.naturalWidth) {
+      ctx.shadowColor=enemy.color;ctx.shadowBlur=enemy.type==="wisp"?18:8;
+      ctx.drawImage(monsterArt,-enemy.width/2,-enemy.height*.68,enemy.width,enemy.height);
+    }
+    ctx.restore();ctx.globalAlpha=1;ctx.shadowBlur=0;
+    if (enemy.hp < enemy.maxHp) {
+      ctx.fillStyle="rgba(21,25,24,.72)";roundedRect(ctx,-25,-enemy.height*.68-12,50,7,4);ctx.fill();
+      ctx.fillStyle=enemy.color;roundedRect(ctx,-24,-enemy.height*.68-11,48*clamp(enemy.hp/enemy.maxHp,0,1),5,3);ctx.fill();
+    }
+    ctx.restore();
   }
 
   function drawBoss(ctx, boss) {
@@ -1413,6 +1744,7 @@
     drawPuzzle(context);
     game.memoryObjects.forEach(memory=>drawMemory(context,memory));
     drawObjectiveMarker(context);
+    game.enemies.forEach(enemy=>drawEnemy(context,enemy));
     drawBoss(context,game.boss);
     drawProjectiles(context);
     drawGuardian(context);drawBird(context);drawBradley(context);drawClark(context);
@@ -1439,6 +1771,7 @@
   function togglePause(force) {
     if(!dom.gameScreen.classList.contains("is-active")||["story","dialogue","ending"].includes(game.mode))return;
     const shouldPause=typeof force==="boolean"?force:game.mode!=="paused";
+    player.touchAttackHeld=false;
     game.mode=shouldPause?"paused":"playing";dom.pauseOverlay.hidden=!shouldPause;
     if(shouldPause){dom.pauseStats.textContent=`Chapter ${game.chapter.id}: ${game.chapter.title} · Level ${save.level} · ${save.memories.length}/21 memories`;dom.resumeButton.focus();}
   }
@@ -1488,11 +1821,16 @@
     dom.soundButton.addEventListener("click",()=>{sound.muted=!sound.muted;persist(false);updateMenu();});
     dom.abilityButtons.forEach(button=>button.addEventListener("click",()=>{
       if(button.dataset.ability==="fist"&&player.selectedAbility==="fist")cycleWeapon();
-      else selectAbility(button.dataset.ability);
+      else if(button.dataset.ability==="fist")selectAbility("fist");
+      else if(button.dataset.ability==="dash")useDash();
+      else useTouchAbility(button.dataset.ability);
     }));
+    dom.weaponSlots.forEach(slot=>slot.addEventListener("click",()=>selectWeapon(slot.dataset.weapon)));
     dom.companionButton.addEventListener("click",useCompanion);
     dom.endingChapters.addEventListener("click",()=>{dom.endingOverlay.hidden=true;showChapters();});dom.endingMenu.addEventListener("click",showMenu);
-    dom.touchAttack.addEventListener("pointerdown",event=>{event.preventDefault();useSelectedAbility();});dom.touchWeapon.addEventListener("pointerdown",event=>{event.preventDefault();cycleWeapon();});dom.touchDash.addEventListener("pointerdown",event=>{event.preventDefault();useDash();});dom.touchInteract.addEventListener("pointerdown",event=>{event.preventDefault();interact();});dom.touchCompanion.addEventListener("pointerdown",event=>{event.preventDefault();useCompanion();});
+    dom.touchAttack.addEventListener("pointerdown",event=>{event.preventDefault();player.touchAttackHeld=true;useWeapon();});dom.touchWeapon.addEventListener("pointerdown",event=>{event.preventDefault();cycleWeapon();});dom.touchBolt.addEventListener("pointerdown",event=>{event.preventDefault();useTouchAbility("bolt");});dom.touchShield.addEventListener("pointerdown",event=>{event.preventDefault();useTouchAbility("shield");});dom.touchDash.addEventListener("pointerdown",event=>{event.preventDefault();useDash();});dom.touchInteract.addEventListener("pointerdown",event=>{event.preventDefault();interact();});dom.touchCompanion.addEventListener("pointerdown",event=>{event.preventDefault();useCompanion();});
+    const stopTouchAttack=()=>{player.touchAttackHeld=false;};
+    window.addEventListener("pointerup",stopTouchAttack);window.addEventListener("pointercancel",stopTouchAttack);window.addEventListener("blur",stopTouchAttack);
     window.addEventListener("resize",resizeCanvas);
     window.addEventListener("orientationchange",()=>requestAnimationFrame(resizeCanvas));
     window.visualViewport?.addEventListener("resize",resizeCanvas);
