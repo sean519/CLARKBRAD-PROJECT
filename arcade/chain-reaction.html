@@ -1312,13 +1312,17 @@
        much time really passed, runs the wall-clock hazards, and draws.
        Movement is therefore frame-rate independent — a 120Hz iPad and
        a 60Hz laptop travel at the same cells per second. */
-    (function frame(t) {
+    function frame(t) {
       var dt = lastFrame ? Math.min(0.05, (t - lastFrame) / 1000) : 0;
       lastFrame = t;
       advance(dt);
       runTimers(now());
       draw();
-      requestAnimationFrame(frame);
+    }
+
+    (function loop(t) {
+      frame(t);
+      requestAnimationFrame(loop);
     })(0);
 
     /* A tiny read-only window into the run, used by the automated
@@ -1340,7 +1344,10 @@
       steer: steer,
       hold: function (name, on) { if (VECTORS[name]) held[name] = !!on; },
       scan: doScan,
-      _startWave: startWave
+      _startWave: startWave,
+      /* drives one frame by hand — the smoke test needs this because a
+         backgrounded tab gets no requestAnimationFrame at all */
+      _frame: frame
     };
   })();
   </script>

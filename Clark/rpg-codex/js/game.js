@@ -9,6 +9,7 @@
   const WORLD_WIDTH = 1280;
   const WORLD_HEIGHT = 720;
   const SAVE_KEY = "clark-portalbound-codex-save-v1";
+  const usesTouchControls = () => navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches;
 
   const dom = {
     menuScreen: document.querySelector("#menuScreen"),
@@ -70,6 +71,7 @@
     touchWeapon: document.querySelector("#touchWeapon"),
     touchDash: document.querySelector("#touchDash"),
     touchInteract: document.querySelector("#touchInteract"),
+    touchInteractLabel: document.querySelector("#touchInteractLabel"),
     touchCompanion: document.querySelector("#touchCompanion"),
     liveRegion: document.querySelector("#liveRegion")
   };
@@ -78,16 +80,17 @@
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
 
+  const BACKGROUND_SOURCES = [null,
+    "assets/chapter1/meadow.webp",
+    "assets/chapters/chapter-02.webp",
+    "assets/chapters/chapter-03.webp",
+    "assets/chapters/chapter-04.webp",
+    "assets/chapters/chapter-05.webp",
+    "assets/chapters/chapter-06.webp",
+    "assets/chapters/chapter-07.webp"
+  ];
   const art = {
-    backgrounds: [null,
-      Object.assign(new Image(), { src: "assets/chapter1/meadow.webp" }),
-      Object.assign(new Image(), { src: "assets/chapters/chapter-02.webp" }),
-      Object.assign(new Image(), { src: "assets/chapters/chapter-03.webp" }),
-      Object.assign(new Image(), { src: "assets/chapters/chapter-04.webp" }),
-      Object.assign(new Image(), { src: "assets/chapters/chapter-05.webp" }),
-      Object.assign(new Image(), { src: "assets/chapters/chapter-06.webp" }),
-      Object.assign(new Image(), { src: "assets/chapters/chapter-07.webp" })
-    ],
+    backgrounds: Array(BACKGROUND_SOURCES.length).fill(null),
     clark: Object.assign(new Image(), { src: "assets/chapter1/clark.webp" }),
     piMonster: Object.assign(new Image(), { src: "assets/chapter1/pi-monster.webp" }),
     leafblade: Object.assign(new Image(), { src: "assets/chapter1/leafblade.webp" }),
@@ -116,6 +119,7 @@
     brokenTargets: new Map(),
     puzzleSolved: false,
     portalActive: false,
+    portalTransitioning: false,
     sceneTime: 0,
     timeLeft: null,
     shake: 0,
@@ -136,6 +140,13 @@
     viewport: { width: 1280, height: 720, scale: 1, offsetX: 0, offsetY: 0, dpr: 1 },
     lastFrame: performance.now()
   };
+
+  function loadBackground(chapterId) {
+    if (!art.backgrounds[chapterId] && BACKGROUND_SOURCES[chapterId]) {
+      art.backgrounds[chapterId] = Object.assign(new Image(), { src: BACKGROUND_SOURCES[chapterId] });
+    }
+    return art.backgrounds[chapterId];
+  }
 
   const player = {
     x: 120, y: 360, radius: 23,
@@ -250,6 +261,7 @@
     game.brokenTargets = new Map();
     game.puzzleSolved = false;
     game.portalActive = false;
+    game.portalTransitioning = false;
     game.sceneTime = 0;
     game.timeLeft = game.chapter.timed || null;
     game.attacks = [];
@@ -257,6 +269,7 @@
     game.enemyProjectiles = [];
     game.boss = null;
     game.obstacles = chapterObstacles(game.chapter);
+    loadBackground(game.chapter.id);
     game.block = game.chapter.puzzle.type === "push"
       ? { ...game.chapter.puzzle.block, radius: 32, goal: game.chapter.puzzle.goal }
       : null;
@@ -515,6 +528,8 @@
     game.memoryObjects.forEach(memory => {
       if (!memory.collected && distance(player, memory) < 34) collectMemory(memory);
     });
+    // Active portals behave like doorways on touch devices: walking through the center enters.
+    if (game.portalActive && !game.portalTransitioning && distance(player, game.chapter.portal) < 68) completeChapter();
   }
 
   function useDash() {
@@ -708,7 +723,8 @@
     const target = nearestPuzzleTarget();
     if (target) return target;
     if (game.boss?.active && game.boss.peaceful && distance(player, game.boss) < 115) return { type: "peacefulBoss", target: game.boss };
-    if (game.portalActive && distance(player, game.chapter.portal) < 92) return { type: "portal", target: game.chapter.portal };
+    const portalReach = usesTouchControls() ? 150 : 100;
+    if (game.portalActive && distance(player, game.chapter.portal) < portalReach) return { type: "portal", target: game.chapter.portal };
     return null;
   }
 
@@ -716,6 +732,9 @@
     game.nearestInteraction = determineInteraction();
     if (!game.nearestInteraction) {
       dom.interactionPrompt.hidden = true;
+      dom.touchInteract.classList.remove("is-ready", "is-portal");
+      dom.touchInteract.querySelector("span").textContent = "E";
+      dom.touchInteractLabel.textContent = "Use";
       return;
     }
     const labels = {
@@ -724,7 +743,13 @@
       portal: game.chapter.id === 7 ? "Claim the Leaf Key" : "Enter Portal"
     };
     dom.interactionPrompt.querySelector("span").textContent = labels[game.nearestInteraction.type];
+    dom.interactionPrompt.querySelector("kbd").textContent = usesTouchControls() ? "TAP" : "E";
     dom.interactionPrompt.hidden = false;
+    const enteringPortal = game.nearestInteraction.type === "portal";
+    dom.touchInteract.classList.add("is-ready");
+    dom.touchInteract.classList.toggle("is-portal", enteringPortal);
+    dom.touchInteract.querySelector("span").textContent = enteringPortal ? "↪" : "E";
+    dom.touchInteractLabel.textContent = enteringPortal ? "Enter" : "Use";
   }
 
   function interact() {
@@ -733,6 +758,21 @@
     if (interaction.type === "puzzle") activatePuzzleTarget(interaction.target);
     else if (interaction.type === "peacefulBoss") completePeacefulEncounter();
     else if (interaction.type === "portal") completeChapter();
+  }
+
+  function handleStageTap(event) {
+    if (!usesTouchControls() || !game.portalActive || game.portalTransitioning || game.mode !== "playing") return;
+    const rect = dom.canvas.getBoundingClientRect();
+    const canvasX = event.clientX - rect.left;
+    const canvasY = event.clientY - rect.top;
+    const worldPoint = {
+      x: (canvasX - game.viewport.offsetX) / game.viewport.scale,
+      y: (canvasY - game.viewport.offsetY) / game.viewport.scale
+    };
+    if (distance(worldPoint, game.chapter.portal) < 145 && distance(player, game.chapter.portal) < 190) {
+      event.preventDefault();
+      completeChapter();
+    }
   }
 
   function activatePuzzleTarget(target) {
@@ -822,12 +862,15 @@
   }
 
   function completeChapter() {
+    if (!game.portalActive || game.portalTransitioning) return;
+    game.portalTransitioning = true;
     const id = game.chapter.id;
     if (!save.completed.includes(id)) save.completed.push(id);
     save.unlockedChapter = Math.max(save.unlockedChapter, Math.min(7, id + 1));
     save.chapter = Math.min(7, id + 1);
     persist();
     sound.play("portal");
+    if (id < 7) loadBackground(id + 1);
     showChapterComplete();
   }
 
@@ -1438,6 +1481,8 @@
     dom.closeChapters.addEventListener("click",()=>{dom.chapterOverlay.hidden=true;dom.chaptersButton.focus();});dom.closeHow.addEventListener("click",()=>{dom.howOverlay.hidden=true;dom.howButton.focus();});
     dom.storyContinue.addEventListener("click",()=>{sound.play("click");if(game.storyAction)game.storyAction();});
     dom.dialogueOverlay.addEventListener("click",advanceDialogue);
+    dom.interactionPrompt.addEventListener("click",interact);
+    dom.canvas.addEventListener("pointerdown",handleStageTap);
     dom.pauseButton.addEventListener("click",()=>togglePause());dom.resumeButton.addEventListener("click",()=>togglePause(false));
     dom.restartButton.addEventListener("click",()=>{dom.pauseOverlay.hidden=true;resetChapterState(game.chapter.id);game.mode="playing";});dom.menuButton.addEventListener("click",showMenu);
     dom.soundButton.addEventListener("click",()=>{sound.muted=!sound.muted;persist(false);updateMenu();});
@@ -1448,7 +1493,10 @@
     dom.companionButton.addEventListener("click",useCompanion);
     dom.endingChapters.addEventListener("click",()=>{dom.endingOverlay.hidden=true;showChapters();});dom.endingMenu.addEventListener("click",showMenu);
     dom.touchAttack.addEventListener("pointerdown",event=>{event.preventDefault();useSelectedAbility();});dom.touchWeapon.addEventListener("pointerdown",event=>{event.preventDefault();cycleWeapon();});dom.touchDash.addEventListener("pointerdown",event=>{event.preventDefault();useDash();});dom.touchInteract.addEventListener("pointerdown",event=>{event.preventDefault();interact();});dom.touchCompanion.addEventListener("pointerdown",event=>{event.preventDefault();useCompanion();});
-    window.addEventListener("resize",resizeCanvas);document.addEventListener("visibilitychange",()=>{if(document.hidden&&game.mode==="playing")togglePause(true);});
+    window.addEventListener("resize",resizeCanvas);
+    window.addEventListener("orientationchange",()=>requestAnimationFrame(resizeCanvas));
+    window.visualViewport?.addEventListener("resize",resizeCanvas);
+    document.addEventListener("visibilitychange",()=>{if(document.hidden&&game.mode==="playing")togglePause(true);});
     bindTouchStick();
   }
 

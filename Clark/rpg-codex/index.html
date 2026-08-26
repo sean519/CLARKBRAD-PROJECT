@@ -60,7 +60,7 @@
       <div class="stage" id="stage">
         <canvas id="gameCanvas" width="1280" height="720" aria-label="Top-down action RPG play area"></canvas>
         <div class="comic-word" id="comicWord" aria-hidden="true"></div>
-        <div class="interaction-prompt" id="interactionPrompt" hidden><kbd>E</kbd> <span>Interact</span></div>
+        <button class="interaction-prompt" id="interactionPrompt" type="button" hidden><kbd>E</kbd> <span>Interact</span></button>
         <div class="save-toast" id="saveToast" aria-live="polite">Adventure saved</div>
         <div class="boss-bar" id="bossBar" hidden>
           <strong id="bossName">Boss</strong>
@@ -79,9 +79,11 @@
       <div class="touch-ui" id="touchUi" aria-label="Touch controls">
         <div class="touch-stick" id="touchStick" aria-label="Movement joystick"><span></span></div>
         <div class="touch-actions">
-          <button id="touchInteract" type="button" aria-label="Interact">E</button>
+          <button id="touchInteract" type="button" aria-label="Interact"><span>E</span><small id="touchInteractLabel">Use</small></button>
           <button id="touchWeapon" type="button" aria-label="Switch weapon">R</button>
           <button id="touchCompanion" type="button" aria-label="Companion ability">Q</button>
+          <button id="touchBolt" type="button" aria-label="Fire Star Bolt">✦</button>
+          <button id="touchShield" type="button" aria-label="Use Leaf Shield">◈</button>
           <button id="touchDash" type="button" aria-label="Dash">↗</button>
           <button class="touch-attack" id="touchAttack" type="button" aria-label="Swing Leafblade">⚔</button>
         </div>

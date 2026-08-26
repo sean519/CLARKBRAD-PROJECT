@@ -62,6 +62,39 @@ Tuning notes, so they are not re-litigated later:
   `START_LIVES`, `FACE_UP_MS`, `MAX_SCANS`, and the `tickMs` formula in
   `startWave` (230ms base, −6ms a wave, floor 150ms).
 
+### Movement: cruise and sprint
+
+The chain is **never** on a fixed grid tick. It always drifts at `CRUISE_CPS`
+(1.7 cells/second — slow enough to read the board and plan a fusion), and
+holding a direction winds it up toward `SPRINT_CPS` (9) at `ACCEL` cells/s²;
+releasing coasts back down at `BRAKE`. Speed is therefore a control, not a
+difficulty setting: you choose when the game is fast.
+
+- `progress` is how far the chain sits between two cells (0..1). The rules still
+  happen on whole cells; the renderer interpolates every block between
+  `prevCells[i]` and `cells[i]` by that same number, which is where the
+  smoothness comes from. A respawn resets both together so the chain never
+  glides across the board.
+- One `requestAnimationFrame` loop advances by real elapsed time, so movement is
+  frame-rate independent — a 120Hz iPad and a 60Hz laptop travel at the same
+  cells per second. The `dt` is capped at 50ms and the step loop at 4 per frame,
+  so a backgrounded tab does not replay a hundred steps on return.
+- Because rules *and* rendering now live in that one loop, the whole game
+  freezes while the tab is hidden (browsers stop serving rAF) and picks up on
+  return. That is the behaviour you want for a player — but it means an
+  automated test in a background tab sees a frozen game, which is what
+  `window.__chainReaction._frame(t)` exists for: it steps one frame by hand.
+- **Hazards run on wall-clock time, not on steps** (`sweepAt`, `spawnAt`,
+  `rechargeAt`). This is load-bearing: while they were tied to step count, a
+  player could freeze the sweep wall simply by letting go of the keys.
+- Holding the *reverse* of your heading neither turns you nor accelerates you —
+  otherwise it would just feed you into your own tail.
+- A swipe can't be held, so it grants a `SWIPE_BOOST_MS` burst instead.
+- Keys are tracked press/release in the page (not `Arcade.bindKeys`, which is
+  one-shot), with a `blur` handler because a key held while the tab loses focus
+  never sends its keyup. WASD needs `s` for "down", so **scan moved to `E`** —
+  the two used to fire together.
+
 ### Feel and presentation
 
 A 128 BPM clock (`BEAT`) drives the floor stripes, the grid flash, the atom
