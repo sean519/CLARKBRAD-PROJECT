@@ -26,6 +26,7 @@
     chapterReadout: document.querySelector("#chapterReadout"),
     objectiveReadout: document.querySelector("#objectiveReadout"),
     memoryReadout: document.querySelector("#memoryReadout"),
+    materialReadout: document.querySelector("#materialReadout"),
     soundButton: document.querySelector("#soundButton"),
     pauseButton: document.querySelector("#pauseButton"),
     comicWord: document.querySelector("#comicWord"),
@@ -67,6 +68,7 @@
     weaponRank: document.querySelector("#weaponRank"),
     weaponDockRank: document.querySelector("#weaponDockRank"),
     weaponSlots: [...document.querySelectorAll("[data-weapon]")],
+    weaponTraits: document.querySelector("#weaponTraits"),
     comboPips: [...document.querySelectorAll("#comboPips i")],
     comboLabel: document.querySelector("#comboPips span"),
     skillRanks: [...document.querySelectorAll("[data-skill-rank]")],
@@ -110,7 +112,20 @@
     hammer: { name: "Comet Hammer", shortName: "Comet Hammer", icon: "◆", unlockChapter: 3 }
   };
   const WEAPON_ORDER = ["leafblade", "hammer"];
+  const WEAPON_TRAITS = {
+    leafblade: [
+      { id: "windstep", name: "Windstep", icon: "↝", desc: "Faster combo rhythm" },
+      { id: "thornedge", name: "Thorn Edge", icon: "✦", desc: "Sharper critical hits" },
+      { id: "bloomarc", name: "Bloom Arc", icon: "❋", desc: "Wider finishing spin" }
+    ],
+    hammer: [
+      { id: "breaker", name: "Starbreaker", icon: "◆", desc: "More damage to armor" },
+      { id: "quake", name: "Quakeheart", icon: "⌁", desc: "Larger smash radius" },
+      { id: "meteor", name: "Meteor Core", icon: "☄", desc: "Faster, stronger charge" }
+    ]
+  };
   const ROMAN_RANKS = ["I", "II", "III", "IV"];
+  let traitUiSignature = "";
   const MONSTER_SOURCES = {
     slime: "assets/monsters/rift-slime.webp",
     drone: "assets/monsters/star-drone.webp",
@@ -118,20 +133,34 @@
     wisp: "assets/monsters/storm-wisp.webp"
   };
   const MONSTER_TYPES = {
-    slime: { name: "Rift Slime", hp: 3, radius: 25, speed: 78, behavior: "melee", damage: 1, xp: 8, width: 82, height: 75, color: "#a65dff" },
-    drone: { name: "Star Drone", hp: 4, radius: 25, speed: 66, behavior: "ranged", damage: 1, xp: 10, width: 82, height: 82, color: "#69e5ff" },
-    thornling: { name: "Thornling", hp: 4, radius: 26, speed: 92, behavior: "charger", damage: 1, xp: 10, width: 80, height: 80, color: "#8ce568" },
-    wisp: { name: "Storm Wisp", hp: 3, radius: 24, speed: 84, behavior: "ranged", damage: 1, xp: 11, width: 76, height: 80, color: "#ffd34f" }
+    slime: { name: "Rift Slime", hp: 3, radius: 25, speed: 78, behavior: "melee", damage: 1, weakness: "hammer", xp: 8, width: 82, height: 75, color: "#a65dff" },
+    drone: { name: "Star Drone", hp: 4, radius: 25, speed: 66, behavior: "ranged", damage: 1, weakness: "hammer", xp: 10, width: 82, height: 82, color: "#69e5ff" },
+    thornling: { name: "Thornling", hp: 4, radius: 26, speed: 92, behavior: "charger", damage: 1, weakness: "dash", xp: 10, width: 80, height: 80, color: "#8ce568" },
+    wisp: { name: "Storm Wisp", hp: 3, radius: 24, speed: 84, behavior: "ranged", damage: 1, weakness: "shield", xp: 11, width: 76, height: 80, color: "#ffd34f" },
+    mossling: { name: "Mossling", hp: 3, radius: 24, speed: 82, behavior: "melee", damage: 1, weakness: "hammer", xp: 9, width: 78, height: 78, color: "#5fb878" },
+    sandbeetle: { name: "Sand Beetle", hp: 5, radius: 27, speed: 86, behavior: "charger", damage: 1, weakness: "dash", xp: 12, width: 86, height: 78, color: "#d9924f" },
+    prismimp: { name: "Prism Imp", hp: 4, radius: 24, speed: 70, behavior: "ranged", damage: 1, weakness: "hammer", xp: 12, width: 78, height: 82, color: "#ee7dff" },
+    shadowmoth: { name: "Shadow Moth", hp: 4, radius: 25, speed: 76, behavior: "ranged", damage: 1, weakness: "shield", xp: 13, width: 88, height: 78, color: "#b875e8" },
+    vinebrute: { name: "Vine Brute", hp: 6, radius: 29, speed: 68, behavior: "charger", damage: 2, weakness: "dash", xp: 14, width: 94, height: 92, color: "#74b95e" },
+    stormbat: { name: "Storm Bat", hp: 4, radius: 24, speed: 102, behavior: "ranged", damage: 1, weakness: "shield", xp: 14, width: 88, height: 76, color: "#77b9df" },
+    bookwisp: { name: "Book Wisp", hp: 5, radius: 25, speed: 88, behavior: "ranged", damage: 1, weakness: "hammer", xp: 16, width: 88, height: 84, color: "#e9b85e" },
+    gearbug: { name: "Gear Bug", hp: 5, radius: 25, speed: 74, behavior: "charger", damage: 1, weakness: "dash", xp: 13, width: 84, height: 78, color: "#c2a15a" },
+    voidling: { name: "Voidling", hp: 4, radius: 24, speed: 80, behavior: "ranged", damage: 1, weakness: "shield", xp: 13, width: 82, height: 82, color: "#8c78c7" }
   };
   const CHAPTER_ENCOUNTERS = {
-    1: [["slime",280,525],["slime",530,345],["slime",865,535],["slime",905,185]],
-    2: [["slime",245,455],["slime",505,350],["slime",760,585],["drone",920,300]],
-    3: [["drone",245,570],["drone",545,345],["drone",900,155],["drone",910,560],["slime",770,365]],
-    4: [["drone",275,350],["wisp",500,555],["wisp",740,430],["wisp",910,235],["slime",985,540]],
-    5: [["thornling",245,555],["thornling",515,175],["thornling",810,540],["thornling",930,175],["slime",870,330]],
-    6: [["thornling",270,320],["thornling",610,535],["wisp",520,155],["wisp",855,535],["wisp",975,265],["drone",760,300]],
-    7: [["thornling",255,570],["drone",295,350],["wisp",520,545],["slime",600,335],["wisp",825,170],["drone",915,520]]
+    1: [["slime",280,525],["mossling",530,345],["mossling",865,535],["slime",905,185]],
+    2: [["drone",245,455],["sandbeetle",505,350],["sandbeetle",760,585],["drone",920,300]],
+    3: [["prismimp",245,570],["prismimp",545,345],["gearbug",900,155],["gearbug",910,560],["prismimp",770,365]],
+    4: [["shadowmoth",275,350],["shadowmoth",500,555],["voidling",740,430],["voidling",910,235],["shadowmoth",985,540]],
+    5: [["thornling",245,555],["vinebrute",515,175],["vinebrute",810,540],["thornling",930,175],["vinebrute",870,330]],
+    6: [["stormbat",270,320],["stormbat",610,535],["wisp",520,155],["stormbat",855,535],["wisp",975,265],["stormbat",760,300]],
+    7: [["bookwisp",255,570],["bookwisp",295,350],["bookwisp",520,545],["bookwisp",600,335],["bookwisp",825,170],["bookwisp",915,520]]
   };
+  const FINAL_WAVES = [
+    [["bookwisp",275,350],["bookwisp",520,185],["bookwisp",760,535],["bookwisp",1010,220]],
+    [["bookwisp",250,180],["bookwisp",430,550],["bookwisp",700,180],["bookwisp",930,545],["bookwisp",1080,330]],
+    [["bookwisp",235,350],["bookwisp",420,175],["bookwisp",420,545],["bookwisp",725,175],["bookwisp",725,545],["bookwisp",1040,350]]
+  ];
   const input = new Input();
   const sound = new Sound();
   const store = new SaveStore(SAVE_KEY);
@@ -165,6 +194,8 @@
     projectiles: [],
     enemyProjectiles: [],
     enemies: [],
+    waveIndex: 0,
+    waveDelay: 0,
     memoryObjects: [],
     obstacles: [],
     boss: null,
@@ -280,25 +311,34 @@
     }));
   }
 
-  function createEnemies(chapter) {
-    game.enemies = (CHAPTER_ENCOUNTERS[chapter.id] || []).map(([type, x, y], index) => {
+  function createEnemies(chapter, encounters = CHAPTER_ENCOUNTERS[chapter.id]) {
+    game.enemies = (encounters || []).map(([type, x, y], index) => {
       const spec = MONSTER_TYPES[type];
+      const elite = index % 4 === 3;
       loadMonsterArt(type);
       return {
         ...spec,
         id: `${chapter.id}-${index}`,
         type,
+        elite,
+        speed: spec.speed * (elite ? 1.12 : 1),
+        damage: spec.damage + (elite ? 1 : 0),
+        xp: spec.xp + (elite ? 8 : 0),
+        radius: spec.radius + (elite ? 3 : 0),
         x, y,
         homeX: x,
         homeY: y,
-        maxHp: spec.hp,
+        hp: spec.hp + (elite ? 2 : 0),
+        maxHp: spec.hp + (elite ? 2 : 0),
         active: true,
         invulnerable: 0,
-        attackCooldown: .5 + Math.random() * 1.2,
+        attackCooldown: (elite ? .35 : .5) + Math.random() * (elite ? .8 : 1.2),
         contactCooldown: 0,
         chargeTime: 0,
         windupTime: 0,
         marked: 0,
+        stunTime: 0,
+        exposed: 0,
         attackDirection: { x: 1, y: 0 },
         phase: Math.random() * Math.PI * 2,
         facingX: 1
@@ -339,6 +379,8 @@
     game.enemyProjectiles = [];
     createEnemies(game.chapter);
     game.boss = null;
+    game.waveIndex = 0;
+    game.waveDelay = 0;
     game.obstacles = chapterObstacles(game.chapter);
     loadBackground(game.chapter.id);
     game.block = game.chapter.puzzle.type === "push"
@@ -578,6 +620,34 @@
     });
     dom.comboPips.forEach((pip, index) => pip.classList.toggle("is-filled", player.weapon === "leafblade" && index < player.comboStep));
     dom.comboLabel.textContent = player.weapon === "hammer" ? "Heavy smash" : "3-hit combo";
+    renderWeaponTraits();
+  }
+
+  function weaponTrait(weapon = player.weapon) {
+    return save.weaponTraits?.[weapon] || null;
+  }
+
+  function renderWeaponTraits() {
+    if (!dom.weaponTraits) return;
+    const rank = weaponRank();
+    const weapon = player.weapon;
+    const selected = weaponTrait(weapon) || "";
+    const signature = `${weapon}:${rank}:${selected}`;
+    if (signature === traitUiSignature) return;
+    traitUiSignature = signature;
+    dom.weaponTraits.innerHTML = `<div class="trait-head"><span>Specialization</span><small>${rank >= 2 ? "Choose one path" : "Unlocks at Rank II"}</small></div>${WEAPON_TRAITS[weapon].map(trait => `<button type="button" class="trait-choice ${selected === trait.id ? "is-selected" : ""}" data-trait="${trait.id}" ${rank < 2 ? "disabled" : ""} title="${trait.desc}"><span>${trait.icon}</span><strong>${trait.name}</strong><small>${trait.desc}</small></button>`).join("")}`;
+    dom.weaponTraits.querySelectorAll("[data-trait]").forEach(button => button.addEventListener("click", () => selectWeaponTrait(weapon, button.dataset.trait)));
+  }
+
+  function selectWeaponTrait(weapon, traitId) {
+    if (weaponRank() < 2 || !WEAPON_TRAITS[weapon]?.some(trait => trait.id === traitId)) return;
+    save.weaponTraits[weapon] = traitId;
+    persist(false);
+    traitUiSignature = "";
+    renderWeaponTraits();
+    const trait = WEAPON_TRAITS[weapon].find(item => item.id === traitId);
+    showComicWord(`${trait.name.toUpperCase()}!`, weapon === "hammer" ? "#ff9f1c" : "#8ce568");
+    announce(`${trait.name} specialization equipped for ${WEAPONS[weapon].name}.`);
   }
 
   function updateHud() {
@@ -586,6 +656,7 @@
     dom.levelReadout.textContent = save.level;
     dom.chapterReadout.textContent = `Chapter ${game.chapter.id}`;
     dom.memoryReadout.textContent = `${save.memories.length}/21`;
+    if (dom.materialReadout) dom.materialReadout.textContent = Object.values(save.materials || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     updateWeaponHud();
     const rank = skillRank();
     dom.skillRanks.forEach(label => {
@@ -646,7 +717,7 @@
     player.attackCooldown = Math.max(0, player.attackCooldown - delta);
     player.attackTime = Math.max(0, player.attackTime - delta);
     player.perfectDodgeTime = Math.max(0, player.perfectDodgeTime - delta);
-    if (player.hammerCharging) player.hammerCharge = Math.min(1, player.hammerCharge + delta / .75);
+    if (player.hammerCharging) player.hammerCharge = Math.min(1, player.hammerCharge + delta / (weaponTrait("hammer") === "meteor" ? .58 : .75));
     player.comboTimer = Math.max(0, player.comboTimer - delta);
     if (player.comboTimer === 0) player.comboStep = 0;
     player.dashCooldown = Math.max(0, player.dashCooldown - delta);
@@ -708,7 +779,7 @@
     player.dashCooldown = .88 - rank * .07;
     player.invulnerable = Math.max(player.invulnerable, .28 + rank * .04);
     if (rank >= 3) {
-      const impact = { x: player.x + player.facing.x * 68, y: player.y + player.facing.y * 68, radius: 62 + rank * 5, life: .26, color: "#69e5ff", consumeMark: true };
+      const impact = { x: player.x + player.facing.x * 68, y: player.y + player.facing.y * 68, radius: 62 + rank * 5, life: .26, color: "#69e5ff", type: "dash", consumeMark: true };
       game.attacks.push(impact);
       damageEnemies(impact, rank === 4 ? 2 : 1);
       damageBoss(impact, rank === 4 ? 2 : 1);
@@ -765,15 +836,16 @@
     const rank = weaponRank();
     const direction = assistedAim(205);
     player.comboStep = player.comboTimer > 0 ? player.comboStep % 3 + 1 : 1;
-    player.comboTimer = .62;
+    const trait = weaponTrait("leafblade");
+    player.comboTimer = trait === "windstep" ? .82 : .62;
     const finisher = player.comboStep === 3;
-    player.attackCooldown = finisher ? .4 : .24;
+    player.attackCooldown = Math.max(.16, (finisher ? .4 : .24) - (trait === "windstep" ? .05 : 0));
     player.attackDuration = finisher ? .4 : .27;
     player.attackTime = player.attackDuration;
     player.attackKind = finisher ? "leafblade-finisher" : "leafblade";
     player.attackDirection = { ...direction };
     moveCircle(player, direction.x * (finisher ? 24 : 17), direction.y * (finisher ? 24 : 17));
-    const radius = finisher ? 76 + rank * 2 : 52 + rank * 2;
+    const radius = finisher ? 76 + rank * 2 + (trait === "bloomarc" ? 22 : 0) : 52 + rank * 2;
     const hit = {
       x: player.x + direction.x * (finisher ? 30 : 58),
       y: player.y + direction.y * (finisher ? 30 : 58),
@@ -790,7 +862,7 @@
     particles.burst(hit.x, hit.y, "#d9ffb7", finisher ? 20 : 11, finisher ? 210 : 155);
     sound.play("attack");
     showComicWord(finisher ? "LEAFSTORM!" : player.comboStep === 2 ? "SWOOSH!" : "SLASH!", "#b7ff9b");
-    const damage = (rank >= 3 ? 2 : 1) + (finisher ? 1 : 0);
+    const damage = (rank >= 3 ? 2 : 1) + (finisher ? 1 : 0) + (trait === "thornedge" && finisher ? 1 : 0);
     damageBreakTargets(hit, finisher ? 2 : 1);
     damageEnemies(hit, damage);
     damageBoss(hit, damage);
@@ -799,7 +871,8 @@
   function useCometHammer(charge = 0) {
     const rank = weaponRank();
     const direction = assistedAim(220);
-    const chargePower = clamp(charge, 0, 1);
+    const trait = weaponTrait("hammer");
+    const chargePower = clamp(charge * (trait === "meteor" ? 1.22 : 1), 0, 1);
     player.comboStep = 0;
     player.comboTimer = 0;
     player.attackCooldown = .7;
@@ -811,7 +884,7 @@
     const hit = {
       x: player.x + direction.x * 42,
       y: player.y + direction.y * 42,
-      radius: 88 + (rank - 1) * 6 + chargePower * 22,
+      radius: 88 + (rank - 1) * 6 + chargePower * 22 + (trait === "quake" ? 20 : 0),
       life: .42 + chargePower * .08,
       maxLife: .42 + chargePower * .08,
       angle: Math.atan2(direction.y, direction.x),
@@ -824,7 +897,7 @@
     game.shake = 9 + rank + chargePower * 5;
     showComicWord(chargePower > .65 || rank === 4 ? "COMET CRASH!" : "KRAKOOM!", "#ff9f1c");
     damageBreakTargets(hit, 3 + Math.floor(chargePower * 2));
-    const damage = Math.round((2 + Math.floor((rank - 1) / 2)) * (1 + chargePower * .65));
+    const damage = Math.round((2 + Math.floor((rank - 1) / 2) + (trait === "breaker" ? 1 : 0)) * (1 + chargePower * .65));
     damageEnemies({ ...hit, consumeMark: true }, damage);
     damageBoss(hit, damage);
   }
@@ -885,7 +958,7 @@
     bradley.cooldown = companionCooldownMax(rank);
     const nearestEnemy = game.enemies.filter(enemy=>enemy.active).sort((a,b)=>distance(player,a)-distance(player,b))[0];
     const target = game.boss?.active ? game.boss : nearestEnemy || { x: player.x + player.facing.x * 170, y: player.y + player.facing.y * 170, radius: 55 };
-    const blast = { x: target.x, y: target.y, radius: 82 + rank * 9, life: .25, color: "#ff9f1c" };
+    const blast = { x: target.x, y: target.y, radius: 82 + rank * 9, life: .25, color: "#ff9f1c", type: "companion", companion: true, consumeMark: true };
     particles.burst(target.x, target.y, "#ff9f1c", 28, 250);
     game.attacks.push(blast);
     damageBreakTargets(blast, 2 + rank);
@@ -935,9 +1008,21 @@
     const boss = game.boss;
     if (!boss?.active || boss.peaceful || boss.invulnerable > 0) return;
     if (distance(hit, boss) > (hit.radius || 0) + boss.radius) return;
-    boss.hp -= amount;
+    const critical = hit.critical || hit.type === "spin" || hit.type === "perfect" || Math.random() < .06;
+    const dealt = Math.max(1, Math.round(amount * (critical ? 1.55 : 1)));
+    boss.hp -= dealt;
     boss.invulnerable = .12;
     particles.burst(boss.x, boss.y, game.chapter.palette.glow, 12, 170);
+    if (critical) showComicWord("CRITICAL!", "#fff1a8");
+    const healthRatio = boss.hp / boss.maxHp;
+    const phase = healthRatio <= .34 ? 3 : healthRatio <= .67 ? 2 : 1;
+    if (phase > (boss.phaseIndex || 1)) {
+      boss.phaseIndex = phase;
+      boss.attackTimer = .18;
+      particles.burst(boss.x, boss.y, game.chapter.palette.glow, 28, 210);
+      showComicWord(`PHASE ${phase}!`, "#ffd34f");
+      announce(`${boss.name} has entered phase ${phase}.`);
+    }
     if (boss.hp <= 0) defeatBoss();
   }
 
@@ -945,17 +1030,21 @@
     game.enemies.forEach(enemy => {
       if (!enemy.active || enemy.invulnerable > 0) return;
       if (distance(hit, enemy) > (hit.radius || 0) + enemy.radius) return;
+      const weakHit = enemy.exposed > 0 || hit.companion || (enemy.weakness === "hammer" && hit.type === "smash") || (enemy.weakness === "dash" && hit.type === "dash");
       const markedBonus = hit.consumeMark && enemy.marked > 0 ? 1.75 : 1;
-      const dealt = Math.max(1, Math.round(amount * markedBonus));
+      const critical = hit.critical || hit.type === "spin" || Math.random() < .08;
+      const dealt = Math.max(1, Math.round(amount * markedBonus * (weakHit ? 1.8 : 1) * (critical ? 1.65 : 1)));
       enemy.hp -= dealt;
       if (hit.consumeMark && enemy.marked > 0) {
         enemy.marked = 0;
         particles.burst(enemy.x, enemy.y, "#d6a4ff", 9, 140);
       }
+      if (weakHit) { enemy.stunTime = Math.max(enemy.stunTime, 1.05); enemy.exposed = 0; }
       enemy.invulnerable = .13;
       const knock = normalize(enemy.x - hit.x, enemy.y - hit.y);
       moveCircle(enemy, knock.x * 16, knock.y * 16, true);
       particles.burst(enemy.x, enemy.y, enemy.color, 10, 150);
+      if (critical || weakHit) showComicWord(weakHit ? "WEAK!" : "CRITICAL!", weakHit ? "#ffd34f" : "#fff1a8");
       if (enemy.hp <= 0) defeatEnemy(enemy);
     });
   }
@@ -965,8 +1054,12 @@
     enemy.active = false;
     particles.burst(enemy.x, enemy.y, enemy.color, 22, 215);
     sound.play("pickup");
-    showComicWord(enemy.type === "drone" ? "SHORTED!" : enemy.type === "thornling" ? "TUMBLED!" : "POOF!", enemy.color);
+    const material = { slime: "gel", drone: "shard", thornling: "fiber", wisp: "crystal" }[enemy.type] || "shard";
+    save.materials[material] = (save.materials[material] || 0) + (enemy.elite ? 3 : 1);
+    showComicWord(enemy.elite ? "ELITE DOWN!" : enemy.type === "drone" ? "SHORTED!" : enemy.type === "thornling" ? "TUMBLED!" : "POOF!", enemy.color);
+    announce(`${enemy.elite ? "Elite " : ""}${enemy.name} defeated. ${enemy.elite ? "3" : "1"} ${material} collected.`);
     gainExperience(enemy.xp);
+    persist(false);
   }
 
   function collectMemory(memory) {
@@ -981,6 +1074,9 @@
     if (upgradedRank > previousRank) {
       showComicWord(`SKILLS ${ROMAN_RANKS[upgradedRank - 1]}!`, "#ff9f1c");
       announce(`Adventure rank upgraded to ${ROMAN_RANKS[upgradedRank - 1]}. Weapons and skills are stronger.`);
+      if (upgradedRank >= 2 && !weaponTrait(player.weapon)) {
+        setTimeout(() => { showComicWord("CHOOSE A PATH!", "#ffd34f"); announce("Choose a weapon specialization in the Weapon panel."); }, 420);
+      }
     } else {
       showComicWord("MEMORY!", "#ffd34f");
       announce(`Comic memory found. ${save.memories.length} of 21.`);
@@ -1119,8 +1215,41 @@
       announce(game.coopPuzzle.prompt + ". Press Q or tap Bradley's button to send him.");
       return;
     }
+    if (game.chapter.id === 7) {
+      startFinalWaves();
+      return;
+    }
     game.phase = "boss";
     spawnBoss();
+  }
+
+  function startFinalWaves() {
+    game.phase = "waves";
+    game.waveIndex = 1;
+    game.waveDelay = 0;
+    createEnemies(game.chapter, FINAL_WAVES[0]);
+    setObjective("Survive Wave 1/3 · defeat every attacker");
+    showComicWord("WAVE 1!", "#ffd34f");
+    announce("Final trial wave 1 of 3. Defeat every attacker.");
+  }
+
+  function updateFinalWaves(delta) {
+    if (game.phase !== "waves" || game.enemies.some(enemy => enemy.active)) return;
+    if (game.waveDelay <= 0) { game.waveDelay = .7; return; }
+    game.waveDelay -= delta;
+    if (game.waveDelay > 0) return;
+    if (game.waveIndex < FINAL_WAVES.length) {
+      createEnemies(game.chapter, FINAL_WAVES[game.waveIndex]);
+      game.waveIndex += 1;
+      setObjective(`Survive Wave ${game.waveIndex}/3 · defeat every attacker`);
+      showComicWord(`WAVE ${game.waveIndex}!`, "#ffd34f");
+      announce(`Final trial wave ${game.waveIndex} of ${FINAL_WAVES.length}.`);
+    } else {
+      game.phase = "boss";
+      setObjective(`Defeat ${game.chapter.boss.name}`);
+      showComicWord("THE BOOK AWAKENS!", "#d6a4ff");
+      spawnBoss();
+    }
   }
 
   function spawnBoss() {
@@ -1132,6 +1261,12 @@
       active: true,
       attackTimer: 1.2,
       attackPattern: 0,
+      phaseIndex: 1,
+      meleeTime: 0,
+      meleeHit: false,
+      meleeDamage: 2,
+      meleeKind: "slam",
+      attackDirection: { x: 1, y: 0 },
       moveTimer: 0,
       invulnerable: 0,
       angle: 0
@@ -1247,22 +1382,24 @@
 
   function fireMonsterAttack(enemy) {
     const aimed = normalize(player.x - enemy.x, player.y - enemy.y);
-    const count = enemy.type === "wisp" ? 3 : 2;
+    const curling = ["wisp", "shadowmoth"].includes(enemy.type);
+    const rune = ["prismimp", "bookwisp"].includes(enemy.type);
+    const count = enemy.type === "stormbat" ? 5 : curling ? 3 : 2;
     for (let index = 0; index < count; index += 1) {
-      const spread = (index - (count - 1) / 2) * (enemy.type === "wisp" ? .28 : .15);
+      const spread = (index - (count - 1) / 2) * (enemy.type === "stormbat" ? .17 : curling ? .28 : .15);
       const angle = Math.atan2(aimed.y, aimed.x) + spread;
-      const speed = enemy.type === "wisp" ? 220 : 285;
+      const speed = enemy.type === "stormbat" ? 255 : rune ? 245 : curling ? 220 : 285;
       game.enemyProjectiles.push({
         x: enemy.x, y: enemy.y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        radius: enemy.type === "wisp" ? 9 : 8,
+        radius: curling ? 9 : 8,
         life: 3.2,
         color: enemy.color,
         damage: enemy.damage,
         monsterShot: true,
-        shape: enemy.type === "wisp" ? "storm" : "star",
-        turnRate: enemy.type === "wisp" ? (index - 1) * .34 : 0,
+        shape: enemy.type === "stormbat" ? "feather" : rune ? "rune" : enemy.type === "shadowmoth" ? "shadow" : enemy.type === "prismimp" ? "prism" : curling ? "storm" : "star",
+        turnRate: enemy.type === "shadowmoth" ? (index - 1) * -.22 : curling ? (index - 1) * .34 : enemy.type === "voidling" ? (index - 1) * .2 : 0,
         age: 0
       });
     }
@@ -1279,19 +1416,25 @@
       enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
       enemy.chargeTime = Math.max(0, enemy.chargeTime - delta);
       enemy.marked = Math.max(0, (enemy.marked || 0) - delta);
+      enemy.stunTime = Math.max(0, (enemy.stunTime || 0) - delta);
+      enemy.exposed = Math.max(0, (enemy.exposed || 0) - delta);
       const previousWindup = enemy.windupTime;
+      const previousCharge = enemy.chargeTime;
       enemy.windupTime = Math.max(0, enemy.windupTime - delta);
-      if (previousWindup > 0 && enemy.windupTime === 0) enemy.chargeTime = enemy.type === "thornling" ? .4 : .28;
+      if (previousWindup > 0 && enemy.windupTime === 0) enemy.chargeTime = ["thornling", "sandbeetle"].includes(enemy.type) ? .4 : ["vinebrute", "gearbug"].includes(enemy.type) ? .52 : .28;
+      if (previousCharge > 0 && enemy.chargeTime === 0) enemy.exposed = .8;
       const away = distance(enemy, player);
       const toward = normalize(player.x - enemy.x, player.y - enemy.y);
       let direction = { x: 0, y: 0 };
       let speed = enemy.speed;
 
-      if (enemy.windupTime > 0) {
+      if (enemy.stunTime > 0) {
+        direction = { x: 0, y: 0 };
+      } else if (enemy.windupTime > 0) {
         direction = { x: 0, y: 0 };
       } else if (enemy.chargeTime > 0) {
         direction = enemy.attackDirection;
-        speed *= enemy.type === "thornling" ? 3.05 : 2.25;
+        speed *= enemy.type === "thornling" || enemy.type === "sandbeetle" ? 3.05 : enemy.type === "gearbug" ? 2.85 : enemy.type === "vinebrute" ? 2.55 : 2.25;
         if (Math.floor(enemy.chargeTime * 40) % 3 === 0) particles.burst(enemy.x, enemy.y, enemy.color, 2, 35);
       } else if (enemy.behavior === "ranged" && away < 430) {
         if (away > 245) direction = toward;
@@ -1303,10 +1446,11 @@
         }
       } else if (away < 390) {
         direction = toward;
-        const canSpecial = (enemy.type === "thornling" && away < 285) || (enemy.type === "slime" && away < 220);
+        const charger = ["thornling", "sandbeetle", "vinebrute", "gearbug"].includes(enemy.type);
+        const canSpecial = (charger && away < 285) || (enemy.type === "slime" && away < 220);
         if (canSpecial && enemy.attackCooldown <= 0) {
-          enemy.windupTime = enemy.type === "thornling" ? .42 : .28;
-          enemy.attackCooldown = enemy.type === "thornling" ? 1.85 : 1.45;
+          enemy.windupTime = ["thornling", "sandbeetle"].includes(enemy.type) ? .42 : charger ? .52 : .28;
+          enemy.attackCooldown = enemy.type === "vinebrute" ? 2.1 : enemy.type === "gearbug" ? 1.65 : enemy.type === "thornling" ? 1.85 : enemy.type === "sandbeetle" ? 1.7 : 1.45;
           enemy.attackDirection = toward;
           direction = { x: 0, y: 0 };
           particles.burst(enemy.x, enemy.y, enemy.color, 8, 95);
@@ -1321,7 +1465,7 @@
 
       enemy.facingX = Math.abs(direction.x) > .04 ? direction.x : enemy.facingX;
       moveCircle(enemy, direction.x * speed * delta, direction.y * speed * delta, true);
-      if (away < player.radius + enemy.radius + 7 && enemy.contactCooldown <= 0) {
+      if (enemy.stunTime <= 0 && away < player.radius + enemy.radius + 7 && enemy.contactCooldown <= 0) {
         enemy.contactCooldown = 1.05;
         hurtPlayer(enemy.damage, enemy);
       }
@@ -1333,14 +1477,25 @@
     if (!boss?.active || boss.peaceful) return;
     boss.invulnerable = Math.max(0, boss.invulnerable - delta);
     boss.attackTimer -= delta;
+    boss.meleeTime = Math.max(0, (boss.meleeTime || 0) - delta);
     boss.moveTimer += delta;
     boss.angle += delta;
     const direction = normalize(player.x - boss.x, player.y - boss.y);
     const desiredDistance = ["engine", "warden", "raven", "final"].includes(boss.type) ? 260 : 150;
     const away = distance(player, boss);
     const movement = away > desiredDistance ? 48 : away < desiredDistance - 70 ? -35 : 0;
-    boss.x = clamp(boss.x + direction.x * movement * delta, 100, 1180);
-    boss.y = clamp(boss.y + direction.y * movement * delta + Math.sin(boss.moveTimer * 2.4) * 22 * delta, 90, 630);
+    if (boss.meleeTime > 0) {
+      const lunge = boss.meleeKind === "dive" ? 390 : 275;
+      boss.x = clamp(boss.x + boss.attackDirection.x * lunge * delta, 100, 1180);
+      boss.y = clamp(boss.y + boss.attackDirection.y * lunge * delta, 90, 630);
+      if (!boss.meleeHit && distance(player, boss) < player.radius + boss.radius + 24) {
+        boss.meleeHit = true;
+        hurtPlayer(boss.meleeDamage, boss);
+      }
+    } else {
+      boss.x = clamp(boss.x + direction.x * movement * delta, 100, 1180);
+      boss.y = clamp(boss.y + direction.y * movement * delta + Math.sin(boss.moveTimer * 2.4) * 22 * delta, 90, 630);
+    }
     if (boss.attackTimer <= 0) {
       const cooldowns = { pi: 1.2, warden: 1.02, engine: 1.38, shadow: 1.08, raven: .82, final: .88 };
       boss.attackTimer = cooldowns[boss.type] || 1.15;
@@ -1348,9 +1503,21 @@
     }
   }
 
+  function startBossMelee(boss, kind = "slam", damage = 2) {
+    boss.meleeTime = kind === "dive" ? .52 : .42;
+    boss.meleeHit = false;
+    boss.meleeKind = kind;
+    boss.meleeDamage = damage;
+    boss.attackDirection = normalize(player.x - boss.x, player.y - boss.y);
+    particles.burst(boss.x, boss.y, game.chapter.palette.glow, kind === "dive" ? 14 : 20, 150);
+    sound.play("boom");
+  }
+
   function fireBossAttack(boss) {
     const aimed = normalize(player.x - boss.x, player.y - boss.y);
     const aimedAngle = Math.atan2(aimed.y, aimed.x);
+    const healthRatio = boss.hp / boss.maxHp;
+    const phase = healthRatio <= .34 ? 3 : healthRatio <= .67 ? 2 : 1;
     const launch = (angle, speed, options = {}) => {
       game.enemyProjectiles.push({
         x: boss.x, y: boss.y,
@@ -1367,19 +1534,28 @@
     };
 
     if (boss.type === "pi") {
-      for (let index = -1; index <= 1; index += 1) launch(aimedAngle + index * .24, 225 + Math.abs(index) * 18, { radius: 15, color: "#d78aff", shape: "pi", turnRate: index * .08 });
+      const count = phase === 3 ? 5 : 3;
+      for (let index = 0; index < count; index += 1) { const offset = index - (count - 1) / 2; launch(aimedAngle + offset * .2, 225 + Math.abs(offset) * 18, { radius: 15, color: "#d78aff", shape: "pi", turnRate: offset * .08 }); }
     } else if (boss.type === "warden") {
+      if (distance(player, boss) < 215) { startBossMelee(boss, "slam", phase + 1); boss.attackPattern += 1; return; }
       const colors = ["#39a8ff", "#a65dff", "#ff9f1c", "#7ee568"];
       const color = colors[boss.attackPattern % colors.length];
-      for (let index = -1; index <= 1; index += 1) launch(aimedAngle + index * .17, 270, { radius: 12, color, shape: "crystal" });
+      const count = phase === 3 ? 5 : 3;
+      for (let index = 0; index < count; index += 1) { const offset = index - (count - 1) / 2; launch(aimedAngle + offset * .15, 270 + phase * 12, { radius: 12, color, shape: "crystal" }); }
     } else if (boss.type === "engine") {
       const offset = boss.attackPattern * .31;
-      for (let index = 0; index < 8; index += 1) launch(offset + index * Math.PI / 4, 205, { radius: 11, color: index % 2 ? "#ba57ff" : "#69e5ff", shape: "gear", life: 4.8 });
+      const count = phase === 3 ? 12 : phase === 2 ? 10 : 8;
+      for (let index = 0; index < count; index += 1) launch(offset + index * Math.PI * 2 / count, 205 + phase * 10, { radius: 11, color: index % 2 ? "#ba57ff" : "#69e5ff", shape: "gear", life: 4.8 });
     } else if (boss.type === "shadow") {
-      for (let index = -2; index <= 2; index += 1) launch(aimedAngle + index * .23, 238, { radius: 13, color: "#c77dff", shape: "crescent", turnRate: -index * .045 });
+      if (distance(player, boss) < 310) { startBossMelee(boss, "dive", phase + 1); boss.attackPattern += 1; return; }
+      const count = phase === 3 ? 7 : 5;
+      for (let index = 0; index < count; index += 1) { const offset = index - (count - 1) / 2; launch(aimedAngle + offset * .2, 238 + phase * 8, { radius: 13, color: "#c77dff", shape: "crescent", turnRate: -offset * .045 }); }
     } else if (boss.type === "raven") {
-      for (let index = -3; index <= 3; index += 1) launch(aimedAngle + index * .16, 300 + (3-Math.abs(index))*12, { radius: 10, color: index % 2 ? "#8da2d9" : "#38496f", shape: "feather" });
+      if (distance(player, boss) < 250) { startBossMelee(boss, "dive", phase + 1); boss.attackPattern += 1; return; }
+      const count = phase === 3 ? 9 : 7;
+      for (let index = 0; index < count; index += 1) { const offset = index - (count - 1) / 2; launch(aimedAngle + offset * .14, 300 + (3-Math.abs(offset))*12 + phase * 10, { radius: 10, color: index % 2 ? "#8da2d9" : "#38496f", shape: "feather" }); }
     } else if (boss.type === "final") {
+      if (distance(player, boss) < 230 && boss.attackPattern % 2 === 0) { startBossMelee(boss, "slam", phase + 1); boss.attackPattern += 1; return; }
       const healthRatio = boss.hp / boss.maxHp;
       const phase = healthRatio <= .34 ? 3 : healthRatio <= .67 ? 2 : 1;
       const count = phase === 3 ? 9 : phase === 2 ? 7 : 5;
@@ -1435,6 +1611,7 @@
         const outward = normalize(projectile.x - player.x, projectile.y - player.y);
         game.projectiles.push({ ...projectile, vx: outward.x * (470 + skillRank() * 25), vy: outward.y * (470 + skillRank() * 25), color: "#8ce568", damage: 1 + Math.ceil(skillRank() / 2), life: 1.5 });
         projectile.life = 0;
+        game.enemies.forEach(enemy => { if (enemy.active && enemy.type === "wisp" && distance(enemy, player) < 170) { enemy.exposed = 1.2; enemy.stunTime = .45; } });
         particles.burst(projectile.x, projectile.y, "#8ce568", 8, 100);
         sound.play("shield");
       } else if (circleHit(projectile, player)) {
@@ -1519,6 +1696,7 @@
     updateCompanions(delta);
     updateCooperationPuzzle();
     updateEnemies(delta);
+    updateFinalWaves(delta);
     updateBoss(delta);
     updateProjectiles(delta);
     particles.update(delta);
@@ -1861,10 +2039,22 @@
       for(let quadrant=0;quadrant<4;quadrant+=1){ctx.beginPath();ctx.arc(0,2,enemy.radius+13,quadrant*Math.PI/2+.16,quadrant*Math.PI/2+.64);ctx.stroke();}ctx.restore();
     }
     if(enemy.windupTime>0){
-      const warning=1-clamp(enemy.windupTime/(enemy.type==="thornling"?.42:.28),0,1);ctx.save();ctx.globalAlpha=.38+warning*.42;ctx.strokeStyle=enemy.type==="thornling"?"#ffcf55":"#d6a4ff";ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=12;ctx.lineWidth=3;
-      if(enemy.type==="thornling"){ctx.rotate(Math.atan2(enemy.attackDirection.y,enemy.attackDirection.x));ctx.setLineDash([10,7]);ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.setLineDash([]);}
+      const warning=1-clamp(enemy.windupTime/(["thornling","sandbeetle"].includes(enemy.type)?.42:["vinebrute","gearbug"].includes(enemy.type)?.52:.28),0,1);ctx.save();ctx.globalAlpha=.38+warning*.42;ctx.strokeStyle=["thornling","sandbeetle","vinebrute","gearbug"].includes(enemy.type)?"#ffcf55":"#d6a4ff";ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=12;ctx.lineWidth=3;
+      if(["thornling","sandbeetle","vinebrute","gearbug"].includes(enemy.type)){ctx.rotate(Math.atan2(enemy.attackDirection.y,enemy.attackDirection.x));ctx.setLineDash([10,7]);ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.setLineDash([]);}
       else{ctx.beginPath();ctx.arc(0,5,enemy.radius+10+warning*13,0,Math.PI*2);ctx.stroke();}
       ctx.restore();
+    }
+    if ((enemy.marked || 0) > 0 || (enemy.exposed || 0) > 0 || (enemy.stunTime || 0) > 0) {
+      ctx.save();
+      ctx.globalAlpha = enemy.exposed > 0 || enemy.stunTime > 0 ? .95 : .72;
+      ctx.strokeStyle = enemy.exposed > 0 || enemy.stunTime > 0 ? "#ffd34f" : "#d6a4ff";
+      ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 15; ctx.lineWidth = 3;
+      ctx.setLineDash(enemy.stunTime > 0 ? [3, 5] : [8, 6]);
+      ctx.beginPath(); ctx.arc(0, 2, enemy.radius + 11 + Math.sin(game.sceneTime * 8) * 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]); ctx.restore();
+    }
+    if (enemy.elite) {
+      ctx.save(); ctx.globalAlpha = .72; ctx.strokeStyle = "#ffd34f"; ctx.shadowColor = "#ffd34f"; ctx.shadowBlur = 12; ctx.lineWidth = 2; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(0, 2, enemy.radius + 18 + Math.sin(game.sceneTime * 4 + enemy.phase) * 2, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#ffd34f"; ctx.font = "900 10px Trebuchet MS"; ctx.textAlign = "center"; ctx.fillText("ELITE", 0, -enemy.height * .72 - 17); ctx.restore();
     }
     ctx.fillStyle="rgba(30,38,33,.26)";ctx.beginPath();ctx.ellipse(0,enemy.radius*.78,enemy.radius*1.05,enemy.radius*.38,0,0,Math.PI*2);ctx.fill();
     ctx.translate(0,hover);
@@ -1875,13 +2065,40 @@
     if (monsterArt?.complete && monsterArt.naturalWidth) {
       ctx.shadowColor=enemy.color;ctx.shadowBlur=enemy.type==="wisp"?18:8;
       ctx.drawImage(monsterArt,-enemy.width/2,-enemy.height*.68,enemy.width,enemy.height);
-    }
+    } else drawProceduralMonster(ctx, enemy);
     ctx.restore();ctx.globalAlpha=1;ctx.shadowBlur=0;
     if (enemy.hp < enemy.maxHp) {
       ctx.fillStyle="rgba(21,25,24,.72)";roundedRect(ctx,-25,-enemy.height*.68-12,50,7,4);ctx.fill();
       ctx.fillStyle=enemy.color;roundedRect(ctx,-24,-enemy.height*.68-11,48*clamp(enemy.hp/enemy.maxHp,0,1),5,3);ctx.fill();
     }
     ctx.restore();
+  }
+
+  function drawProceduralMonster(ctx, enemy) {
+    const r = enemy.radius, t = game.sceneTime;
+    ctx.strokeStyle = "#273229"; ctx.lineWidth = 4; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.shadowColor = enemy.color; ctx.shadowBlur = 9;
+    if (enemy.type === "mossling") {
+      ctx.fillStyle = enemy.color; ctx.beginPath(); ctx.moveTo(-r,-3); ctx.quadraticCurveTo(-r-4,-r*.75,0,-r); ctx.quadraticCurveTo(r+5,-r*.7,r,3); ctx.quadraticCurveTo(r*.7,r,0,r*.9); ctx.quadraticCurveTo(-r*.8,r,-r,-3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle="#9be07b"; ctx.beginPath(); ctx.moveTo(-8,-r*.8);ctx.quadraticCurveTo(-18,-r-15,-3,-r*.55);ctx.quadraticCurveTo(6,-r-18,9,-r*.62);ctx.quadraticCurveTo(20,-r-10,11,-r*.3);ctx.closePath();ctx.fill();ctx.stroke();
+    } else if (enemy.type === "sandbeetle") {
+      ctx.fillStyle=enemy.color;ctx.beginPath();ctx.ellipse(0,2,r*1.05,r*.78,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle="#7e4b2e";ctx.lineWidth=3;for(let x=-r*.55;x<=r*.55;x+=r*.55){ctx.beginPath();ctx.moveTo(x,-r*.45);ctx.lineTo(x*.8,r*.55);ctx.stroke();}ctx.strokeStyle="#273229";ctx.beginPath();ctx.moveTo(-r*.7,-6);ctx.lineTo(-r-10,-16);ctx.moveTo(r*.7,-6);ctx.lineTo(r+10,-16);ctx.stroke();
+    } else if (enemy.type === "prismimp") {
+      ctx.fillStyle=enemy.color;ctx.beginPath();ctx.moveTo(0,-r-8);ctx.lineTo(r*.92,-r*.15);ctx.lineTo(r*.62,r);ctx.lineTo(-r*.62,r);ctx.lineTo(-r*.92,-r*.15);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#ffd34f";ctx.beginPath();ctx.moveTo(-r*.6,-r*.55);ctx.lineTo(-r-8,-r-15);ctx.lineTo(-r*.3,-r*.8);ctx.moveTo(r*.6,-r*.55);ctx.lineTo(r+8,-r-15);ctx.lineTo(r*.3,-r*.8);ctx.fill();ctx.stroke();
+    } else if (enemy.type === "shadowmoth") {
+      ctx.fillStyle="#46325f";ctx.beginPath();ctx.moveTo(-4,0);ctx.quadraticCurveTo(-r-13,-r-16,-r-7,5);ctx.quadraticCurveTo(-r-9,r+12,-3,r*.5);ctx.moveTo(4,0);ctx.quadraticCurveTo(r+13,-r-16,r+7,5);ctx.quadraticCurveTo(r+9,r+12,3,r*.5);ctx.fill();ctx.stroke();ctx.fillStyle=enemy.color;ctx.beginPath();ctx.ellipse(0,3,8,r*.8,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    } else if (enemy.type === "vinebrute") {
+      ctx.fillStyle=enemy.color;ctx.beginPath();ctx.moveTo(-r*.7,r);ctx.quadraticCurveTo(-r*.9,0,-r*.5,-r*.75);ctx.quadraticCurveTo(0,-r-4,r*.5,-r*.75);ctx.quadraticCurveTo(r*.9,0,r*.7,r);ctx.closePath();ctx.fill();ctx.stroke();ctx.strokeStyle="#3f7e46";ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-r*.45,0);ctx.quadraticCurveTo(-r-18,-8,-r-7,-r*.7);ctx.moveTo(r*.45,0);ctx.quadraticCurveTo(r+18,-8,r+7,-r*.7);ctx.stroke();
+    } else if (enemy.type === "stormbat") {
+      ctx.fillStyle=enemy.color;ctx.beginPath();ctx.moveTo(0,-r*.7);ctx.quadraticCurveTo(-r-17,-r-12,-r-20,r*.65);ctx.quadraticCurveTo(-r*.45,r*.4,0,r*.95);ctx.quadraticCurveTo(r*.45,r*.4,r+20,r*.65);ctx.quadraticCurveTo(r+17,-r-12,0,-r*.7);ctx.fill();ctx.stroke();ctx.fillStyle="#dcefff";ctx.beginPath();ctx.arc(-7,-3,3,0,Math.PI*2);ctx.arc(7,-3,3,0,Math.PI*2);ctx.fill();
+    } else if (enemy.type === "bookwisp") {
+      ctx.fillStyle="#f6e6bb";ctx.beginPath();ctx.moveTo(-r*.9,-r*.65);ctx.quadraticCurveTo(-r*.2,-r-2,0,-r*.35);ctx.quadraticCurveTo(r*.2,-r-2,r*.9,-r*.65);ctx.lineTo(r*.75,r*.8);ctx.quadraticCurveTo(r*.2,r*.45,0,r*.75);ctx.quadraticCurveTo(-r*.2,r*.45,-r*.75,r*.8);ctx.closePath();ctx.fill();ctx.stroke();ctx.strokeStyle="#b97838";ctx.beginPath();ctx.moveTo(0,-r*.35);ctx.lineTo(0,r*.65);ctx.stroke();ctx.fillStyle="#e9b85e";ctx.beginPath();ctx.arc(0,.1,5+Math.sin(t*5)*1.5,0,Math.PI*2);ctx.fill();
+    } else if (enemy.type === "gearbug") {
+      ctx.fillStyle=enemy.color;ctx.beginPath();ctx.arc(0,0,r*.72,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle="#6e5236";for(let i=0;i<6;i++){const a=i*Math.PI/3;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.65,Math.sin(a)*r*.65);ctx.lineTo(Math.cos(a)*r*1.25,Math.sin(a)*r*1.25);ctx.stroke();}ctx.strokeStyle="#273229";
+    } else {
+      ctx.fillStyle=enemy.color;ctx.beginPath();ctx.moveTo(0,-r);ctx.quadraticCurveTo(r*.9,-r*.2,r*.35,r*.55);ctx.quadraticCurveTo(r*.8,r,0,r+8);ctx.quadraticCurveTo(-r*.8,r,-r*.35,r*.55);ctx.quadraticCurveTo(-r*.9,-r*.2,0,-r);ctx.fill();ctx.stroke();ctx.fillStyle="#f4d8ff";ctx.beginPath();ctx.arc(-6,-2,3,0,Math.PI*2);ctx.arc(6,-2,3,0,Math.PI*2);ctx.fill();
+    }
+    ctx.shadowBlur=0;
   }
 
   function drawBoss(ctx, boss) {
@@ -1891,6 +2108,7 @@
       if(boss.type==="engine"){for(let i=0;i<8;i+=1){const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*55,Math.sin(a)*55);ctx.lineTo(Math.cos(a)*(82+warning*24),Math.sin(a)*(82+warning*24));ctx.stroke();}}
       else if(boss.type==="raven"){for(const spread of[-.48,.48]){ctx.beginPath();ctx.moveTo(25,0);ctx.lineTo(Math.cos(spread)*(125+warning*35),Math.sin(spread)*(125+warning*35));ctx.stroke();}}
       else{ctx.beginPath();ctx.arc(0,0,boss.radius+14+warning*16,0,Math.PI*2);ctx.stroke();}ctx.restore();}
+    if (!boss.peaceful && boss.meleeTime > 0) { ctx.save(); ctx.rotate(Math.atan2(boss.attackDirection.y, boss.attackDirection.x)); ctx.globalAlpha = .78; ctx.strokeStyle = boss.meleeKind === "dive" ? "#c77dff" : "#ffd34f"; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 20; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(22, 0, boss.radius + 25, -.95, .95); ctx.stroke(); ctx.restore(); }
     const pulse=1+Math.sin(game.sceneTime*4)*.035;ctx.scale(pulse,pulse);ctx.globalAlpha=boss.invulnerable>0?.55:1;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;
     if(boss.type==="pi"&&art.piMonster.complete&&art.piMonster.naturalWidth){
       ctx.fillStyle="rgba(38,29,51,.3)";ctx.beginPath();ctx.ellipse(0,50,75,24,0,0,Math.PI*2);ctx.fill();
@@ -1944,6 +2162,10 @@
       ctx.beginPath();ctx.moveTo(radius*1.5,0);ctx.quadraticCurveTo(0,-radius*.75,-radius*.9,0);ctx.quadraticCurveTo(0,radius*.75,radius*1.5,0);ctx.fill();ctx.stroke();ctx.strokeStyle="#dce6ff";ctx.beginPath();ctx.moveTo(-radius*.65,0);ctx.lineTo(radius*1.1,0);ctx.stroke();
     }else if(projectile.shape==="rune"){
       ctx.rotate((projectile.age||0)*2.6);ctx.beginPath();for(let i=0;i<6;i+=1){const a=-Math.PI/2+i*Math.PI/3;const r=radius*(i%2?0.62:1.1);const x=Math.cos(a)*r,y=Math.sin(a)*r;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#fff6c8";ctx.font=`900 ${radius*1.05}px Georgia`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("✦",0,1);
+    }else if(projectile.shape==="prism"){
+      ctx.rotate((projectile.age||0)*3);ctx.fillStyle="#f3a6ff";ctx.beginPath();ctx.moveTo(radius*1.35,0);ctx.lineTo(0,-radius);ctx.lineTo(-radius*.85,0);ctx.lineTo(0,radius);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#fff5ff";ctx.beginPath();ctx.moveTo(0,-radius*.65);ctx.lineTo(radius*.65,0);ctx.lineTo(0,radius*.15);ctx.closePath();ctx.fill();
+    }else if(projectile.shape==="shadow"){
+      ctx.fillStyle="#3f235d";ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle="#d6a4ff";ctx.lineWidth=3;ctx.beginPath();ctx.arc(-2,0,radius*.72,-1.15,1.15);ctx.stroke();
     }else{
       ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();
     }
@@ -1989,6 +2211,7 @@
 
   function currentObjectiveTarget() {
     if(game.phase==="portal")return game.chapter.portal;
+    if(game.phase==="waves")return game.enemies.find(enemy=>enemy.active)||game.chapter.portal;
     if(game.phase==="boss")return game.boss;
     if(game.phase==="cooperation"&&game.coopPuzzle)return game.coopPuzzle.plateA;
     const puzzle=game.chapter.puzzle;

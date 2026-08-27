@@ -131,6 +131,8 @@
         maxHealth: 6,
         maxEnergy: 100,
         weapon: "leafblade",
+        weaponTraits: { leafblade: null, hammer: null },
+        materials: { gel: 0, shard: 0, fiber: 0, crystal: 0 },
         muted: false
       };
     }
@@ -147,6 +149,11 @@
         loaded.maxHealth = clamp(Number(loaded.maxHealth) || 6, 6, 12);
         loaded.maxEnergy = clamp(Number(loaded.maxEnergy) || 100, 100, 160);
         loaded.weapon = ["leafblade", "hammer"].includes(loaded.weapon) ? loaded.weapon : "leafblade";
+        loaded.weaponTraits = loaded.weaponTraits && typeof loaded.weaponTraits === "object" ? loaded.weaponTraits : { leafblade: null, hammer: null };
+        loaded.weaponTraits.leafblade = typeof loaded.weaponTraits.leafblade === "string" ? loaded.weaponTraits.leafblade : null;
+        loaded.weaponTraits.hammer = typeof loaded.weaponTraits.hammer === "string" ? loaded.weaponTraits.hammer : null;
+        loaded.materials = loaded.materials && typeof loaded.materials === "object" ? loaded.materials : { gel: 0, shard: 0, fiber: 0, crystal: 0 };
+        ["gel", "shard", "fiber", "crystal"].forEach(key => { loaded.materials[key] = Math.max(0, Math.floor(Number(loaded.materials[key]) || 0)); });
         loaded.completed = Array.isArray(loaded.completed) ? loaded.completed.filter(Number.isFinite) : [];
         loaded.memories = Array.isArray(loaded.memories) ? loaded.memories.filter(value => typeof value === "string") : [];
         loaded.muted = Boolean(loaded.muted);

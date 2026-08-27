@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#071127">
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <title>Clark: Portalbound · Codex Edition</title>
-  <link rel="stylesheet" href="css/rpg.css?v=20260826-combat2">
+  <link rel="stylesheet" href="css/rpg.css?v=20260826-waves">
 </head>
 <body>
   <main class="app" id="app">
@@ -54,7 +54,7 @@
 
       <section class="objective-bar" aria-live="polite">
         <div><span id="chapterReadout">Chapter 1</span><strong id="objectiveReadout">Find the first portal</strong></div>
-        <div class="collectibles" title="Comic memories"><span>✦</span><strong id="memoryReadout">0/21</strong></div>
+        <div class="collectibles" title="Comic memories and upgrade materials"><span>✦</span><strong id="memoryReadout">0/21</strong><span>◆</span><strong id="materialReadout">0</strong></div>
       </section>
 
       <div class="stage" id="stage">
@@ -77,6 +77,7 @@
             </button>
           </div>
           <div class="combo-pips" id="comboPips" aria-label="Leafblade combo"><i></i><i></i><i></i><span>3-hit combo</span></div>
+          <div class="weapon-traits" id="weaponTraits" aria-label="Weapon specialization choices"></div>
         </div>
       </div>
 
@@ -158,9 +159,12 @@
           <div><kbd>E</kbd><kbd>Enter</kbd><strong>Interact</strong></div>
           <div><kbd>Q</kbd><strong>Call Bradley / send him to a plate</strong></div>
           <div><kbd>1–4</kbd><strong>Weapon / instant skills</strong></div>
+          <div><kbd>Rank II</kbd><strong>Choose a weapon path</strong></div>
+          <div><kbd>Elite</kbd><strong>Stronger foes drop materials</strong></div>
+          <div><kbd>Wave</kbd><strong>Chapter 7 has three attack waves</strong></div>
           <div><kbd>Shift</kbd><strong>Rocket dash</strong></div>
         </div>
-        <p>Follow the glowing objective marker. Watch the warning rings and charge lines: every monster has a different attack pattern. Chain three Leafblade swings, hold the Comet Hammer for a stronger smash, dash through attacks for a perfect counter, and use number keys for instant skills.</p>
+        <p>Follow the glowing objective marker. Watch the warning rings and charge lines: every chapter has its own monster roster and attack patterns. Chain three Leafblade swings, hold the Comet Hammer for a stronger smash, dash through attacks for a perfect counter, and choose a weapon specialization from the Weapon panel after Rank II. Elite foes drop upgrade materials. In Chapter 7, survive three waves before the final boss appears.</p>
       </div>
     </section>
 
@@ -183,8 +187,8 @@
   </main>
 
   <div class="sr-only" id="liveRegion" aria-live="polite"></div>
-  <script src="js/data.js?v=20260826-combat2"></script>
-  <script src="js/engine.js?v=20260826-combat2"></script>
-  <script src="js/game.js?v=20260826-combat2"></script>
+  <script src="js/data.js?v=20260826-waves"></script>
+  <script src="js/engine.js?v=20260826-waves"></script>
+  <script src="js/game.js?v=20260826-waves"></script>
 </body>
 </html>
