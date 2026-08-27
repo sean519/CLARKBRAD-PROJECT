@@ -61,6 +61,7 @@
     closeBestiary: document.querySelector("#closeBestiary"),
     bestiaryGrid: document.querySelector("#bestiaryGrid"),
     endingOverlay: document.querySelector("#endingOverlay"),
+    endingImage: document.querySelector("#endingImage"),
     endingChapters: document.querySelector("#endingChapters"),
     endingMenu: document.querySelector("#endingMenu"),
     companionButton: document.querySelector("#companionButton"),
@@ -87,6 +88,10 @@
     touchInteract: document.querySelector("#touchInteract"),
     touchInteractLabel: document.querySelector("#touchInteractLabel"),
     touchCompanion: document.querySelector("#touchCompanion"),
+    touchBoltLabel: document.querySelector("#touchBolt small"),
+    touchDashLabel: document.querySelector("#touchDash small"),
+    touchShieldLabel: document.querySelector("#touchShield small"),
+    touchCompanionLabel: document.querySelector("#touchCompanion small"),
     liveRegion: document.querySelector("#liveRegion")
   };
 
@@ -103,14 +108,20 @@
     "assets/chapters/chapter-06.webp",
     "assets/chapters/chapter-07.webp"
   ];
+  const PROP_SOURCES = {
+    clark: "assets/chapter1/clark.webp",
+    piMonster: "assets/chapter1/pi-monster.webp",
+    leafblade: "assets/chapter1/leafblade.webp",
+    cometHammer: "assets/weapons/comet-hammer.webp"
+  };
   const art = {
     backgrounds: Array(BACKGROUND_SOURCES.length).fill(null),
     monsters: {},
-    clark: Object.assign(new Image(), { src: "assets/chapter1/clark.webp" }),
-    piMonster: Object.assign(new Image(), { src: "assets/chapter1/pi-monster.webp" }),
-    leafblade: Object.assign(new Image(), { src: "assets/chapter1/leafblade.webp" }),
-    cometHammer: Object.assign(new Image(), { src: "assets/weapons/comet-hammer.webp" })
+    props: {}
   };
+  // Stand-in for a prop that has not been requested yet, so draw code can test
+  // .complete/.naturalWidth without a null check and fall back to vector art.
+  const PENDING_ART = Object.freeze({ complete: false, naturalWidth: 0 });
   const WEAPONS = {
     leafblade: { name: "Portal Leafblade", shortName: "Leafblade", icon: "⚔", unlockChapter: 1 },
     hammer: { name: "Comet Hammer", shortName: "Comet Hammer", icon: "◆", unlockChapter: 3 }
@@ -130,6 +141,7 @@
   };
   const ROMAN_RANKS = ["I", "II", "III", "IV"];
   let traitUiSignature = "";
+  let hudHeartSignature = "";
   const MONSTER_SOURCES = {
     slime: "assets/monsters/rift-slime.webp",
     drone: "assets/monsters/star-drone.webp",
@@ -232,15 +244,25 @@
     return art.monsters[type];
   }
 
+  // Props are fetched the first time a chapter actually needs them: the Pi Monster
+  // never downloads if you start at Chapter 7, and the Comet Hammer waits until
+  // it is unlocked.
+  function loadProp(key) {
+    if (!art.props[key] && PROP_SOURCES[key]) {
+      art.props[key] = Object.assign(new Image(), { src: PROP_SOURCES[key] });
+    }
+    return art.props[key] || PENDING_ART;
+  }
+
   const player = {
     x: 120, y: 360, radius: 23,
     health: save.maxHealth, maxHealth: save.maxHealth,
     energy: save.maxEnergy, maxEnergy: save.maxEnergy,
     speed: 245, facing: { x: 1, y: 0 },
     invulnerable: 0, attackCooldown: 0, dashCooldown: 0, dashTime: 0,
-    shieldTime: 0, selectedAbility: "fist", moving: false, walkCycle: 0,
+    shieldTime: 0, moving: false, walkCycle: 0,
     weapon: save.weapon === "hammer" && save.unlockedChapter >= 3 ? "hammer" : "leafblade", comboStep: 0, comboTimer: 0, attackKind: "leafblade", touchAttackHeld: false,
-    attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }, hammerCharging: false, hammerCharge: 0, perfectDodgeTime: 0
+    attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }, hammerCharging: false, hammerCharge: 0, perfectDodgeTime: 0, counterCooldown: 0
   };
 
   const bradley = { x: 80, y: 390, radius: 20, cooldown: 0, facing: { x: 1, y: 0 }, command: "follow", target: null };
@@ -288,15 +310,17 @@
     dom.continueButton.textContent = hasProgress ? `Continue · Chapter ${save.chapter}` : "Continue Adventure";
     dom.soundButton.textContent = sound.muted ? "×" : "♪";
     dom.soundButton.setAttribute("aria-label", sound.muted ? "Turn sound on" : "Mute sound");
-    buildChapterGrid();
   }
 
   function gainExperience(amount) {
     save.xp += amount;
-    const needed = save.level * 120;
-    if (save.xp >= needed && save.level < 10) {
-      save.xp -= needed;
+    let levelled = false;
+    // A single award can cross more than one threshold — the boss hands out 100 XP
+    // at once — so keep levelling until the bank is short of the next rank.
+    while (save.level < 10 && save.xp >= save.level * 120) {
+      save.xp -= save.level * 120;
       save.level += 1;
+      levelled = true;
       if (save.level % 2 === 0) {
         save.maxHealth = Math.min(12, save.maxHealth + 1);
         player.maxHealth = save.maxHealth;
@@ -306,12 +330,20 @@
         player.maxEnergy = save.maxEnergy;
         player.energy = player.maxEnergy;
       }
+    }
+    if (levelled) {
       showComicWord("LEVEL UP!", "#8ce568");
       sound.play("success");
       announce(`Level up. Clark is now level ${save.level}.`);
     }
     persist(false);
   }
+
+  // Abilities, weapons and companions are rewards you keep: they all gate on how
+  // far the adventure has been pushed, not on which chapter is loaded right now.
+  // Gating on the current chapter used to strip Clark's skills when replaying an
+  // early chapter while leaving the Comet Hammer in his hands.
+  function hasUnlocked(chapterNeeded) { return save.unlockedChapter >= chapterNeeded; }
 
   function chapterMemoryKey(chapterId, index) { return `${chapterId}:${index}`; }
 
@@ -397,6 +429,9 @@
     game.waveDelay = 0;
     game.obstacles = chapterObstacles(game.chapter);
     loadBackground(game.chapter.id);
+    loadProp("clark");
+    loadProp("leafblade");
+    if (save.unlockedChapter >= WEAPONS.hammer.unlockChapter) loadProp("cometHammer");
     game.block = game.chapter.puzzle.type === "push"
       ? { ...game.chapter.puzzle.block, radius: 32, goal: game.chapter.puzzle.goal }
       : null;
@@ -415,6 +450,7 @@
     player.hammerCharging = false;
     player.hammerCharge = 0;
     player.perfectDodgeTime = 0;
+    player.counterCooldown = 0;
     player.comboStep = 0;
     player.comboTimer = 0;
     player.touchAttackHeld = false;
@@ -518,6 +554,10 @@
 
   function showEnding() {
     game.mode = "ending";
+    if (dom.endingImage?.dataset.src) {
+      dom.endingImage.src = dom.endingImage.dataset.src;
+      delete dom.endingImage.dataset.src;
+    }
     dom.endingOverlay.hidden = false;
     dom.endingChapters.focus();
     sound.play("portal");
@@ -531,26 +571,16 @@
   function updateAbilityLocks() {
     dom.abilityButtons.forEach(button => {
       const unlockChapter = Data.abilityUnlocks[button.dataset.ability] || 1;
-      const locked = game.chapter.id < unlockChapter;
+      const locked = !hasUnlocked(unlockChapter);
       button.classList.toggle("is-locked", locked);
       button.disabled = locked;
-      if (locked && player.selectedAbility === button.dataset.ability) player.selectedAbility = "fist";
     });
-    dom.companionButton.disabled = game.chapter.id < 2;
-    dom.companionButton.classList.toggle("is-locked", game.chapter.id < 2);
-    dom.touchBolt.hidden = game.chapter.id < Data.abilityUnlocks.bolt;
-    dom.touchDash.hidden = game.chapter.id < Data.abilityUnlocks.dash;
-    dom.touchShield.hidden = game.chapter.id < Data.abilityUnlocks.shield;
-    dom.touchCompanion.hidden = game.chapter.id < 2;
-    selectAbility(player.selectedAbility);
-  }
-
-  function selectAbility(name, announceSelection = true) {
-    const unlock = Data.abilityUnlocks[name] || 1;
-    if (game.chapter.id < unlock) return;
-    player.selectedAbility = name;
-    dom.abilityButtons.forEach(button => button.classList.toggle("is-active", button.dataset.ability === name));
-    if (announceSelection) announce(`${name === "fist" ? WEAPONS[player.weapon].name : name.replace(/^./, character => character.toUpperCase())} selected.`);
+    dom.companionButton.disabled = !hasUnlocked(2);
+    dom.companionButton.classList.toggle("is-locked", !hasUnlocked(2));
+    dom.touchBolt.hidden = !hasUnlocked(Data.abilityUnlocks.bolt);
+    dom.touchDash.hidden = !hasUnlocked(Data.abilityUnlocks.dash);
+    dom.touchShield.hidden = !hasUnlocked(Data.abilityUnlocks.shield);
+    dom.touchCompanion.hidden = !hasUnlocked(2);
   }
 
   function weaponRank() {
@@ -571,7 +601,6 @@
   function cycleWeapon() {
     const candidates = WEAPON_ORDER.filter(key => save.unlockedChapter >= WEAPONS[key].unlockChapter);
     if (candidates.length < 2) {
-      selectAbility("fist");
       showComicWord("LOCKED!", "#ffd34f");
       announce("The Comet Hammer unlocks after completing Chapter 2.");
       return;
@@ -599,7 +628,6 @@
       save.weapon = key;
       store.save(save);
     }
-    selectAbility("fist", false);
     updateWeaponHud();
     if (feedback && changed) {
       sound.play("click");
@@ -665,10 +693,19 @@
   }
 
   function updateHud() {
-    dom.hearts.innerHTML = Array.from({ length: player.maxHealth }, (_, index) => `<span class="heart ${index >= player.health ? "is-empty" : ""}">♥</span>`).join("");
+    // Hearts only change on damage or a level-up, but this runs 60 times a second:
+    // rebuilding the row every frame threw away and re-rasterised a dozen
+    // drop-shadowed spans for nothing.
+    const heartSignature = `${player.health}/${player.maxHealth}`;
+    if (heartSignature !== hudHeartSignature) {
+      hudHeartSignature = heartSignature;
+      dom.hearts.innerHTML = Array.from({ length: player.maxHealth }, (_, index) => `<span class="heart ${index >= player.health ? "is-empty" : ""}">♥</span>`).join("");
+    }
     dom.energyBar.style.width = `${clamp(player.energy / player.maxEnergy * 100, 0, 100)}%`;
     dom.levelReadout.textContent = save.level;
-    dom.chapterReadout.textContent = `Chapter ${game.chapter.id}`;
+    // updateTimedTrial owns this readout while a countdown is running, otherwise
+    // the timer it just wrote would be overwritten before the frame ever paints.
+    if (game.timeLeft === null) dom.chapterReadout.textContent = `Chapter ${game.chapter.id}`;
     dom.memoryReadout.textContent = `${save.memories.length}/21`;
     if (dom.materialReadout) dom.materialReadout.textContent = Object.values(save.materials || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     updateWeaponHud();
@@ -687,14 +724,13 @@
       button.classList.toggle("is-unavailable", unavailable);
       button.classList.toggle("is-ready", !unavailable);
     });
-    dom.touchBolt.querySelector("small").textContent = `Bolt · ${skillCost("bolt", rank)}`;
-    dom.touchDash.querySelector("small").textContent = `Dash · ${skillCost("dash", rank)}`;
-    dom.touchShield.querySelector("small").textContent = `Shield · ${skillCost("shield", rank)}`;
-    dom.touchCompanion.querySelector("small").textContent = bradley.cooldown > 0 ? `${bradley.cooldown.toFixed(1)}s` : "Boom";
+    dom.touchBoltLabel.textContent = `Bolt · ${skillCost("bolt", rank)}`;
+    dom.touchDashLabel.textContent = `Dash · ${skillCost("dash", rank)}`;
+    dom.touchShieldLabel.textContent = `Shield · ${skillCost("shield", rank)}`;
     const cooperationMode = game.phase === "cooperation" && !!game.coopPuzzle;
     if (dom.companionAction) dom.companionAction.textContent = cooperationMode ? "Send Bradley" : "Mega Boom";
     dom.companionButton.setAttribute("aria-label", cooperationMode ? "Send Bradley to the orange plate" : "Bradley Mega Boom");
-    dom.touchCompanion.querySelector("small").textContent = cooperationMode ? (bradley.command === "station" ? "Waiting" : "Send") : (bradley.cooldown > 0 ? `${bradley.cooldown.toFixed(1)}s` : "Boom");
+    dom.touchCompanionLabel.textContent = cooperationMode ? (bradley.command === "station" ? "Waiting" : "Send") : (bradley.cooldown > 0 ? `${bradley.cooldown.toFixed(1)}s` : "Boom");
     if (game.boss?.active) {
       dom.bossBar.hidden = false;
       dom.bossName.textContent = game.boss.name;
@@ -731,6 +767,7 @@
     player.attackCooldown = Math.max(0, player.attackCooldown - delta);
     player.attackTime = Math.max(0, player.attackTime - delta);
     player.perfectDodgeTime = Math.max(0, player.perfectDodgeTime - delta);
+    player.counterCooldown = Math.max(0, player.counterCooldown - delta);
     if (player.hammerCharging) player.hammerCharge = Math.min(1, player.hammerCharge + delta / (weaponTrait("hammer") === "meteor" ? .58 : .75));
     player.comboTimer = Math.max(0, player.comboTimer - delta);
     if (player.comboTimer === 0) player.comboStep = 0;
@@ -752,7 +789,7 @@
     moveCircle(player, dx, dy, pushedBlock);
 
     const rhythmKeyHandled = handleRhythmKeyboardInput();
-    if (!rhythmKeyHandled && input.consume("Digit1")) selectAbility("fist");
+    if (!rhythmKeyHandled && input.consume("Digit1")) cycleWeapon();
     if (!rhythmKeyHandled && input.consume("Digit2")) useTouchAbility("bolt");
     if (!rhythmKeyHandled && input.consume("Digit3")) useDash();
     if (!rhythmKeyHandled && input.consume("Digit4")) useTouchAbility("shield");
@@ -761,7 +798,7 @@
     if (input.consume("KeyR")) cycleWeapon();
     if (input.consume("ShiftLeft", "ShiftRight")) useDash();
     if (input.consume("Space", "KeyJ", "KeyK")) {
-      if (player.weapon === "hammer" && player.selectedAbility === "fist") {
+      if (player.weapon === "hammer") {
         player.hammerCharging = true;
         player.hammerCharge = 0;
         showComicWord("CHARGE!", "#ffb347");
@@ -787,7 +824,7 @@
   function useDash() {
     const rank = skillRank();
     const cost = skillCost("dash", rank);
-    if (game.chapter.id < 3 || player.dashCooldown > 0 || player.energy < cost) return;
+    if (!hasUnlocked(3) || player.dashCooldown > 0 || player.energy < cost) return;
     player.energy -= cost;
     player.dashTime = .22 + rank * .025;
     player.dashCooldown = .88 - rank * .07;
@@ -805,17 +842,16 @@
     showComicWord(rank >= 3 ? "WIND RUSH!" : "WHOOSH!", "#69e5ff");
   }
 
+  // Skills 2-4 cast instantly from their own keys and buttons, so there is no
+  // "armed ability" to route through: Space is always the equipped weapon.
   function useSelectedAbility() {
     if (player.attackCooldown > 0) return;
-    if (player.selectedAbility === "bolt") fireBolt();
-    else if (player.selectedAbility === "dash") useDash();
-    else if (player.selectedAbility === "shield") useShield();
-    else useWeapon();
+    useWeapon();
   }
 
   function useTouchAbility(name) {
     if (game.mode !== "playing" || player.attackCooldown > 0) return;
-    if (game.chapter.id < (Data.abilityUnlocks[name] || 1)) return;
+    if (!hasUnlocked(Data.abilityUnlocks[name] || 1)) return;
     if (name === "bolt") fireBolt();
     else if (name === "shield") useShield();
   }
@@ -967,7 +1003,7 @@
       commandBradleyToPlate();
       return;
     }
-    if (game.chapter.id < 2 || bradley.cooldown > 0) return;
+    if (!hasUnlocked(2) || bradley.cooldown > 0) return;
     const rank = skillRank();
     bradley.cooldown = companionCooldownMax(rank);
     const nearestEnemy = game.enemies.filter(enemy=>enemy.active).sort((a,b)=>distance(player,a)-distance(player,b))[0];
@@ -1271,6 +1307,7 @@
 
   function spawnBoss() {
     const spec = game.chapter.boss;
+    if (spec.type === "pi") loadProp("piMonster");
     game.boss = {
       ...spec,
       radius: spec.type === "raven" ? 66 : spec.type === "pi" || spec.type === "shadow" ? 58 : 48,
@@ -1356,7 +1393,7 @@
       }
       if (away > 430) { entity.x = target.x - 45; entity.y = target.y + 35; }
     };
-    if (game.chapter.id >= 2) {
+    if (hasUnlocked(2)) {
       if (game.phase === "cooperation" && bradley.command === "station" && bradley.target) {
         const away = distance(bradley, bradley.target);
         if (away > 8) {
@@ -1368,12 +1405,12 @@
         }
       } else follow(bradley, player, 62, 225);
     }
-    if (game.chapter.id >= 5) {
+    if (hasUnlocked(5)) {
       bird.angle += delta * 2.2;
       bird.x = lerp(bird.x, player.x - 38 + Math.cos(bird.angle) * 25, .08);
       bird.y = lerp(bird.y, player.y - 48 + Math.sin(bird.angle) * 12, .08);
     }
-    if (game.chapter.id >= 4) {
+    if (hasUnlocked(4)) {
       guardian.angle += delta * 1.2;
       guardian.x = lerp(guardian.x, player.x - 72 + Math.cos(guardian.angle) * 20, .055);
       guardian.y = lerp(guardian.y, player.y - 52 + Math.sin(guardian.angle) * 16, .055);
@@ -1654,7 +1691,15 @@
   function hurtPlayer(amount, source) {
     if (player.dashTime > 0) {
       player.perfectDodgeTime = .55;
-      player.energy = Math.min(player.maxEnergy, player.energy + 8);
+      // The dodge itself is always free — that is the mechanic. The counterattack
+      // is what needs a leash: without one, dashing into a crowd was strictly
+      // better than attacking, since it paid for itself in energy and took no risk.
+      if (player.counterCooldown > 0) {
+        particles.burst(player.x, player.y, "#d9ffb7", 8, 120);
+        showComicWord("DODGE!", "#8ce568");
+        return;
+      }
+      player.counterCooldown = 2.4;
       const counter = { x: player.x + player.facing.x * 38, y: player.y + player.facing.y * 38, radius: 72, life: .3, maxLife: .3, type: "perfect", color: "#8ce568", consumeMark: true };
       game.attacks.push(counter);
       damageEnemies(counter, 1);
@@ -1680,13 +1725,81 @@
   function heroFell() {
     game.mode = "dialogue";
     showDialogue([["Clark", "That portal got the jump on me. One more try—from the last safe page!"]], () => {
-      resetChapterState(game.chapter.id);
+      respawn();
       game.mode = "playing";
     });
   }
 
+  // Falling costs the fight, not the chapter. Solved runes, collected memories and
+  // wave progress all survive; the current encounter resets to a fair starting
+  // state so the retry is winnable without redoing the puzzle every time.
+  function respawn() {
+    hudHeartSignature = "";
+    player.health = player.maxHealth;
+    player.energy = player.maxEnergy;
+    player.invulnerable = 1.6;
+    player.x = game.chapter.start.x;
+    player.y = game.chapter.start.y;
+    player.attackCooldown = 0;
+    player.attackTime = 0;
+    player.dashTime = 0;
+    player.dashCooldown = 0;
+    player.shieldTime = 0;
+    player.comboStep = 0;
+    player.comboTimer = 0;
+    player.perfectDodgeTime = 0;
+    player.counterCooldown = 0;
+    player.hammerCharging = false;
+    player.hammerCharge = 0;
+    player.touchAttackHeld = false;
+    game.camera.x = player.x;
+    game.camera.y = player.y;
+    game.attacks = [];
+    game.projectiles = [];
+    game.enemyProjectiles = [];
+    game.aimTarget = null;
+    game.aimTargetTime = 0;
+    bradley.x = player.x - 45;
+    bradley.y = player.y + 35;
+    bradley.cooldown = 0;
+    game.enemies.forEach(enemy => {
+      if (!enemy.active) return;
+      enemy.hp = enemy.maxHp;
+      enemy.x = enemy.homeX;
+      enemy.y = enemy.homeY;
+      enemy.invulnerable = 0;
+      enemy.windupTime = 0;
+      enemy.chargeTime = 0;
+      enemy.stunTime = 0;
+      enemy.exposed = 0;
+      enemy.marked = 0;
+      enemy.hitStagger = 0;
+      enemy.contactCooldown = 0;
+      enemy.attackCooldown = .8 + Math.random() * .9;
+    });
+    if (game.boss?.active && !game.boss.peaceful) {
+      game.boss.hp = game.boss.maxHp;
+      game.boss.phaseIndex = 1;
+      game.boss.attackTimer = 1.6;
+      game.boss.attackPattern = 0;
+      game.boss.meleeTime = 0;
+      game.boss.invulnerable = 0;
+      game.boss.x = game.chapter.boss.x;
+      game.boss.y = game.chapter.boss.y;
+    }
+    if (game.chapter.timed && !game.puzzleSolved) game.timeLeft = game.chapter.timed;
+    showComicWord("BACK UP!", "#8ce568");
+    announce("Clark is back on his feet. The chapter's progress is safe.");
+  }
+
   function updateTimedTrial(delta) {
-    if (game.timeLeft === null || game.puzzleSolved) return;
+    if (game.timeLeft === null) return;
+    if (game.puzzleSolved) {
+      // Trial passed — hand the readout back to updateHud.
+      game.timeLeft = null;
+      dom.chapterReadout.textContent = `Chapter ${game.chapter.id}`;
+      return;
+    }
     game.timeLeft = Math.max(0, game.timeLeft - delta);
     const minutes = Math.floor(game.timeLeft / 60);
     const seconds = Math.floor(game.timeLeft % 60).toString().padStart(2, "0");
@@ -1726,6 +1839,33 @@
   function roundedRect(ctx, x, y, width, height, radius) {
     ctx.beginPath();
     ctx.roundRect(x, y, width, height, radius);
+  }
+
+  // ctx.shadowBlur re-blurs the source bitmap on every single draw call, which
+  // measured 6-14x the cost of the draw itself — 30 blurred projectiles alone ate
+  // 8.3ms of a 16.7ms frame. Anything drawn once per entity uses these instead:
+  // one extra low-alpha pass that the compositor handles almost for free. The
+  // handful of singletons (portal, boss, Clark's shield) keep real blur.
+  function haloFill(ctx, x, y, radius, color, strength = .3) {
+    const alpha = ctx.globalAlpha;
+    ctx.globalAlpha = alpha * strength;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = alpha;
+  }
+
+  // Soft outer pass for a stroked ring: same shape, wider and fainter.
+  function haloArc(ctx, x, y, radius, color, lineWidth, start = 0, end = Math.PI * 2, strength = .28) {
+    const alpha = ctx.globalAlpha;
+    ctx.globalAlpha = alpha * strength;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth * 3;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, start, end);
+    ctx.stroke();
+    ctx.globalAlpha = alpha;
   }
 
   function drawBackground(ctx, chapter) {
@@ -1866,7 +2006,8 @@
     if (memory.collected) return;
     const pulse = 1 + Math.sin(game.sceneTime * 4 + memory.index) * .18;
     ctx.save(); ctx.translate(memory.x,memory.y); ctx.scale(pulse,pulse);
-    ctx.fillStyle = "#ffd34f"; ctx.shadowColor = "#ffd34f"; ctx.shadowBlur = 18;
+    haloFill(ctx, 0, 0, 22, "#ffd34f", .3);
+    ctx.fillStyle = "#ffd34f";
     ctx.rotate(game.sceneTime*.35);
     ctx.beginPath();
     for (let i=0;i<10;i+=1) {
@@ -1906,11 +2047,12 @@
         const active=game.activeTargets.has(target.id);
         const radius=puzzle.type==="rhythm"?37:30;
         ctx.save();ctx.translate(target.x,target.y);
-        ctx.fillStyle=active?target.color:"rgba(8,13,28,.72)";ctx.strokeStyle=target.color;ctx.lineWidth=5;ctx.shadowColor=target.color;ctx.shadowBlur=active?22:8;
+        haloFill(ctx,0,0,radius*(active?1.7:1.3),target.color,active?.34:.14);
+        ctx.fillStyle=active?target.color:"rgba(8,13,28,.72)";ctx.strokeStyle=target.color;ctx.lineWidth=5;
         if(target.id.includes("leaf")){ctx.beginPath();ctx.ellipse(0,0,38,18,-.5,0,Math.PI*2);ctx.fill();ctx.stroke();}
         else if(target.id.includes("square")){ctx.fillRect(-radius,-radius,radius*2,radius*2);ctx.strokeRect(-radius,-radius,radius*2,radius*2);}
         else {ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();}
-        ctx.shadowBlur=0;ctx.fillStyle=active?"#07111e":target.color;ctx.font="900 22px Trebuchet MS";ctx.textAlign="center";ctx.textBaseline="middle";
+        ctx.fillStyle=active?"#07111e":target.color;ctx.font="900 22px Trebuchet MS";ctx.textAlign="center";ctx.textBaseline="middle";
         ctx.fillText(target.number||((target.match||target.id).includes("spiral")?"↻":(target.id.includes("leaf")?"⌁":"◆")),0,1);
         ctx.restore();
       });
@@ -1953,7 +2095,8 @@
     ctx.translate(0,bob);
     if (charging) { ctx.strokeStyle="#ffb347";ctx.shadowColor="#ff7a21";ctx.shadowBlur=18;ctx.lineWidth=5;ctx.globalAlpha=.5+.45*player.hammerCharge;ctx.beginPath();ctx.arc(0,0,43+player.hammerCharge*15,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;ctx.shadowBlur=0; }
     if (blink) ctx.globalAlpha=.35;
-    if (art.clark.complete && art.clark.naturalWidth) {
+    const clarkArt = loadProp("clark");
+    if (clarkArt.complete && clarkArt.naturalWidth) {
       const attackProgress = attacking ? clamp(1 - player.attackTime / player.attackDuration, 0, 1) : 0;
       const attackEase = 1 - Math.pow(1 - attackProgress, 3);
       const facingX = attacking ? player.attackDirection.x : player.facing.x;
@@ -1968,7 +2111,7 @@
       ctx.rotate(movingTilt);
       ctx.scale(directionFlip * squashX, squashY);
       const wieldingHammer = player.weapon === "hammer";
-      const weaponArt = wieldingHammer ? art.cometHammer : art.leafblade;
+      const weaponArt = loadProp(wieldingHammer ? "cometHammer" : "leafblade");
       if (weaponArt.complete && weaponArt.naturalWidth) {
         const handX = 36, handY = -16;
         const idleSway = Math.sin(game.sceneTime * 3.5) * .055;
@@ -1992,7 +2135,7 @@
         else ctx.drawImage(weaponArt,-16,-55,32,64);
         ctx.restore();
       }
-      ctx.drawImage(art.clark, spriteX, spriteY, spriteWidth, spriteHeight);
+      ctx.drawImage(clarkArt, spriteX, spriteY, spriteWidth, spriteHeight);
       ctx.restore();
       if(player.shieldTime>0){const shieldSize=skillRank()*3;ctx.strokeStyle="#9ce98c";ctx.shadowColor="#d8ffb2";ctx.shadowBlur=24+shieldSize;ctx.lineWidth=6;ctx.beginPath();ctx.ellipse(0,-19,52+shieldSize,58+shieldSize,0,0,Math.PI*2);ctx.stroke();}
       ctx.globalAlpha=1;ctx.shadowBlur=0;
@@ -2016,7 +2159,7 @@
   }
 
   function drawBradley(ctx) {
-    if(game.chapter.id<2)return;
+    if(!hasUnlocked(2))return;
     ctx.save();ctx.translate(bradley.x,bradley.y);ctx.strokeStyle="#11131a";ctx.lineWidth=5;ctx.lineCap="round";
     if (game.phase === "cooperation" && bradley.command === "station") { ctx.strokeStyle="#ff9f1c";ctx.shadowColor="#ff9f1c";ctx.shadowBlur=16;ctx.lineWidth=4;ctx.setLineDash([6,5]);ctx.beginPath();ctx.arc(0,0,31+Math.sin(game.sceneTime*4)*3,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0; }
     ctx.strokeStyle="#171721";ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-7,18);ctx.lineTo(-10,36);ctx.moveTo(7,18);ctx.lineTo(11,36);ctx.stroke();
@@ -2028,7 +2171,7 @@
   }
 
   function drawBird(ctx) {
-    if(game.chapter.id<5)return;
+    if(!hasUnlocked(5))return;
     ctx.save();ctx.translate(bird.x,bird.y);ctx.fillStyle="#d6b56d";ctx.strokeStyle="#2d241c";ctx.lineWidth=3;
     ctx.beginPath();ctx.ellipse(0,0,16,13,0,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.beginPath();ctx.moveTo(13,-2);ctx.lineTo(27,2);ctx.lineTo(13,6);ctx.closePath();ctx.fillStyle="#ffcb45";ctx.fill();ctx.stroke();
@@ -2037,7 +2180,7 @@
   }
 
   function drawGuardian(ctx) {
-    if(game.chapter.id<4)return;
+    if(!hasUnlocked(4))return;
     ctx.save();ctx.translate(guardian.x,guardian.y);ctx.strokeStyle="#ffd34f";ctx.lineWidth=3;ctx.fillStyle="rgba(255,211,79,.32)";
     for(const side of[-1,1]){ctx.beginPath();ctx.ellipse(side*20,4,18,8,side*.8,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.ellipse(side*17,-8,15,6,side*.8,0,Math.PI*2);ctx.fill();ctx.stroke();}
     ctx.fillStyle="#111429";ctx.strokeStyle="#ffd34f";ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-4,17,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -2053,38 +2196,49 @@
     const hitBlink = enemy.invulnerable > 0 && Math.floor(game.sceneTime * 22) % 2 === 0;
     ctx.save();ctx.translate(enemy.x,enemy.y);
     if (game.aimTarget === enemy && game.aimTargetTime > 0) {
-      ctx.save();ctx.rotate(game.sceneTime*2.2);ctx.globalAlpha=clamp(game.aimTargetTime/.3,0,1);ctx.strokeStyle="#fff3a5";ctx.shadowColor="#ffd34f";ctx.shadowBlur=12;ctx.lineWidth=3;
-      for(let quadrant=0;quadrant<4;quadrant+=1){ctx.beginPath();ctx.arc(0,2,enemy.radius+13,quadrant*Math.PI/2+.16,quadrant*Math.PI/2+.64);ctx.stroke();}ctx.restore();
+      ctx.save();ctx.rotate(game.sceneTime*2.2);ctx.globalAlpha=clamp(game.aimTargetTime/.3,0,1);ctx.lineWidth=3;
+      for(let quadrant=0;quadrant<4;quadrant+=1){
+        haloArc(ctx,0,2,enemy.radius+13,"#ffd34f",3,quadrant*Math.PI/2+.16,quadrant*Math.PI/2+.64);
+        ctx.strokeStyle="#fff3a5";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,2,enemy.radius+13,quadrant*Math.PI/2+.16,quadrant*Math.PI/2+.64);ctx.stroke();
+      }
+      ctx.restore();
     }
     if(enemy.windupTime>0){
-      const warning=1-clamp(enemy.windupTime/(["thornling","sandbeetle"].includes(enemy.type)?.42:["vinebrute","gearbug"].includes(enemy.type)?.52:.28),0,1);ctx.save();ctx.globalAlpha=.38+warning*.42;ctx.strokeStyle=["thornling","sandbeetle","vinebrute","gearbug"].includes(enemy.type)?"#ffcf55":"#d6a4ff";ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=12;ctx.lineWidth=3;
-      if(["thornling","sandbeetle","vinebrute","gearbug"].includes(enemy.type)){ctx.rotate(Math.atan2(enemy.attackDirection.y,enemy.attackDirection.x));ctx.setLineDash([10,7]);ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.setLineDash([]);}
-      else{ctx.beginPath();ctx.arc(0,5,enemy.radius+10+warning*13,0,Math.PI*2);ctx.stroke();}
+      const warning=1-clamp(enemy.windupTime/(["thornling","sandbeetle"].includes(enemy.type)?.42:["vinebrute","gearbug"].includes(enemy.type)?.52:.28),0,1);ctx.save();ctx.globalAlpha=.38+warning*.42;const warnColor=["thornling","sandbeetle","vinebrute","gearbug"].includes(enemy.type)?"#ffcf55":"#d6a4ff";ctx.strokeStyle=warnColor;ctx.lineWidth=3;
+      if(["thornling","sandbeetle","vinebrute","gearbug"].includes(enemy.type)){ctx.rotate(Math.atan2(enemy.attackDirection.y,enemy.attackDirection.x));ctx.setLineDash([10,7]);ctx.lineWidth=9;ctx.globalAlpha*=.32;ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.globalAlpha/=.32;ctx.lineWidth=3;ctx.strokeStyle=warnColor;ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.setLineDash([]);}
+      else{const ringRadius=enemy.radius+10+warning*13;haloArc(ctx,0,5,ringRadius,warnColor,3);ctx.strokeStyle=warnColor;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,5,ringRadius,0,Math.PI*2);ctx.stroke();}
       ctx.restore();
     }
     if ((enemy.marked || 0) > 0 || (enemy.exposed || 0) > 0 || (enemy.stunTime || 0) > 0) {
       ctx.save();
       ctx.globalAlpha = enemy.exposed > 0 || enemy.stunTime > 0 ? .95 : .72;
-      ctx.strokeStyle = enemy.exposed > 0 || enemy.stunTime > 0 ? "#ffd34f" : "#d6a4ff";
-      ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 15; ctx.lineWidth = 3;
+      const markColor = enemy.exposed > 0 || enemy.stunTime > 0 ? "#ffd34f" : "#d6a4ff";
+      const markRadius = enemy.radius + 11 + Math.sin(game.sceneTime * 8) * 2;
+      haloArc(ctx, 0, 2, markRadius, markColor, 3, 0, Math.PI * 2, .24);
+      ctx.strokeStyle = markColor; ctx.lineWidth = 3;
       ctx.setLineDash(enemy.stunTime > 0 ? [3, 5] : [8, 6]);
-      ctx.beginPath(); ctx.arc(0, 2, enemy.radius + 11 + Math.sin(game.sceneTime * 8) * 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 2, markRadius, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]); ctx.restore();
     }
     if (enemy.elite) {
-      ctx.save(); ctx.globalAlpha = .72; ctx.strokeStyle = "#ffd34f"; ctx.shadowColor = "#ffd34f"; ctx.shadowBlur = 12; ctx.lineWidth = 2; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(0, 2, enemy.radius + 18 + Math.sin(game.sceneTime * 4 + enemy.phase) * 2, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#ffd34f"; ctx.font = "900 10px Trebuchet MS"; ctx.textAlign = "center"; ctx.fillText("ELITE", 0, -enemy.height * .72 - 17); ctx.restore();
+      ctx.save(); ctx.globalAlpha = .72; const eliteRadius = enemy.radius + 18 + Math.sin(game.sceneTime * 4 + enemy.phase) * 2;
+      haloArc(ctx, 0, 2, eliteRadius, "#ffd34f", 2, 0, Math.PI * 2, .22);
+      ctx.strokeStyle = "#ffd34f"; ctx.lineWidth = 2; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(0, 2, eliteRadius, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#ffd34f"; ctx.font = "900 10px Trebuchet MS"; ctx.textAlign = "center"; ctx.fillText("ELITE", 0, -enemy.height * .72 - 17); ctx.restore();
     }
-    ctx.fillStyle="rgba(30,38,33,.26)";ctx.beginPath();ctx.ellipse(0,enemy.radius*.78,enemy.radius*1.05,enemy.radius*.38,0,0,Math.PI*2);ctx.fill();
+    // Painted and vector monsters share one footprint so the two styles read as
+    // one set when they appear side by side in the same chapter.
+    const spriteHalf = enemy.width / 2;
+    ctx.fillStyle="rgba(30,38,33,.26)";ctx.beginPath();ctx.ellipse(0,enemy.radius*.78,spriteHalf*.74,spriteHalf*.27,0,0,Math.PI*2);ctx.fill();
     ctx.translate(0,hover);
     if (hitBlink) ctx.globalAlpha=.42;
     const flip = enemy.facingX < 0 ? -1 : 1;
     const squash = enemy.type === "slime" ? 1 + Math.sin(enemy.phase) * .045 : 1;
+    haloFill(ctx,0,-enemy.height*.12,spriteHalf*(enemy.type==="wisp"?1.12:.94),enemy.color,enemy.type==="wisp"?.28:.18);
     ctx.save();ctx.scale(flip/squash,squash);
     if (monsterArt?.complete && monsterArt.naturalWidth) {
-      ctx.shadowColor=enemy.color;ctx.shadowBlur=enemy.type==="wisp"?18:8;
-      ctx.drawImage(monsterArt,-enemy.width/2,-enemy.height*.68,enemy.width,enemy.height);
+      ctx.drawImage(monsterArt,-spriteHalf,-enemy.height*.68,enemy.width,enemy.height);
     } else drawProceduralMonster(ctx, enemy);
-    ctx.restore();ctx.globalAlpha=1;ctx.shadowBlur=0;
+    ctx.restore();ctx.globalAlpha=1;
     if (enemy.hp < enemy.maxHp) {
       ctx.fillStyle="rgba(21,25,24,.72)";roundedRect(ctx,-25,-enemy.height*.68-12,50,7,4);ctx.fill();
       ctx.fillStyle=enemy.color;roundedRect(ctx,-24,-enemy.height*.68-11,48*clamp(enemy.hp/enemy.maxHp,0,1),5,3);ctx.fill();
@@ -2093,9 +2247,10 @@
   }
 
   function drawProceduralMonster(ctx, enemy) {
-    const r = enemy.radius, t = game.sceneTime;
+    // Derived from the sprite footprint, not the collision radius, so vector
+    // monsters come out the same size on screen as the painted ones.
+    const r = enemy.width * .4, t = game.sceneTime;
     ctx.strokeStyle = "#273229"; ctx.lineWidth = 4; ctx.lineJoin = "round"; ctx.lineCap = "round";
-    ctx.shadowColor = enemy.color; ctx.shadowBlur = 9;
     if (enemy.type === "mossling") {
       ctx.fillStyle = enemy.color; ctx.beginPath(); ctx.moveTo(-r,-3); ctx.quadraticCurveTo(-r-4,-r*.75,0,-r); ctx.quadraticCurveTo(r+5,-r*.7,r,3); ctx.quadraticCurveTo(r*.7,r,0,r*.9); ctx.quadraticCurveTo(-r*.8,r,-r,-3); ctx.fill(); ctx.stroke();
       ctx.fillStyle="#9be07b"; ctx.beginPath(); ctx.moveTo(-8,-r*.8);ctx.quadraticCurveTo(-18,-r-15,-3,-r*.55);ctx.quadraticCurveTo(6,-r-18,9,-r*.62);ctx.quadraticCurveTo(20,-r-10,11,-r*.3);ctx.closePath();ctx.fill();ctx.stroke();
@@ -2116,7 +2271,6 @@
     } else {
       ctx.fillStyle=enemy.color;ctx.beginPath();ctx.moveTo(0,-r);ctx.quadraticCurveTo(r*.9,-r*.2,r*.35,r*.55);ctx.quadraticCurveTo(r*.8,r,0,r+8);ctx.quadraticCurveTo(-r*.8,r,-r*.35,r*.55);ctx.quadraticCurveTo(-r*.9,-r*.2,0,-r);ctx.fill();ctx.stroke();ctx.fillStyle="#f4d8ff";ctx.beginPath();ctx.arc(-6,-2,3,0,Math.PI*2);ctx.arc(6,-2,3,0,Math.PI*2);ctx.fill();
     }
-    ctx.shadowBlur=0;
   }
 
   function drawBoss(ctx, boss) {
@@ -2128,9 +2282,10 @@
       else{ctx.beginPath();ctx.arc(0,0,boss.radius+14+warning*16,0,Math.PI*2);ctx.stroke();}ctx.restore();}
     if (!boss.peaceful && boss.meleeTime > 0) { ctx.save(); ctx.rotate(Math.atan2(boss.attackDirection.y, boss.attackDirection.x)); ctx.globalAlpha = .78; ctx.strokeStyle = boss.meleeKind === "dive" ? "#c77dff" : "#ffd34f"; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 20; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(22, 0, boss.radius + 25, -.95, .95); ctx.stroke(); ctx.restore(); }
     const pulse=1+Math.sin(game.sceneTime*4)*.035;ctx.scale(pulse,pulse);ctx.globalAlpha=boss.invulnerable>0?.55:1;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;
-    if(boss.type==="pi"&&art.piMonster.complete&&art.piMonster.naturalWidth){
+    const piArt = boss.type==="pi" ? loadProp("piMonster") : PENDING_ART;
+    if(piArt.complete&&piArt.naturalWidth){
       ctx.fillStyle="rgba(38,29,51,.3)";ctx.beginPath();ctx.ellipse(0,50,75,24,0,0,Math.PI*2);ctx.fill();
-      ctx.drawImage(art.piMonster,-92,-94,184,168);ctx.shadowBlur=0;ctx.restore();return;
+      ctx.drawImage(piArt,-92,-94,184,168);ctx.shadowBlur=0;ctx.restore();return;
     }
     if (boss.type === "final") {
       ctx.fillStyle="rgba(38,29,22,.3)";ctx.beginPath();ctx.ellipse(0,58,78,24,0,0,Math.PI*2);ctx.fill();
@@ -2160,8 +2315,10 @@
   function drawHostileProjectile(ctx, projectile) {
     const angle = Math.atan2(projectile.vy, projectile.vx);
     const radius = projectile.radius;
-    ctx.save();ctx.translate(projectile.x,projectile.y);ctx.rotate(angle);
-    ctx.strokeStyle=projectile.color;ctx.shadowColor=projectile.color;ctx.shadowBlur=14;ctx.lineCap="round";ctx.lineWidth=Math.max(3,radius*.55);
+    ctx.save();ctx.translate(projectile.x,projectile.y);
+    haloFill(ctx,0,0,radius*1.9,projectile.color,.26);
+    ctx.rotate(angle);
+    ctx.strokeStyle=projectile.color;ctx.lineCap="round";ctx.lineWidth=Math.max(3,radius*.55);
     ctx.globalAlpha=.35;ctx.beginPath();ctx.moveTo(-radius*.4,0);ctx.lineTo(-radius*2.5,0);ctx.stroke();ctx.globalAlpha=1;
     ctx.fillStyle=projectile.color;ctx.strokeStyle="rgba(255,255,255,.8)";ctx.lineWidth=2;
     if(projectile.shape==="star"){
@@ -2191,7 +2348,11 @@
   }
 
   function drawProjectiles(ctx) {
-    game.projectiles.forEach(projectile=>{ctx.fillStyle=projectile.color;ctx.shadowColor=projectile.color;ctx.shadowBlur=16;ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.radius,0,Math.PI*2);ctx.fill();});
+    game.projectiles.forEach(projectile=>{
+      haloFill(ctx,projectile.x,projectile.y,projectile.radius*2.1,projectile.color,.28);
+      ctx.fillStyle=projectile.color;ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.radius,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="rgba(255,255,255,.75)";ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.radius*.42,0,Math.PI*2);ctx.fill();
+    });
     game.enemyProjectiles.forEach(projectile=>drawHostileProjectile(ctx,projectile));
     ctx.shadowBlur=0;
     game.attacks.forEach(attack=>{
@@ -2241,7 +2402,7 @@
   function drawObjectiveMarker(ctx) {
     const target=currentObjectiveTarget();if(!target)return;
     const y=target.y-(target.radius||30)-38+Math.sin(game.sceneTime*5)*5;
-    ctx.save();ctx.translate(target.x,y);ctx.fillStyle="#ffd34f";ctx.shadowColor="#ffd34f";ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(0,14);ctx.lineTo(-12,-5);ctx.lineTo(12,-5);ctx.closePath();ctx.fill();ctx.restore();
+    ctx.save();ctx.translate(target.x,y);haloFill(ctx,0,3,17,"#ffd34f",.26);ctx.fillStyle="#ffd34f";ctx.beginPath();ctx.moveTo(0,14);ctx.lineTo(-12,-5);ctx.lineTo(12,-5);ctx.closePath();ctx.fill();ctx.restore();
   }
 
   function render() {
@@ -2298,7 +2459,7 @@
   function buildChapterGrid() {
     dom.chapterGrid.innerHTML=Data.chapters.map(chapter=>{
       const locked=chapter.id>save.unlockedChapter;
-      return `<button class="chapter-choice ${locked?"is-locked":""}" type="button" data-chapter="${chapter.id}" ${locked?"disabled":""}><img src="../comic/assets/comic-web-640/page-${String(chapter.page).padStart(2,"0")}.webp" alt=""><span>Chapter ${chapter.id}${save.completed.includes(chapter.id)?" · Complete":""}</span><strong>${chapter.title}</strong></button>`;
+      return `<button class="chapter-choice ${locked?"is-locked":""}" type="button" data-chapter="${chapter.id}" ${locked?"disabled":""}><img loading="lazy" decoding="async" src="../comic/assets/comic-web-640/page-${String(chapter.page).padStart(2,"0")}.webp" alt=""><span>Chapter ${chapter.id}${save.completed.includes(chapter.id)?" · Complete":""}</span><strong>${chapter.title}</strong></button>`;
     }).join("");
     dom.chapterGrid.querySelectorAll("[data-chapter]").forEach(button=>button.addEventListener("click",()=>{dom.chapterOverlay.hidden=true;startChapter(Number(button.dataset.chapter),true);}));
   }
@@ -2344,8 +2505,7 @@
     dom.restartButton.addEventListener("click",()=>{dom.pauseOverlay.hidden=true;resetChapterState(game.chapter.id);game.mode="playing";});dom.menuButton.addEventListener("click",showMenu);
     dom.soundButton.addEventListener("click",()=>{sound.muted=!sound.muted;persist(false);updateMenu();});
     dom.abilityButtons.forEach(button=>button.addEventListener("click",()=>{
-      if(button.dataset.ability==="fist"&&player.selectedAbility==="fist")cycleWeapon();
-      else if(button.dataset.ability==="fist")selectAbility("fist");
+      if(button.dataset.ability==="fist")cycleWeapon();
       else if(button.dataset.ability==="dash")useDash();
       else useTouchAbility(button.dataset.ability);
     }));

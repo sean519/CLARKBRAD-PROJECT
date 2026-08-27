@@ -7,13 +7,13 @@
   <meta name="theme-color" content="#071127">
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <title>Clark: Portalbound · Codex Edition</title>
-  <link rel="stylesheet" href="css/rpg.css?v=20260826-bestiary">
+  <link rel="stylesheet" href="css/rpg.css?v=20260826-perf">
 </head>
 <body>
   <main class="app" id="app">
     <section class="menu-screen screen is-active" id="menuScreen" aria-labelledby="gameTitle">
       <div class="menu-art" aria-hidden="true">
-        <img src="../comic/assets/comic-web-640/cover.webp" alt="">
+        <img src="../comic/assets/comic-web-640/cover.webp" alt="" fetchpriority="high" decoding="async">
         <span class="portal-orbit orbit-one"></span>
         <span class="portal-orbit orbit-two"></span>
       </div>
@@ -106,7 +106,7 @@
 
     <section class="overlay" id="storyOverlay" hidden aria-modal="true" role="dialog" aria-labelledby="storyTitle">
       <div class="story-card">
-        <div class="story-image"><img id="storyImage" src="../comic/assets/comic-web-640/page-01.webp" alt="Comic page from Clark's adventure"></div>
+        <div class="story-image"><img id="storyImage" alt="Comic page from Clark's adventure" decoding="async"></div>
         <div class="story-content">
           <p class="eyebrow" id="storyEyebrow">Chapter 1</p>
           <h2 id="storyTitle">The First Portal</h2>
@@ -179,7 +179,7 @@
 
     <section class="overlay" id="endingOverlay" hidden aria-modal="true" role="dialog" aria-labelledby="endingTitle">
       <div class="ending-card">
-        <img src="../comic/assets/comic-web-640/page-68.webp" alt="Clark, Bradley, Bird, and the Portal Guardian at the end of their adventure">
+        <img id="endingImage" data-src="../comic/assets/comic-web-640/page-68.webp" alt="Clark, Bradley, Bird, and the Portal Guardian at the end of their adventure" decoding="async">
         <div>
           <p class="eyebrow">The portals remember</p>
           <h2 id="endingTitle">The Book Chose One.</h2>
@@ -196,8 +196,8 @@
   </main>
 
   <div class="sr-only" id="liveRegion" aria-live="polite"></div>
-  <script src="js/data.js?v=20260826-bestiary"></script>
-  <script src="js/engine.js?v=20260826-bestiary"></script>
-  <script src="js/game.js?v=20260826-bestiary"></script>
+  <script src="js/data.js?v=20260826-perf"></script>
+  <script src="js/engine.js?v=20260826-perf"></script>
+  <script src="js/game.js?v=20260826-perf"></script>
 </body>
 </html>
