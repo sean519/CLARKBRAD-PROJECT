@@ -56,6 +56,10 @@
     closeChapters: document.querySelector("#closeChapters"),
     howOverlay: document.querySelector("#howOverlay"),
     closeHow: document.querySelector("#closeHow"),
+    bestiaryButton: document.querySelector("#bestiaryButton"),
+    bestiaryOverlay: document.querySelector("#bestiaryOverlay"),
+    closeBestiary: document.querySelector("#closeBestiary"),
+    bestiaryGrid: document.querySelector("#bestiaryGrid"),
     endingOverlay: document.querySelector("#endingOverlay"),
     endingChapters: document.querySelector("#endingChapters"),
     endingMenu: document.querySelector("#endingMenu"),
@@ -146,6 +150,15 @@
     bookwisp: { name: "Book Wisp", hp: 5, radius: 25, speed: 88, behavior: "ranged", damage: 1, weakness: "hammer", xp: 16, width: 88, height: 84, color: "#e9b85e" },
     gearbug: { name: "Gear Bug", hp: 5, radius: 25, speed: 74, behavior: "charger", damage: 1, weakness: "dash", xp: 13, width: 84, height: 78, color: "#c2a15a" },
     voidling: { name: "Voidling", hp: 4, radius: 24, speed: 80, behavior: "ranged", damage: 1, weakness: "shield", xp: 13, width: 82, height: 82, color: "#8c78c7" }
+  };
+  const MONSTER_NOTES = {
+    slime: ["Meadow", "Hammer", "Gel", "Bouncy pounce"], drone: ["Skyway", "Hammer", "Shard", "Twin star shots"],
+    mossling: ["Meadow", "Hammer", "Moss", "Leaf-cap melee"], sandbeetle: ["Dunes", "Dash", "Amber", "Burrowing charge"],
+    prismimp: ["Clockwork", "Hammer", "Prism", "Splitting prism bolts"], gearbug: ["Clockwork", "Dash", "Cog", "Gear rush"],
+    shadowmoth: ["Gloam", "Shield", "Silk", "Curving shadow volley"], voidling: ["Gloam", "Shield", "Void", "Orbiting void shots"],
+    thornling: ["Wildwood", "Dash", "Fiber", "Thornline charge"], vinebrute: ["Wildwood", "Dash", "Vine", "Heavy vine rush"],
+    stormbat: ["Stormpeak", "Shield", "Wing", "Five-feather fan"], wisp: ["Stormpeak", "Shield", "Crystal", "Curling storm shots"],
+    bookwisp: ["Finale", "Hammer", "Page", "Homing rune volley"]
   };
   const CHAPTER_ENCOUNTERS = {
     1: [["slime",280,525],["mossling",530,345],["mossling",865,535],["slime",905,185]],
@@ -339,6 +352,7 @@
         marked: 0,
         stunTime: 0,
         exposed: 0,
+        hitStagger: 0,
         attackDirection: { x: 1, y: 0 },
         phase: Math.random() * Math.PI * 2,
         facingX: 1
@@ -1042,7 +1056,9 @@
       if (weakHit) { enemy.stunTime = Math.max(enemy.stunTime, 1.05); enemy.exposed = 0; }
       enemy.invulnerable = .13;
       const knock = normalize(enemy.x - hit.x, enemy.y - hit.y);
-      moveCircle(enemy, knock.x * 16, knock.y * 16, true);
+      const impactForce = weakHit ? 34 : critical ? 23 : 16;
+      moveCircle(enemy, knock.x * impactForce, knock.y * impactForce, true);
+      if (weakHit || critical) enemy.hitStagger = .16;
       particles.burst(enemy.x, enemy.y, enemy.color, 10, 150);
       if (critical || weakHit) showComicWord(weakHit ? "WEAK!" : "CRITICAL!", weakHit ? "#ffd34f" : "#fff1a8");
       if (enemy.hp <= 0) defeatEnemy(enemy);
@@ -1054,8 +1070,9 @@
     enemy.active = false;
     particles.burst(enemy.x, enemy.y, enemy.color, 22, 215);
     sound.play("pickup");
-    const material = { slime: "gel", drone: "shard", thornling: "fiber", wisp: "crystal" }[enemy.type] || "shard";
+    const material = { slime: "gel", drone: "shard", thornling: "fiber", wisp: "crystal", mossling: "moss", sandbeetle: "amber", prismimp: "prism", gearbug: "cog", shadowmoth: "silk", voidling: "void", vinebrute: "vine", stormbat: "wing", bookwisp: "page" }[enemy.type] || "shard";
     save.materials[material] = (save.materials[material] || 0) + (enemy.elite ? 3 : 1);
+    save.defeated[enemy.type] = (save.defeated[enemy.type] || 0) + 1;
     showComicWord(enemy.elite ? "ELITE DOWN!" : enemy.type === "drone" ? "SHORTED!" : enemy.type === "thornling" ? "TUMBLED!" : "POOF!", enemy.color);
     announce(`${enemy.elite ? "Elite " : ""}${enemy.name} defeated. ${enemy.elite ? "3" : "1"} ${material} collected.`);
     gainExperience(enemy.xp);
@@ -1418,6 +1435,7 @@
       enemy.marked = Math.max(0, (enemy.marked || 0) - delta);
       enemy.stunTime = Math.max(0, (enemy.stunTime || 0) - delta);
       enemy.exposed = Math.max(0, (enemy.exposed || 0) - delta);
+      enemy.hitStagger = Math.max(0, (enemy.hitStagger || 0) - delta);
       const previousWindup = enemy.windupTime;
       const previousCharge = enemy.chargeTime;
       enemy.windupTime = Math.max(0, enemy.windupTime - delta);
@@ -1428,7 +1446,7 @@
       let direction = { x: 0, y: 0 };
       let speed = enemy.speed;
 
-      if (enemy.stunTime > 0) {
+      if (enemy.stunTime > 0 || enemy.hitStagger > 0) {
         direction = { x: 0, y: 0 };
       } else if (enemy.windupTime > 0) {
         direction = { x: 0, y: 0 };
@@ -2287,6 +2305,15 @@
 
   function showChapters() { buildChapterGrid();dom.chapterOverlay.hidden=false;dom.chapterGrid.querySelector("button:not([disabled])")?.focus(); }
 
+  function showBestiary() {
+    dom.bestiaryGrid.innerHTML = Object.entries(MONSTER_TYPES).map(([type, spec]) => {
+      const note = MONSTER_NOTES[type] || ["Unknown", "—", "Shard", "Unrecorded"];
+      const defeated = Number(save.defeated?.[type] || 0);
+      return `<div class="codex-entry"><strong style="color:${spec.color}">${spec.name}</strong><span>${defeated ? `${defeated} defeated` : "Not yet encountered"}</span><small>${note[0]} · Weak to ${note[1]} · Drops ${note[2]}<br>${note[3]}</small></div>`;
+    }).join("");
+    dom.bestiaryOverlay.hidden = false; dom.closeBestiary.focus();
+  }
+
   function bindTouchStick() {
     let pointerId=null;
     const updateStick=event=>{
@@ -2307,8 +2334,8 @@
       if(hasProgress&&!window.confirm("Start a new adventure and erase the current Codex Edition save?"))return;
       save=store.reset();sound.muted=false;player.maxHealth=save.maxHealth;player.maxEnergy=save.maxEnergy;player.weapon="leafblade";startChapter(1,true);
     });
-    dom.chaptersButton.addEventListener("click",showChapters);dom.howButton.addEventListener("click",()=>{dom.howOverlay.hidden=false;dom.closeHow.focus();});
-    dom.closeChapters.addEventListener("click",()=>{dom.chapterOverlay.hidden=true;dom.chaptersButton.focus();});dom.closeHow.addEventListener("click",()=>{dom.howOverlay.hidden=true;dom.howButton.focus();});
+    dom.chaptersButton.addEventListener("click",showChapters);dom.howButton.addEventListener("click",()=>{dom.howOverlay.hidden=false;dom.closeHow.focus();});dom.bestiaryButton.addEventListener("click",showBestiary);
+    dom.closeChapters.addEventListener("click",()=>{dom.chapterOverlay.hidden=true;dom.chaptersButton.focus();});dom.closeHow.addEventListener("click",()=>{dom.howOverlay.hidden=true;dom.howButton.focus();});dom.closeBestiary.addEventListener("click",()=>{dom.bestiaryOverlay.hidden=true;dom.bestiaryButton.focus();});
     dom.storyContinue.addEventListener("click",()=>{sound.play("click");if(game.storyAction)game.storyAction();});
     dom.dialogueOverlay.addEventListener("click",advanceDialogue);
     dom.interactionPrompt.addEventListener("click",interact);

@@ -126,6 +126,7 @@
         unlockedChapter: 1,
         completed: [],
         memories: [],
+        defeated: {},
         level: 1,
         xp: 0,
         maxHealth: 6,
@@ -153,9 +154,10 @@
         loaded.weaponTraits.leafblade = typeof loaded.weaponTraits.leafblade === "string" ? loaded.weaponTraits.leafblade : null;
         loaded.weaponTraits.hammer = typeof loaded.weaponTraits.hammer === "string" ? loaded.weaponTraits.hammer : null;
         loaded.materials = loaded.materials && typeof loaded.materials === "object" ? loaded.materials : { gel: 0, shard: 0, fiber: 0, crystal: 0 };
-        ["gel", "shard", "fiber", "crystal"].forEach(key => { loaded.materials[key] = Math.max(0, Math.floor(Number(loaded.materials[key]) || 0)); });
+        ["gel", "shard", "fiber", "crystal", "moss", "amber", "prism", "cog", "silk", "void", "vine", "wing", "page"].forEach(key => { loaded.materials[key] = Math.max(0, Math.floor(Number(loaded.materials[key]) || 0)); });
         loaded.completed = Array.isArray(loaded.completed) ? loaded.completed.filter(Number.isFinite) : [];
         loaded.memories = Array.isArray(loaded.memories) ? loaded.memories.filter(value => typeof value === "string") : [];
+        loaded.defeated = loaded.defeated && typeof loaded.defeated === "object" ? loaded.defeated : {};
         loaded.muted = Boolean(loaded.muted);
         return loaded;
       } catch (_) {

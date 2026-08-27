@@ -142,6 +142,10 @@ kbd { display: inline-block; min-width: 24px; padding: 3px 6px; border: 1px soli
 .story-content p, .ending-card p { color: #b7c8e3; line-height: 1.65; }
 .reward { margin: 10px 0 20px; padding: 12px; border-left: 3px solid var(--green); background: rgba(140,229,104,.08); color: var(--green); font-weight: 800; }
 .modal-card { position: relative; width: min(820px,94vw); max-height: 88dvh; overflow: auto; padding: clamp(25px,5vw,52px); border: 1px solid var(--line); border-radius: 22px; background: var(--panel); box-shadow: 0 28px 90px rgba(0,0,0,.6); }
+.codex-entry { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid rgba(154,190,221,.2); border-radius: 12px; background: rgba(255,255,255,.045); }
+.codex-entry strong { font-size: 1.06rem; }
+.codex-entry span { color: var(--gold); font-size: .82rem; }
+.codex-entry small { color: #c4d3df; line-height: 1.35; }
 .modal-card.compact { width: min(460px,92vw); text-align: center; }
 .modal-actions { display: grid; gap: 10px; margin-top: 20px; }
 .close-button { position: absolute; right: 16px; top: 14px; width: 40px; min-height: 40px; padding: 0; border-radius: 50%; font-size: 24px; }
