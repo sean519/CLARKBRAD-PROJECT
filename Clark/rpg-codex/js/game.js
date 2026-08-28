@@ -32,6 +32,10 @@
     comicWord: document.querySelector("#comicWord"),
     interactionPrompt: document.querySelector("#interactionPrompt"),
     saveToast: document.querySelector("#saveToast"),
+    scanCard: document.querySelector("#scanCard"),
+    scanIcon: document.querySelector("#scanIcon"),
+    scanName: document.querySelector("#scanName"),
+    scanWeak: document.querySelector("#scanWeak"),
     bossBar: document.querySelector("#bossBar"),
     bossName: document.querySelector("#bossName"),
     bossHealth: document.querySelector("#bossHealth"),
@@ -139,6 +143,13 @@
       { id: "meteor", name: "Meteor Core", icon: "☄", desc: "Faster, stronger charge" }
     ]
   };
+  // The counter each weakness asks for. Icons match the ability bar in index.html
+  // so the badge over a monster reads as "press that one".
+  const WEAKNESS_INFO = {
+    hammer: { icon: "◆", label: "Comet Hammer", color: "#ff9f1c" },
+    dash:   { icon: "➜", label: "Rocket Dash",  color: "#69e5ff" },
+    shield: { icon: "◈", label: "Leaf Shield",  color: "#8ce568" }
+  };
   const ROMAN_RANKS = ["I", "II", "III", "IV"];
   let traitUiSignature = "";
   let hudHeartSignature = "";
@@ -201,6 +212,7 @@
     puzzleProgress: 0,
     activeTargets: new Set(),
     brokenTargets: new Map(),
+    runeGuards: new Map(),
     puzzleSolved: false,
     portalActive: false,
     portalTransitioning: false,
@@ -210,6 +222,7 @@
     timeLeft: null,
     shake: 0,
     flash: 0,
+    hitStop: 0,
     messageTimer: 0,
     storyAction: null,
     dialogueQueue: [],
@@ -262,11 +275,11 @@
     invulnerable: 0, attackCooldown: 0, dashCooldown: 0, dashTime: 0,
     shieldTime: 0, moving: false, walkCycle: 0,
     weapon: save.weapon === "hammer" && save.unlockedChapter >= 3 ? "hammer" : "leafblade", comboStep: 0, comboTimer: 0, attackKind: "leafblade", touchAttackHeld: false,
-    attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }, hammerCharging: false, hammerCharge: 0, perfectDodgeTime: 0, counterCooldown: 0
+    attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }, hammerCharging: false, hammerCharge: 0, perfectDodgeTime: 0, counterCooldown: 0, dashStrikeWindow: 0
   };
 
   const bradley = { x: 80, y: 390, radius: 20, cooldown: 0, facing: { x: 1, y: 0 }, command: "follow", target: null };
-  const bird = { x: 70, y: 320, angle: 0 };
+  const bird = { x: 70, y: 320, angle: 0, found: null };
   const guardian = { x: 55, y: 275, angle: 0 };
 
   function announce(text) {
@@ -345,6 +358,34 @@
   // early chapter while leaving the Comet Hammer in his hands.
   function hasUnlocked(chapterNeeded) { return save.unlockedChapter >= chapterNeeded; }
 
+  // Is the counter for this weakness usable this instant? Drives the badge
+  // pulse, so "your current tool beats this one" is readable without menus.
+  function weaknessReady(weakness) {
+    if (weakness === "hammer") return player.weapon === "hammer";
+    if (weakness === "dash") return hasUnlocked(3) && player.dashCooldown <= 0 && player.energy >= skillCost("dash");
+    if (weakness === "shield") return hasUnlocked(4) && player.shieldTime <= 0 && player.energy >= skillCost("shield");
+    return false;
+  }
+
+  // First sighting of a monster type posts its field-note card, once ever.
+  function scanMonster(type) {
+    if (!type || save.scanned.includes(type)) return;
+    save.scanned.push(type);
+    const spec = MONSTER_TYPES[type];
+    const info = WEAKNESS_INFO[spec.weakness];
+    dom.scanName.textContent = spec.name;
+    dom.scanName.style.color = spec.color;
+    dom.scanIcon.textContent = info.icon;
+    dom.scanIcon.style.color = info.color;
+    dom.scanWeak.textContent = `Weak to ${info.label}`;
+    dom.scanCard.classList.add("is-showing");
+    clearTimeout(scanMonster.timer);
+    scanMonster.timer = setTimeout(() => dom.scanCard.classList.remove("is-showing"), 3600);
+    sound.play("pickup");
+    announce(`New field note: ${spec.name}, weak to ${info.label}.`);
+    persist(false);
+  }
+
   function chapterMemoryKey(chapterId, index) { return `${chapterId}:${index}`; }
 
   function createMemoryObjects(chapter) {
@@ -419,11 +460,13 @@
     game.aimTarget = null;
     game.aimTargetTime = 0;
     game.sceneTime = 0;
+    game.hitStop = 0;
     game.timeLeft = game.chapter.timed || null;
     game.attacks = [];
     game.projectiles = [];
     game.enemyProjectiles = [];
     createEnemies(game.chapter);
+    assignRuneGuards(game.chapter);
     game.boss = null;
     game.waveIndex = 0;
     game.waveDelay = 0;
@@ -451,6 +494,7 @@
     player.hammerCharge = 0;
     player.perfectDodgeTime = 0;
     player.counterCooldown = 0;
+    player.dashStrikeWindow = 0;
     player.comboStep = 0;
     player.comboTimer = 0;
     player.touchAttackHeld = false;
@@ -466,6 +510,7 @@
     bradley.target = null;
     bird.x = player.x - 50;
     bird.y = player.y - 35;
+    bird.found = null;
     guardian.x = player.x - 75;
     guardian.y = player.y - 65;
     setObjective(game.chapter.objective);
@@ -768,6 +813,7 @@
     player.attackTime = Math.max(0, player.attackTime - delta);
     player.perfectDodgeTime = Math.max(0, player.perfectDodgeTime - delta);
     player.counterCooldown = Math.max(0, player.counterCooldown - delta);
+    player.dashStrikeWindow = Math.max(0, player.dashStrikeWindow - delta);
     if (player.hammerCharging) player.hammerCharge = Math.min(1, player.hammerCharge + delta / (weaponTrait("hammer") === "meteor" ? .58 : .75));
     player.comboTimer = Math.max(0, player.comboTimer - delta);
     if (player.comboTimer === 0) player.comboStep = 0;
@@ -827,6 +873,8 @@
     if (!hasUnlocked(3) || player.dashCooldown > 0 || player.energy < cost) return;
     player.energy -= cost;
     player.dashTime = .22 + rank * .025;
+    // Chapter 5 turns the tail of a dash into an attack opening.
+    player.dashStrikeWindow = hasUnlocked(5) ? player.dashTime + .28 : 0;
     player.dashCooldown = .88 - rank * .07;
     player.invulnerable = Math.max(player.invulnerable, .28 + rank * .04);
     if (rank >= 3) {
@@ -878,8 +926,48 @@
 
   function useWeapon() {
     if (player.attackCooldown > 0 || game.mode !== "playing") return;
-    if (player.weapon === "hammer") useCometHammer();
+    if (player.dashStrikeWindow > 0) useDashStrike();
+    else if (player.weapon === "hammer") useCometHammer();
     else useLeafblade();
+  }
+
+  // Skyfall: attack while a dash is still carrying you. No new button -- it is
+  // the first move that comes from combining two the player already has, and it
+  // lands as a dash hit, so it breaks every charger's guard.
+  function useDashStrike() {
+    const rank = weaponRank();
+    const heavy = player.weapon === "hammer";
+    const direction = assistedAim(240);
+    player.dashStrikeWindow = 0;
+    player.comboStep = 0;
+    player.comboTimer = 0;
+    player.attackCooldown = heavy ? .52 : .34;
+    player.attackDuration = heavy ? .46 : .34;
+    player.attackTime = player.attackDuration;
+    player.attackKind = heavy ? "hammer" : "leafblade-finisher";
+    player.attackDirection = { ...direction };
+    player.invulnerable = Math.max(player.invulnerable, .18);
+    moveCircle(player, direction.x * 46, direction.y * 46);
+    const hit = {
+      x: player.x + direction.x * 40,
+      y: player.y + direction.y * 40,
+      radius: (heavy ? 92 : 78) + rank * 3,
+      life: .34, maxLife: .34,
+      angle: Math.atan2(direction.y, direction.x),
+      type: "dash",
+      color: "#69e5ff",
+      critical: rank >= 3,
+      consumeMark: true
+    };
+    game.attacks.push(hit);
+    particles.burst(hit.x, hit.y, "#a9ecff", 24, 235);
+    sound.play(heavy ? "boom" : "attack");
+    game.shake = Math.max(game.shake, heavy ? 9 : 6);
+    showComicWord("SKYFALL!", "#69e5ff");
+    const damage = (heavy ? 3 : 2) + Math.floor((rank - 1) / 2);
+    damageBreakTargets(hit, heavy ? 3 : 2);
+    damageEnemies(hit, damage);
+    damageBoss(hit, damage);
   }
 
   function useLeafblade() {
@@ -1089,7 +1177,14 @@
         enemy.marked = 0;
         particles.burst(enemy.x, enemy.y, "#d6a4ff", 9, 140);
       }
-      if (weakHit) { enemy.stunTime = Math.max(enemy.stunTime, 1.05); enemy.exposed = 0; }
+      if (weakHit) {
+        enemy.stunTime = Math.max(enemy.stunTime, 1.05);
+        enemy.exposed = 0;
+        // A brief freeze sells the counter far better than a bigger number does.
+        game.hitStop = Math.max(game.hitStop, .07);
+        game.shake = Math.max(game.shake, 5);
+        particles.burst(enemy.x, enemy.y, WEAKNESS_INFO[enemy.weakness]?.color || "#ffd34f", 16, 210);
+      }
       enemy.invulnerable = .13;
       const knock = normalize(enemy.x - hit.x, enemy.y - hit.y);
       const impactForce = weakHit ? 34 : critical ? 23 : 16;
@@ -1109,8 +1204,20 @@
     const material = { slime: "gel", drone: "shard", thornling: "fiber", wisp: "crystal", mossling: "moss", sandbeetle: "amber", prismimp: "prism", gearbug: "cog", shadowmoth: "silk", voidling: "void", vinebrute: "vine", stormbat: "wing", bookwisp: "page" }[enemy.type] || "shard";
     save.materials[material] = (save.materials[material] || 0) + (enemy.elite ? 3 : 1);
     save.defeated[enemy.type] = (save.defeated[enemy.type] || 0) + 1;
-    showComicWord(enemy.elite ? "ELITE DOWN!" : enemy.type === "drone" ? "SHORTED!" : enemy.type === "thornling" ? "TUMBLED!" : "POOF!", enemy.color);
-    announce(`${enemy.elite ? "Elite " : ""}${enemy.name} defeated. ${enemy.elite ? "3" : "1"} ${material} collected.`);
+    // Freeing a rune is the more useful thing to shout about, so it wins the
+    // banner over the generic defeat word.
+    const freed = enemy.guardsRune
+      ? game.chapter.puzzle.targets.find(target => target.id === enemy.guardsRune && !game.activeTargets.has(target.id))
+      : null;
+    if (freed) {
+      particles.burst(freed.x, freed.y, freed.color || "#ffd34f", 22, 170);
+      sound.play("success");
+      showComicWord("RUNE FREED!", freed.color || "#ffd34f");
+      announce(`${enemy.name} defeated. The rune is free — go light it.`);
+    } else {
+      showComicWord(enemy.elite ? "ELITE DOWN!" : enemy.type === "drone" ? "SHORTED!" : enemy.type === "thornling" ? "TUMBLED!" : "POOF!", enemy.color);
+      announce(`${enemy.elite ? "Elite " : ""}${enemy.name} defeated. ${enemy.elite ? "3" : "1"} ${material} collected.`);
+    }
     gainExperience(enemy.xp);
     persist(false);
   }
@@ -1137,6 +1244,45 @@
     persist();
   }
 
+  // Chapters 3, 4 and 6 post a monster on each rune. Nothing about the puzzle
+  // changes -- you just cannot light a rune while its guard is standing, which
+  // forces the fight and the lock to happen together instead of in sequence.
+  // Chapters 1-2 stay unguarded as the teaching ramp, 5 pushes a block, and 7
+  // is already on a clock.
+  const GUARDED_CHAPTERS = [3, 4, 6];
+
+  function assignRuneGuards(chapter) {
+    game.runeGuards = new Map();
+    if (!GUARDED_CHAPTERS.includes(chapter.id)) return;
+    const taken = new Set();
+    chapter.puzzle.targets.forEach(target => {
+      let best = null;
+      game.enemies.forEach(enemy => {
+        if (!enemy.active || taken.has(enemy.id)) return;
+        const away = distance(enemy, target);
+        if (!best || away < best.away) best = { enemy, away };
+      });
+      if (!best) return;
+      taken.add(best.enemy.id);
+      best.enemy.guardsRune = target.id;
+      // The post becomes its home, so it idles on the rune instead of its
+      // original spawn point.
+      best.enemy.homeX = target.x;
+      best.enemy.homeY = target.y;
+      best.enemy.leashX = target.x;
+      best.enemy.leashY = target.y;
+      game.runeGuards.set(target.id, best.enemy.id);
+    });
+  }
+
+  // Returns the living guard for a rune, or null once it has been cleared.
+  function runeGuard(targetId) {
+    const guardId = game.runeGuards.get(targetId);
+    if (!guardId) return null;
+    const guard = game.enemies.find(enemy => enemy.id === guardId);
+    return guard && guard.active ? guard : null;
+  }
+
   function nearestPuzzleTarget() {
     if (game.puzzleSolved) return null;
     if (game.chapter.puzzle.type === "break" || game.chapter.puzzle.type === "push") return null;
@@ -1145,7 +1291,9 @@
       if (game.chapter.puzzle.type !== "rhythm" && game.activeTargets.has(target.id)) return;
       const away = distance(player, { ...target, radius: 25 });
       const reach = usesTouchControls() ? 108 : 72;
-      if (away < reach && (!nearest || away < nearest.distance)) nearest = { type: "puzzle", target, distance: away };
+      if (away < reach && (!nearest || away < nearest.distance)) {
+        nearest = { type: "puzzle", target, distance: away, guard: runeGuard(target.id) };
+      }
     });
     return nearest;
   }
@@ -1169,7 +1317,9 @@
       return;
     }
     const labels = {
-      puzzle: game.nearestInteraction.target.label || "Activate rune",
+      puzzle: game.nearestInteraction.guard
+        ? `Defeat the ${game.nearestInteraction.guard.name}`
+        : game.nearestInteraction.target.label || "Activate rune",
       peacefulBoss: game.chapter.id === 5 ? "Talk to the Golem" : "Open the Final Gate",
       portal: game.chapter.id === 7 ? "Claim the Leaf Key" : "Enter Portal"
     };
@@ -1231,6 +1381,16 @@
 
   function activatePuzzleTarget(target) {
     const puzzle = game.chapter.puzzle;
+    const guard = runeGuard(target.id);
+    if (guard) {
+      game.aimTarget = guard;
+      game.aimTargetTime = 1.1;
+      particles.burst(target.x, target.y, "#ff5d62", 8, 90);
+      sound.play("hurt");
+      showComicWord("GUARDED!", "#ff5d62");
+      announce(`That rune is guarded by a ${guard.name}. Defeat it first.`);
+      return;
+    }
     const match = target.match || target.id;
     const expected = puzzle.sequence[game.puzzleProgress];
     const uniqueKey = target.id;
@@ -1407,8 +1567,22 @@
     }
     if (hasUnlocked(5)) {
       bird.angle += delta * 2.2;
-      bird.x = lerp(bird.x, player.x - 38 + Math.cos(bird.angle) * 25, .08);
-      bird.y = lerp(bird.y, player.y - 48 + Math.sin(bird.angle) * 12, .08);
+      // "Bird's Secret Finder" is Chapter 5's listed reward but had no code
+      // behind it. Bird now breaks formation to circle the nearest memory the
+      // player has not picked up, which is the only hint the game gives that
+      // there is anything to look for.
+      let find = null;
+      game.memoryObjects.forEach(memory => {
+        if (memory.collected) return;
+        const away = distance(player, memory);
+        if (away < 460 && away > 60 && (!find || away < find.away)) find = { memory, away };
+      });
+      bird.found = find ? find.memory : null;
+      const anchorX = find ? find.memory.x : player.x - 38;
+      const anchorY = find ? find.memory.y : player.y - 48;
+      const orbit = find ? 30 : 25;
+      bird.x = lerp(bird.x, anchorX + Math.cos(bird.angle) * orbit, find ? .045 : .08);
+      bird.y = lerp(bird.y, anchorY + Math.sin(bird.angle) * (find ? orbit * .6 : 12), find ? .045 : .08);
     }
     if (hasUnlocked(4)) {
       guardian.angle += delta * 1.2;
@@ -1479,6 +1653,7 @@
       if (previousWindup > 0 && enemy.windupTime === 0) enemy.chargeTime = ["thornling", "sandbeetle"].includes(enemy.type) ? .4 : ["vinebrute", "gearbug"].includes(enemy.type) ? .52 : .28;
       if (previousCharge > 0 && enemy.chargeTime === 0) enemy.exposed = .8;
       const away = distance(enemy, player);
+      if (away < 430) scanMonster(enemy.type);
       const toward = normalize(player.x - enemy.x, player.y - enemy.y);
       let direction = { x: 0, y: 0 };
       let speed = enemy.speed;
@@ -1520,6 +1695,19 @@
 
       enemy.facingX = Math.abs(direction.x) > .04 ? direction.x : enemy.facingX;
       moveCircle(enemy, direction.x * speed * delta, direction.y * speed * delta, true);
+      // A rune guard cannot kite away from its post. Without this the ranged
+      // ones retreat out of reach and the player ends up chasing a monster
+      // across the arena to unlock a rune standing right in front of them.
+      if (enemy.guardsRune) {
+        const post = { x: enemy.leashX, y: enemy.leashY };
+        const out = distance(enemy, post);
+        const LEASH = 120;
+        if (out > LEASH) {
+          const back = normalize(post.x - enemy.x, post.y - enemy.y);
+          enemy.x = post.x - back.x * LEASH;
+          enemy.y = post.y - back.y * LEASH;
+        }
+      }
       if (enemy.stunTime <= 0 && away < player.radius + enemy.radius + 7 && enemy.contactCooldown <= 0) {
         enemy.contactCooldown = 1.05;
         hurtPlayer(enemy.damage, enemy);
@@ -1588,6 +1776,15 @@
       });
     };
 
+    // Phase 3 previously just meant "same attack, more bullets". Each boss now
+    // alternates in one move that only exists at low health, so the last third
+    // of a fight asks a different question than the first two.
+    if (phase === 3 && boss.attackPattern % 2 === 1) {
+      boss.attackPattern += 1;
+      fireSignatureAttack(boss, launch, aimedAngle);
+      return;
+    }
+
     if (boss.type === "pi") {
       const count = phase === 3 ? 5 : 3;
       for (let index = 0; index < count; index += 1) { const offset = index - (count - 1) / 2; launch(aimedAngle + offset * .2, 225 + Math.abs(offset) * 18, { radius: 15, color: "#d78aff", shape: "pi", turnRate: offset * .08 }); }
@@ -1628,6 +1825,70 @@
     sound.play("bolt");
   }
 
+  function fireSignatureAttack(boss, launch, aimedAngle) {
+    const names = {
+      pi: "FULL CIRCLE!", warden: "PRISM CROSS!", engine: "DOUBLE HELIX!",
+      shadow: "NIGHTFALL!", raven: "STORMBREAK!", final: "THE BOOK OPENS!"
+    };
+    showComicWord(names[boss.type] || "OVERDRIVE!", "#ff5d62");
+    game.shake = Math.max(game.shake, 10);
+    particles.burst(boss.x, boss.y, game.chapter.palette.glow, 26, 200);
+    sound.play("boom");
+
+    if (boss.type === "pi") {
+      // A closed ring: no safe side, but slow enough to dash a gap.
+      for (let i = 0; i < 12; i += 1) {
+        launch(i * Math.PI * 2 / 12, 190, { radius: 14, color: "#d78aff", shape: "pi" });
+      }
+    } else if (boss.type === "warden") {
+      // Four colours on the diagonals, each pair rotating opposite ways.
+      const colors = ["#39a8ff", "#a65dff", "#ff9f1c", "#7ee568"];
+      for (let i = 0; i < 8; i += 1) {
+        launch(i * Math.PI / 4, 250, {
+          radius: 12, color: colors[i % 4], shape: "crystal",
+          turnRate: (i % 2 ? .3 : -.3)
+        });
+      }
+    } else if (boss.type === "engine") {
+      // Two counter-rotating rings that braid as they travel.
+      for (let ring = 0; ring < 2; ring += 1) {
+        for (let i = 0; i < 9; i += 1) {
+          launch(i * Math.PI * 2 / 9 + ring * .35, 200 + ring * 34, {
+            radius: 10, color: ring ? "#ba57ff" : "#69e5ff", shape: "gear",
+            turnRate: ring ? .34 : -.34, life: 5
+          });
+        }
+      }
+    } else if (boss.type === "shadow") {
+      // A wall of crescents that closes from both sides at once.
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 5; i += 1) {
+          launch(aimedAngle + side * (.28 + i * .26), 230, {
+            radius: 13, color: "#c77dff", shape: "crescent", turnRate: -side * .16
+          });
+        }
+      }
+      startBossMelee(boss, "dive", 3);
+    } else if (boss.type === "raven") {
+      // Nearly a full fan of feathers, with one deliberate gap behind the boss.
+      for (let i = 0; i < 14; i += 1) {
+        launch(aimedAngle - 1.45 + i * (2.9 / 13), 285 + (i % 3) * 26, {
+          radius: 10, color: i % 2 ? "#8da2d9" : "#38496f", shape: "feather"
+        });
+      }
+    } else if (boss.type === "final") {
+      // The spiral from the portal art, thrown at the player.
+      for (let i = 0; i < 16; i += 1) {
+        launch(aimedAngle + i * .42, 175 + i * 9, {
+          radius: 11, color: i % 2 ? "#ffd34f" : "#d6a4ff", shape: "rune",
+          turnRate: .12, life: 5
+        });
+      }
+    } else {
+      for (let i = 0; i < 8; i += 1) launch(i * Math.PI / 4, 220);
+    }
+  }
+
   function updateProjectiles(delta) {
     const updateList = list => {
       list.forEach(projectile => {
@@ -1666,7 +1927,9 @@
         const outward = normalize(projectile.x - player.x, projectile.y - player.y);
         game.projectiles.push({ ...projectile, vx: outward.x * (470 + skillRank() * 25), vy: outward.y * (470 + skillRank() * 25), color: "#8ce568", damage: 1 + Math.ceil(skillRank() / 2), life: 1.5 });
         projectile.life = 0;
-        game.enemies.forEach(enemy => { if (enemy.active && enemy.type === "wisp" && distance(enemy, player) < 170) { enemy.exposed = 1.2; enemy.stunTime = .45; } });
+        // Reflecting a shot breaks the guard of everything weak to the shield,
+        // not just the Storm Wisp it was originally written for.
+        game.enemies.forEach(enemy => { if (enemy.active && enemy.weakness === "shield" && distance(enemy, player) < 170) { enemy.exposed = 1.2; enemy.stunTime = .45; } });
         particles.burst(projectile.x, projectile.y, "#8ce568", 8, 100);
         sound.play("shield");
       } else if (circleHit(projectile, player)) {
@@ -1749,6 +2012,7 @@
     player.comboTimer = 0;
     player.perfectDodgeTime = 0;
     player.counterCooldown = 0;
+    player.dashStrikeWindow = 0;
     player.hammerCharging = false;
     player.hammerCharge = 0;
     player.touchAttackHeld = false;
@@ -2055,9 +2319,42 @@
         ctx.fillStyle=active?"#07111e":target.color;ctx.font="900 22px Trebuchet MS";ctx.textAlign="center";ctx.textBaseline="middle";
         ctx.fillText(target.number||((target.match||target.id).includes("spiral")?"↻":(target.id.includes("leaf")?"⌁":"◆")),0,1);
         ctx.restore();
+        if(!active)drawRuneGuardLink(ctx,target);
       });
     }
     if (game.phase === "cooperation" && game.coopPuzzle) drawCooperationPuzzle(ctx);
+  }
+
+  // A dashed leash from the rune to whoever is holding it, plus a padlock on
+  // the rune itself. One glance says "clear that, then come back here".
+  function drawRuneGuardLink(ctx, target) {
+    const guard = runeGuard(target.id);
+    if (!guard) return;
+    const pulse = .5 + Math.sin(game.sceneTime * 3.4) * .18;
+    ctx.save();
+    ctx.globalAlpha = pulse * .7;
+    ctx.strokeStyle = "#ff8a8f";
+    ctx.setLineDash([9, 8]);
+    ctx.lineDashOffset = -game.sceneTime * 26;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(target.x, target.y);
+    ctx.lineTo(guard.x, guard.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(target.x, target.y - 46);
+    ctx.globalAlpha = .92;
+    haloFill(ctx, 0, 0, 15, "#ff5d62", .3);
+    ctx.fillStyle = "#ff5d62";
+    ctx.strokeStyle = "#2b0d10";
+    ctx.lineWidth = 2;
+    roundedRect(ctx, -8, -4, 16, 13, 3); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#ff5d62"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, -4, 5.5, Math.PI, 0); ctx.stroke();
+    ctx.restore();
   }
 
   function drawCooperationPuzzle(ctx) {
@@ -2171,6 +2468,20 @@
   }
 
   function drawBird(ctx) {
+    if (bird.found && !bird.found.collected) {
+      ctx.save();
+      ctx.globalAlpha = .2 + Math.sin(game.sceneTime * 3) * .07;
+      ctx.strokeStyle = "#ffd34f";
+      ctx.setLineDash([4, 9]);
+      ctx.lineDashOffset = -game.sceneTime * 18;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(player.x, player.y);
+      ctx.lineTo(bird.found.x, bird.found.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
     if(!hasUnlocked(5))return;
     ctx.save();ctx.translate(bird.x,bird.y);ctx.fillStyle="#d6b56d";ctx.strokeStyle="#2d241c";ctx.lineWidth=3;
     ctx.beginPath();ctx.ellipse(0,0,16,13,0,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -2243,6 +2554,33 @@
       ctx.fillStyle="rgba(21,25,24,.72)";roundedRect(ctx,-25,-enemy.height*.68-12,50,7,4);ctx.fill();
       ctx.fillStyle=enemy.color;roundedRect(ctx,-24,-enemy.height*.68-11,48*clamp(enemy.hp/enemy.maxHp,0,1),5,3);ctx.fill();
     }
+    drawWeaknessBadge(ctx, enemy);
+    ctx.restore();
+  }
+
+  // The weakness table was previously buried in the codex menu. This puts it
+  // over the monster's head: dim by default, lit and bouncing when the counter
+  // it asks for is ready in the player's hands right now.
+  function drawWeaknessBadge(ctx, enemy) {
+    const info = WEAKNESS_INFO[enemy.weakness];
+    if (!info) return;
+    const ready = weaknessReady(enemy.weakness);
+    const broken = enemy.exposed > 0 || enemy.stunTime > 0;
+    const y = -enemy.height * .68 - (enemy.hp < enemy.maxHp ? 26 : 18)
+            + (ready ? Math.sin(game.sceneTime * 6 + enemy.phase) * 2.5 : 0);
+    ctx.save();
+    ctx.translate(0, y);
+    ctx.globalAlpha = broken ? .35 : ready ? 1 : .5;
+    if (ready && !broken) {
+      haloFill(ctx, 0, 0, 15, info.color, .4);
+      ctx.strokeStyle = info.color; ctx.lineWidth = 1.5; ctx.globalAlpha = .75;
+      ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = broken ? "#7d8a99" : info.color;
+    ctx.font = `900 ${ready ? 17 : 14}px "Trebuchet MS", sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(broken ? "✗" : info.icon, 0, 0);
     ctx.restore();
   }
 
@@ -2396,7 +2734,8 @@
     const puzzle=game.chapter.puzzle;
     if(puzzle.type==="push")return puzzle.goal;
     if(puzzle.type==="break")return puzzle.targets.find(target=>!game.activeTargets.has(target.id));
-    return puzzle.targets.find(target=>!game.activeTargets.has(target.id))||puzzle.targets[0];
+    const nextRune=puzzle.targets.find(target=>!game.activeTargets.has(target.id))||puzzle.targets[0];
+    return runeGuard(nextRune.id)||nextRune;
   }
 
   function drawObjectiveMarker(ctx) {
@@ -2437,7 +2776,8 @@
 
   function frame(now) {
     const delta=Math.min(.034,Math.max(0,(now-game.lastFrame)/1000));game.lastFrame=now;
-    if(game.mode==="playing")update(delta);
+    if(game.hitStop>0){game.hitStop-=delta;}
+    else if(game.mode==="playing")update(delta);
     if(dom.gameScreen.classList.contains("is-active"))render();
     if(game.mode==="dialogue"&&input.consume("Enter","Space","KeyE"))advanceDialogue();
     if((game.mode==="playing"||game.mode==="paused")&&input.consume("Escape","KeyP"))togglePause();
@@ -2470,7 +2810,8 @@
     dom.bestiaryGrid.innerHTML = Object.entries(MONSTER_TYPES).map(([type, spec]) => {
       const note = MONSTER_NOTES[type] || ["Unknown", "—", "Shard", "Unrecorded"];
       const defeated = Number(save.defeated?.[type] || 0);
-      return `<div class="codex-entry"><strong style="color:${spec.color}">${spec.name}</strong><span>${defeated ? `${defeated} defeated` : "Not yet encountered"}</span><small>${note[0]} · Weak to ${note[1]} · Drops ${note[2]}<br>${note[3]}</small></div>`;
+      const info = WEAKNESS_INFO[spec.weakness] || { icon: "?", label: note[1], color: "#ffd34f" };
+      return `<div class="codex-entry"><strong style="color:${spec.color}">${spec.name}</strong><span>${defeated ? `${defeated} defeated` : "Not yet encountered"}</span><small><b style="color:${info.color}">${info.icon} ${info.label}</b> · ${note[0]} · Drops ${note[2]}<br>${note[3]}</small></div>`;
     }).join("");
     dom.bestiaryOverlay.hidden = false; dom.closeBestiary.focus();
   }

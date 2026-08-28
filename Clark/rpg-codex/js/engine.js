@@ -127,6 +127,7 @@
         completed: [],
         memories: [],
         defeated: {},
+        scanned: [],
         level: 1,
         xp: 0,
         maxHealth: 6,
@@ -158,6 +159,7 @@
         loaded.completed = Array.isArray(loaded.completed) ? loaded.completed.filter(Number.isFinite) : [];
         loaded.memories = Array.isArray(loaded.memories) ? loaded.memories.filter(value => typeof value === "string") : [];
         loaded.defeated = loaded.defeated && typeof loaded.defeated === "object" ? loaded.defeated : {};
+        loaded.scanned = Array.isArray(loaded.scanned) ? loaded.scanned.filter(value => typeof value === "string") : [];
         loaded.muted = Boolean(loaded.muted);
         return loaded;
       } catch (_) {
