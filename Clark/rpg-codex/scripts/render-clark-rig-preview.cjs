@@ -23,8 +23,8 @@ async function main() {
     const sourceHeight = image.height / rows;
     ctx.drawImage(image, cell[0] * sourceWidth, cell[1] * sourceHeight, sourceWidth, sourceHeight, x, y, width, height);
   };
-  const factory = new Function("player", "clamp", "lerp", "HERO_RIG_CELLS", "loadHeroRig", "loadProp", "drawAtlasCell", `${rigSource}; return { heroRigPose, blendHeroRigPose, drawClarkRig };`);
-  const api = factory(player, (value, min, max) => Math.max(min, Math.min(max, value)), (a, b, t) => a + (b - a) * t, cells, () => atlas, () => null, drawAtlasCell);
+  const factory = new Function("player", "clamp", "lerp", "HERO_RIG_CELLS", "HERO_RIG_RENDER_SCALE", "loadHeroRig", "loadProp", "drawAtlasCell", `${rigSource}; return { heroRigPose, blendHeroRigPose, drawClarkRig };`);
+  const api = factory(player, (value, min, max) => Math.max(min, Math.min(max, value)), (a, b, t) => a + (b - a) * t, cells, .88, () => atlas, () => null, drawAtlasCell);
   const states = ["idle", "move", "leafblade", "hammer", "dash", "hurt"];
   const canvas = createCanvas(900, 220);
   const ctx = canvas.getContext("2d");
