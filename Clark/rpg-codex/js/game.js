@@ -129,7 +129,11 @@
     monsters: {},
     props: {},
     monsterAtlas: null,
-    finalMonsterAtlas: null
+    finalMonsterAtlas: null,
+    bossAtlas: null,
+    worldObjectAtlas: null,
+    companionAtlas: null,
+    combatEffectsAtlas: null
   };
   // Stand-in for a prop that has not been requested yet, so draw code can test
   // .complete/.naturalWidth without a null check and fall back to vector art.
@@ -188,6 +192,25 @@
   };
   const FINAL_MONSTER_ATLAS_SOURCE = "assets/monsters/generated/final-trial-monster-atlas-v1.webp";
   const FINAL_MONSTER_ATLAS_CELLS = { inkhound: [0,0], runeknight: [1,0], quillseer: [2,0] };
+  const BOSS_ATLAS_SOURCE = "assets/bosses/generated/storybook-boss-atlas-v1.webp";
+  const BOSS_ATLAS_CELLS = { pi: [0,0], warden: [1,0], engine: [2,0], shadow: [3,0], golem: [0,1], raven: [1,1], final: [2,1] };
+  const BOSS_SPRITE_SIZES = {
+    pi: [190,174], warden: [172,168], engine: [178,174], shadow: [188,178],
+    golem: [174,174], raven: [194,178], final: [174,178]
+  };
+  const WORLD_OBJECT_ATLAS_SOURCE = "assets/props/generated/storybook-world-object-atlas-v1.webp";
+  const WORLD_OBJECT_CELLS = {
+    portal: [0,0], crackedStone: [1,0], energyCore: [2,0], starRune: [3,0],
+    leafRune: [0,1], spiralRune: [1,1], musicRune: [2,1], runeBlock: [3,1],
+    goalSocket: [0,2], coopPlate: [1,2], memory: [2,2], healingShrine: [3,2]
+  };
+  const COMPANION_ATLAS_SOURCE = "assets/companions/generated/storybook-companion-atlas-v1.webp";
+  const COMPANION_ATLAS_CELLS = { bradley: [0,0], bird: [1,0], guardian: [2,0] };
+  const COMBAT_EFFECTS_ATLAS_SOURCE = "assets/effects/generated/storybook-combat-effects-atlas-v1.webp";
+  const COMBAT_EFFECT_CELLS = {
+    star: [0,0], storm: [1,0], pi: [2,0], crystal: [3,0], gear: [0,1], crescent: [1,1],
+    feather: [2,1], rune: [3,1], prism: [0,2], shadow: [1,2], leafSlash: [2,2], hammerShockwave: [3,2]
+  };
   const ELITE_TRAITS = {
     1: { id: "splitter", name: "SPLITTER", color: "#8ce568", hint: "Splits into two Mosslings" },
     2: { id: "shell", name: "STAR SHELL", color: "#ffd34f", hint: "Armor yields to its weakness" },
@@ -279,6 +302,7 @@
     waveDelay: 0,
     spawnSerial: 0,
     memoryObjects: [],
+    healingShrine: null,
     obstacles: [],
     boss: null,
     block: null,
@@ -309,6 +333,26 @@
   function loadFinalMonsterAtlas() {
     if (!art.finalMonsterAtlas) art.finalMonsterAtlas = Object.assign(new Image(), { src: FINAL_MONSTER_ATLAS_SOURCE });
     return art.finalMonsterAtlas;
+  }
+
+  function loadBossAtlas() {
+    if (!art.bossAtlas) art.bossAtlas = Object.assign(new Image(), { src: BOSS_ATLAS_SOURCE });
+    return art.bossAtlas;
+  }
+
+  function loadWorldObjectAtlas() {
+    if (!art.worldObjectAtlas) art.worldObjectAtlas = Object.assign(new Image(), { src: WORLD_OBJECT_ATLAS_SOURCE });
+    return art.worldObjectAtlas;
+  }
+
+  function loadCompanionAtlas() {
+    if (!art.companionAtlas) art.companionAtlas = Object.assign(new Image(), { src: COMPANION_ATLAS_SOURCE });
+    return art.companionAtlas;
+  }
+
+  function loadCombatEffectsAtlas() {
+    if (!art.combatEffectsAtlas) art.combatEffectsAtlas = Object.assign(new Image(), { src: COMBAT_EFFECTS_ATLAS_SOURCE });
+    return art.combatEffectsAtlas;
   }
 
   // Props are fetched the first time a chapter actually needs them: the Pi Monster
@@ -555,7 +599,18 @@
     game.waveIndex = 0;
     game.waveDelay = 0;
     game.obstacles = chapterObstacles(game.chapter);
+    game.healingShrine = {
+      x: clamp(game.chapter.start.x + 105, 95, WORLD_WIDTH - 95),
+      y: clamp(game.chapter.start.y - 82, 95, WORLD_HEIGHT - 95),
+      radius: 42,
+      cooldown: 0,
+      cooldownMax: 28
+    };
     loadBackground(game.chapter.id);
+    loadBossAtlas();
+    loadWorldObjectAtlas();
+    loadCompanionAtlas();
+    loadCombatEffectsAtlas();
     loadProp("clark");
     loadProp("leafblade");
     if (save.unlockedChapter >= WEAPONS.hammer.unlockChapter) loadProp("cometHammer");
@@ -1403,6 +1458,9 @@
   function determineInteraction() {
     const target = nearestPuzzleTarget();
     if (target) return target;
+    if (game.healingShrine && distance(player, game.healingShrine) < (usesTouchControls() ? 125 : 88)) {
+      return { type: "healingShrine", target: game.healingShrine };
+    }
     if (game.boss?.active && game.boss.peaceful && distance(player, game.boss) < (usesTouchControls() ? 150 : 115)) return { type: "peacefulBoss", target: game.boss };
     const portalReach = usesTouchControls() ? 150 : 100;
     if (game.portalActive && distance(player, game.chapter.portal) < portalReach) return { type: "portal", target: game.chapter.portal };
@@ -1423,6 +1481,11 @@
         ? `Defeat the ${game.nearestInteraction.guard.name}`
         : game.nearestInteraction.target.label || "Activate rune",
       peacefulBoss: game.chapter.id === 5 ? "Talk to the Golem" : "Open the Final Gate",
+      healingShrine: game.healingShrine.cooldown > 0
+        ? `Heartleaf Shrine · ${Math.ceil(game.healingShrine.cooldown)}s`
+        : player.health >= player.maxHealth && player.energy >= player.maxEnergy
+          ? "Heartleaf Shrine · You are restored"
+          : "Rest at the Heartleaf Shrine",
       portal: game.chapter.id === 7 ? "Claim the Leaf Key" : "Enter Portal"
     };
     dom.interactionPrompt.querySelector("span").textContent = labels[game.nearestInteraction.type];
@@ -1439,8 +1502,33 @@
     const interaction = determineInteraction();
     if (!interaction) return;
     if (interaction.type === "puzzle") activatePuzzleTarget(interaction.target);
+    else if (interaction.type === "healingShrine") useHealingShrine();
     else if (interaction.type === "peacefulBoss") completePeacefulEncounter();
     else if (interaction.type === "portal") completeChapter();
+  }
+
+  function useHealingShrine() {
+    const shrine = game.healingShrine;
+    if (!shrine) return;
+    if (shrine.cooldown > 0) {
+      announce(`The Heartleaf Shrine will bloom again in ${Math.ceil(shrine.cooldown)} seconds.`);
+      return;
+    }
+    if (player.health >= player.maxHealth && player.energy >= player.maxEnergy) {
+      announce("Clark is already fully restored.");
+      return;
+    }
+    const healed = Math.min(3, player.maxHealth - player.health);
+    player.health = Math.min(player.maxHealth, player.health + 3);
+    player.energy = Math.min(player.maxEnergy, player.energy + 45);
+    player.invulnerable = Math.max(player.invulnerable, .7);
+    shrine.cooldown = shrine.cooldownMax;
+    hudHeartSignature = "";
+    particles.burst(shrine.x, shrine.y - 18, "#ff8fb7", 24, 145);
+    particles.burst(player.x, player.y, "#8ce568", 18, 120);
+    sound.play("success");
+    showComicWord(healed > 0 ? `+${healed} HEARTS!` : "ENERGY BLOOM!", "#ff8fb7");
+    announce(`Heartleaf Shrine restored ${healed} hearts and refreshed Clark's energy.`);
   }
 
   function handleStageTap(event) {
@@ -1452,6 +1540,11 @@
       x: (canvasX - game.viewport.offsetX) / game.viewport.scale,
       y: (canvasY - game.viewport.offsetY) / game.viewport.scale
     };
+    if (game.healingShrine && distance(worldPoint, game.healingShrine) < 82 && distance(player, game.healingShrine) < 170) {
+      event.preventDefault();
+      useHealingShrine();
+      return;
+    }
     if (!game.puzzleSolved && game.chapter.puzzle.type === "rhythm") {
       const tappedKey = game.chapter.puzzle.targets.find(target =>
         distance(worldPoint, target) < 62 && distance(player, target) < 155
@@ -2240,6 +2333,7 @@
 
   function update(delta) {
     game.sceneTime += delta;
+    if (game.healingShrine) game.healingShrine.cooldown = Math.max(0, game.healingShrine.cooldown - delta);
     game.aimTargetTime = Math.max(0, game.aimTargetTime - delta);
     game.flash = Math.max(0, game.flash - delta);
     game.shake = Math.max(0, game.shake - 30 * delta);
@@ -2300,6 +2394,28 @@
     ctx.arc(x, y, radius, start, end);
     ctx.stroke();
     ctx.globalAlpha = alpha;
+  }
+
+  function drawAtlasCell(ctx, image, cell, columns, rows, x, y, width, height) {
+    if (!image?.complete || !image.naturalWidth || !cell) return false;
+    const cellWidth = image.naturalWidth / columns;
+    const cellHeight = image.naturalHeight / rows;
+    ctx.drawImage(image, cell[0] * cellWidth, cell[1] * cellHeight, cellWidth, cellHeight, x, y, width, height);
+    return true;
+  }
+
+  function drawWorldObject(ctx, key, x, y, width, height) {
+    return drawAtlasCell(ctx, loadWorldObjectAtlas(), WORLD_OBJECT_CELLS[key], 4, 3, x, y, width, height);
+  }
+
+  function drawCombatEffect(ctx, key, x, y, width, height, rotation = 0, alpha = 1) {
+    const image = loadCombatEffectsAtlas();
+    const cell = COMBAT_EFFECT_CELLS[key];
+    if (!image?.complete || !image.naturalWidth || !cell) return false;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rotation); ctx.globalAlpha *= alpha;
+    const drawn = drawAtlasCell(ctx, image, cell, 4, 3, -width / 2, -height / 2, width, height);
+    ctx.restore();
+    return drawn;
   }
 
   function drawBackground(ctx, chapter) {
@@ -2398,41 +2514,13 @@
     ctx.translate(portal.x, portal.y);
     const pulse = 1 + Math.sin(game.sceneTime * 3) * .045;
     ctx.scale(pulse,pulse);
-    if (game.chapter.id === 1) {
-      const aura = ctx.createRadialGradient(0, 0, 4, 0, 0, 82);
-      aura.addColorStop(0, active ? "rgba(247,235,255,.92)" : "rgba(212,183,255,.15)");
-      aura.addColorStop(.45, active ? "rgba(174,105,255,.48)" : "rgba(155,93,255,.08)");
-      aura.addColorStop(1, "rgba(112,60,190,0)");
-      ctx.fillStyle = aura;
-      ctx.fillRect(-86, -92, 172, 184);
-      if (active) {
-        ctx.strokeStyle = "rgba(255,248,222,.88)";
-        ctx.shadowColor = portal.color;
-        ctx.shadowBlur = 28;
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 32, 58, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-      ctx.restore();
-      return;
-    }
-    ctx.globalAlpha = active ? 1 : .32;
-    ctx.strokeStyle = portal.color;
+    ctx.globalAlpha = active ? 1 : .36;
     ctx.shadowColor = portal.color;
-    ctx.shadowBlur = active ? 28 : 8;
-    ctx.lineWidth = 12;
-    ctx.beginPath(); ctx.ellipse(0,0,46,74,0,0,Math.PI*2); ctx.stroke();
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    for (let angle = 0; angle < Math.PI * 4; angle += .12) {
-      const radius = 4 + angle * 2.4;
-      const x = Math.cos(angle + game.sceneTime * 1.6) * radius * .58;
-      const y = Math.sin(angle + game.sceneTime * 1.6) * radius;
-      if (angle === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    ctx.shadowBlur = active ? 22 : 5;
+    if (!drawWorldObject(ctx, "portal", -69, -88, 138, 154)) {
+      ctx.strokeStyle = portal.color; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.ellipse(0,0,44,70,0,0,Math.PI*2); ctx.stroke();
     }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
     ctx.restore();
   }
 
@@ -2440,15 +2528,11 @@
     if (memory.collected) return;
     const pulse = 1 + Math.sin(game.sceneTime * 4 + memory.index) * .18;
     ctx.save(); ctx.translate(memory.x,memory.y); ctx.scale(pulse,pulse);
-    haloFill(ctx, 0, 0, 22, "#ffd34f", .3);
-    ctx.fillStyle = "#ffd34f";
-    ctx.rotate(game.sceneTime*.35);
-    ctx.beginPath();
-    for (let i=0;i<10;i+=1) {
-      const a=-Math.PI/2+i*Math.PI/5; const r=i%2===0?14:6;
-      const x=Math.cos(a)*r,y=Math.sin(a)*r; if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    ctx.rotate(Math.sin(game.sceneTime * .9 + memory.index) * .08);
+    if (!drawWorldObject(ctx, "memory", -27, -27, 54, 54)) {
+      ctx.fillStyle = "#ffd34f"; ctx.font = "900 34px Georgia"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✦", 0, 1);
     }
-    ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.restore();
   }
 
   function drawPuzzle(ctx) {
@@ -2458,36 +2542,37 @@
         if (game.activeTargets.has(target.id)) return;
         const health = game.brokenTargets.get(target.id) ?? 3;
         ctx.save(); ctx.translate(target.x,target.y);
-        const hover = Math.sin(game.sceneTime * 2.2 + target.x) * 1.5;
-        ctx.translate(0, hover);
-        ctx.fillStyle="rgba(45,61,40,.22)";
-        ctx.beginPath();ctx.ellipse(2,28,43,17,0,0,Math.PI*2);ctx.fill();
-        const rock = ctx.createLinearGradient(-26,-38,30,32);
-        rock.addColorStop(0,"#8f9b78");rock.addColorStop(.48,"#5e6655");rock.addColorStop(1,"#3d443a");
-        ctx.fillStyle=rock;ctx.strokeStyle="#30372e";ctx.lineWidth=4;ctx.lineJoin="round";
-        ctx.beginPath();ctx.moveTo(-39,18);ctx.quadraticCurveTo(-43,-8,-24,-31);ctx.quadraticCurveTo(2,-46,29,-27);ctx.quadraticCurveTo(46,-6,34,27);ctx.quadraticCurveTo(0,42,-39,18);ctx.closePath();ctx.fill();ctx.stroke();
-        ctx.fillStyle="rgba(197,219,135,.72)";ctx.beginPath();ctx.ellipse(-10,-28,22,7,-.22,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle="#ffd77a";ctx.shadowColor="#ffb44e";ctx.shadowBlur=9;ctx.lineWidth=3;
-        const cracks=Math.max(1,4-health);for(let i=0;i<cracks;i+=1){const x=-12+i*10;ctx.beginPath();ctx.moveTo(x,-19);ctx.lineTo(x+7,0);ctx.lineTo(x-3,17);ctx.stroke();}
-        ctx.shadowBlur=0;
+        ctx.translate(health === 1 ? Math.sin(game.sceneTime * 22) * 1.5 : 0, Math.sin(game.sceneTime * 2.2 + target.x) * 1.5);
+        ctx.globalAlpha = .7 + health * .1;
+        if (!drawWorldObject(ctx, "crackedStone", -49, -48, 98, 96)) {
+          ctx.fillStyle = "#5e6655"; ctx.fillRect(-36, -36, 72, 72);
+        }
         ctx.restore();
       });
     } else if (puzzle.type === "push") {
       const goal=puzzle.goal;
-      ctx.strokeStyle="#ffd34f";ctx.lineWidth=6;ctx.shadowColor="#ffd34f";ctx.shadowBlur=16;ctx.strokeRect(goal.x-36,goal.y-36,72,72);ctx.shadowBlur=0;
-      if(game.block){ctx.fillStyle="#665f50";ctx.strokeStyle="#17191a";ctx.lineWidth=5;ctx.fillRect(game.block.x-30,game.block.y-30,60,60);ctx.strokeRect(game.block.x-30,game.block.y-30,60,60);ctx.strokeStyle="#ffd34f";ctx.strokeRect(game.block.x-14,game.block.y-14,28,28);}
+      ctx.save(); ctx.translate(goal.x, goal.y); ctx.globalAlpha = .9 + Math.sin(game.sceneTime * 4) * .1;
+      drawWorldObject(ctx, "goalSocket", -49, -49, 98, 98); ctx.restore();
+      if(game.block){ctx.save();ctx.translate(game.block.x,game.block.y);drawWorldObject(ctx,"runeBlock",-43,-43,86,86);ctx.restore();}
     } else {
       puzzle.targets.forEach(target => {
         const active=game.activeTargets.has(target.id);
-        const radius=puzzle.type==="rhythm"?37:30;
         ctx.save();ctx.translate(target.x,target.y);
-        haloFill(ctx,0,0,radius*(active?1.7:1.3),target.color,active?.34:.14);
-        ctx.fillStyle=active?target.color:"rgba(8,13,28,.72)";ctx.strokeStyle=target.color;ctx.lineWidth=5;
-        if(target.id.includes("leaf")){ctx.beginPath();ctx.ellipse(0,0,38,18,-.5,0,Math.PI*2);ctx.fill();ctx.stroke();}
-        else if(target.id.includes("square")){ctx.fillRect(-radius,-radius,radius*2,radius*2);ctx.strokeRect(-radius,-radius,radius*2,radius*2);}
-        else {ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();}
-        ctx.fillStyle=active?"#07111e":target.color;ctx.font="900 22px Trebuchet MS";ctx.textAlign="center";ctx.textBaseline="middle";
-        ctx.fillText(target.number||((target.match||target.id).includes("spiral")?"↻":(target.id.includes("leaf")?"⌁":"◆")),0,1);
+        const key = puzzle.type === "rhythm" ? "musicRune"
+          : target.id.includes("leaf") ? "leafRune"
+            : (target.match || target.id).includes("spiral") ? "spiralRune"
+              : game.chapter.id === 2 ? "energyCore" : "starRune";
+        const size = puzzle.type === "rhythm" ? 102 : 88;
+        const scale = active ? 1.08 : 1;
+        ctx.scale(scale, scale); ctx.globalAlpha = active ? 1 : .72;
+        ctx.shadowColor = target.color; ctx.shadowBlur = active ? 18 : 4;
+        drawWorldObject(ctx,key,-size/2,-size/2,size,size);
+        ctx.shadowBlur = 0;
+        if (puzzle.type === "rhythm") {
+          ctx.globalAlpha = 1; ctx.fillStyle = "#fff6d0"; ctx.strokeStyle = "#38234c"; ctx.lineWidth = 4;
+          ctx.font="900 24px Trebuchet MS";ctx.textAlign="center";ctx.textBaseline="middle";
+          ctx.strokeText(String(target.number),0,3);ctx.fillText(String(target.number),0,3);
+        }
         ctx.restore();
         if(!active)drawRuneGuardLink(ctx,target);
       });
@@ -2531,21 +2616,30 @@
     const pulse = 1 + Math.sin(game.sceneTime * 4) * .08;
     const drawPlate = (plate, occupied, label) => {
       ctx.save(); ctx.translate(plate.x, plate.y);
-      ctx.globalAlpha = occupied ? 1 : .72;
-      ctx.fillStyle = occupied ? "#8ce568" : "rgba(8,13,28,.7)";
-      ctx.strokeStyle = occupied ? "#f2ffbd" : plate.color;
+      ctx.scale(pulse, pulse); ctx.globalAlpha = occupied ? 1 : .72;
       ctx.shadowColor = occupied ? "#8ce568" : plate.color;
-      ctx.shadowBlur = occupied ? 24 : 12;
-      ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.ellipse(0, 0, 46 * pulse, 25 * pulse, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = occupied ? 22 : 6;
+      drawWorldObject(ctx, "coopPlate", -55, -38, 110, 76);
       ctx.shadowBlur = 0; ctx.fillStyle = occupied ? "#18301c" : plate.color; ctx.font = "900 13px Trebuchet MS"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 0, 1);
       ctx.restore();
     };
     const playerReady = distance(player, game.coopPuzzle.plateA) < 52;
     const bradleyReady = distance(bradley, game.coopPuzzle.plateB) < 52;
-    ctx.save(); ctx.globalAlpha = .28; ctx.strokeStyle = "#e7f6c6"; ctx.setLineDash([8, 10]); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(game.coopPuzzle.plateA.x, game.coopPuzzle.plateA.y); ctx.lineTo(game.coopPuzzle.plateB.x, game.coopPuzzle.plateB.y); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
     drawPlate(game.coopPuzzle.plateA, playerReady, "CLARK");
     drawPlate(game.coopPuzzle.plateB, bradleyReady, "BRADLEY");
+  }
+
+  function drawHealingShrine(ctx) {
+    const shrine = game.healingShrine;
+    if (!shrine) return;
+    const ready = shrine.cooldown <= 0;
+    const pulse = ready ? 1 + Math.sin(game.sceneTime * 3.2) * .035 : .96;
+    ctx.save(); ctx.translate(shrine.x, shrine.y); ctx.scale(pulse, pulse);
+    ctx.globalAlpha = ready ? 1 : .56;
+    ctx.shadowColor = ready ? "#ff8fb7" : "#6d8069";
+    ctx.shadowBlur = ready ? 16 : 2;
+    drawWorldObject(ctx, "healingShrine", -58, -64, 116, 116);
+    ctx.restore();
   }
 
   function drawClark(ctx) {
@@ -2629,6 +2723,9 @@
     if(!hasUnlocked(2))return;
     ctx.save();ctx.translate(bradley.x,bradley.y);ctx.strokeStyle="#11131a";ctx.lineWidth=5;ctx.lineCap="round";
     if (game.phase === "cooperation" && bradley.command === "station") { ctx.strokeStyle="#ff9f1c";ctx.shadowColor="#ff9f1c";ctx.shadowBlur=16;ctx.lineWidth=4;ctx.setLineDash([6,5]);ctx.beginPath();ctx.arc(0,0,31+Math.sin(game.sceneTime*4)*3,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0; }
+    const companionAtlas = loadCompanionAtlas();
+    const bradleyBob = Math.sin(game.sceneTime * 4.2) * 1.5;
+    if (drawAtlasCell(ctx, companionAtlas, COMPANION_ATLAS_CELLS.bradley, 3, 1, -44, -61 + bradleyBob, 88, 88)) { ctx.restore(); return; }
     ctx.strokeStyle="#171721";ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-7,18);ctx.lineTo(-10,36);ctx.moveTo(7,18);ctx.lineTo(11,36);ctx.stroke();
     ctx.fillStyle="#8e6334";roundedRect(ctx,-15,-2,30,29,8);ctx.fill();ctx.stroke();
     ctx.fillStyle="#f29a19";ctx.beginPath();ctx.arc(0,-14,22,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -2654,6 +2751,7 @@
     }
     if(!hasUnlocked(5))return;
     ctx.save();ctx.translate(bird.x,bird.y);ctx.fillStyle="#d6b56d";ctx.strokeStyle="#2d241c";ctx.lineWidth=3;
+    if (drawAtlasCell(ctx, loadCompanionAtlas(), COMPANION_ATLAS_CELLS.bird, 3, 1, -28, -29 + Math.sin(game.sceneTime * 5) * 2, 56, 52)) { ctx.restore(); return; }
     ctx.beginPath();ctx.ellipse(0,0,16,13,0,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.beginPath();ctx.moveTo(13,-2);ctx.lineTo(27,2);ctx.lineTo(13,6);ctx.closePath();ctx.fillStyle="#ffcb45";ctx.fill();ctx.stroke();
     ctx.fillStyle="#111";ctx.beginPath();ctx.arc(6,-4,2.5,0,Math.PI*2);ctx.fill();
@@ -2663,6 +2761,7 @@
   function drawGuardian(ctx) {
     if(!hasUnlocked(4))return;
     ctx.save();ctx.translate(guardian.x,guardian.y);ctx.strokeStyle="#ffd34f";ctx.lineWidth=3;ctx.fillStyle="rgba(255,211,79,.32)";
+    if (drawAtlasCell(ctx, loadCompanionAtlas(), COMPANION_ATLAS_CELLS.guardian, 3, 1, -38, -48 + Math.sin(game.sceneTime * 3.4) * 2, 76, 78)) { ctx.restore(); return; }
     for(const side of[-1,1]){ctx.beginPath();ctx.ellipse(side*20,4,18,8,side*.8,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.ellipse(side*17,-8,15,6,side*.8,0,Math.PI*2);ctx.fill();ctx.stroke();}
     ctx.fillStyle="#111429";ctx.strokeStyle="#ffd34f";ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-4,17,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.strokeStyle="#69e5ff";ctx.lineWidth=3;ctx.beginPath();for(let a=0;a<Math.PI*4;a+=.18){const r=a*1.05,x=Math.cos(a)*r,y=-4+Math.sin(a)*r;if(a===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();ctx.restore();
@@ -2802,6 +2901,12 @@
       else{ctx.beginPath();ctx.arc(0,0,boss.radius+14+warning*16,0,Math.PI*2);ctx.stroke();}ctx.restore();}
     if (!boss.peaceful && boss.meleeTime > 0) { ctx.save(); ctx.rotate(Math.atan2(boss.attackDirection.y, boss.attackDirection.x)); ctx.globalAlpha = .78; ctx.strokeStyle = boss.meleeKind === "dive" ? "#c77dff" : "#ffd34f"; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 20; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(22, 0, boss.radius + 25, -.95, .95); ctx.stroke(); ctx.restore(); }
     const pulse=1+Math.sin(game.sceneTime*4)*.035;ctx.scale(pulse,pulse);ctx.globalAlpha=boss.invulnerable>0?.55:1;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;
+    const bossAtlas = loadBossAtlas();
+    const bossCell = BOSS_ATLAS_CELLS[boss.type];
+    const bossSize = BOSS_SPRITE_SIZES[boss.type] || [176, 176];
+    if (drawAtlasCell(ctx, bossAtlas, bossCell, 4, 2, -bossSize[0] / 2, -bossSize[1] * .58, bossSize[0], bossSize[1])) {
+      ctx.shadowBlur = 0; ctx.restore(); return;
+    }
     const piArt = boss.type==="pi" ? loadProp("piMonster") : PENDING_ART;
     if(piArt.complete&&piArt.naturalWidth){
       ctx.fillStyle="rgba(38,29,51,.3)";ctx.beginPath();ctx.ellipse(0,50,75,24,0,0,Math.PI*2);ctx.fill();
@@ -2835,6 +2940,11 @@
   function drawHostileProjectile(ctx, projectile) {
     const angle = Math.atan2(projectile.vy, projectile.vx);
     const radius = projectile.radius;
+    const paintedKey = COMBAT_EFFECT_CELLS[projectile.shape] ? projectile.shape : "star";
+    const paintedRotation = projectile.shape === "storm" || projectile.shape === "gear" || projectile.shape === "rune" || projectile.shape === "shadow"
+      ? (projectile.age || 0) * 3
+      : angle + Math.PI;
+    if (drawCombatEffect(ctx, paintedKey, projectile.x, projectile.y, radius * 5.6, radius * 5.6, paintedRotation)) return;
     ctx.save();ctx.translate(projectile.x,projectile.y);
     haloFill(ctx,0,0,radius*1.9,projectile.color,.26);
     ctx.rotate(angle);
@@ -2869,43 +2979,26 @@
 
   function drawProjectiles(ctx) {
     game.projectiles.forEach(projectile=>{
-      haloFill(ctx,projectile.x,projectile.y,projectile.radius*2.1,projectile.color,.28);
-      ctx.fillStyle=projectile.color;ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.radius,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle="rgba(255,255,255,.75)";ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.radius*.42,0,Math.PI*2);ctx.fill();
+      const angle = Math.atan2(projectile.vy || 0, projectile.vx || 1) + Math.PI;
+      if (!drawCombatEffect(ctx,"star",projectile.x,projectile.y,projectile.radius*5.4,projectile.radius*5.4,angle)) {
+        ctx.fillStyle=projectile.color;ctx.beginPath();ctx.arc(projectile.x,projectile.y,projectile.radius,0,Math.PI*2);ctx.fill();
+      }
     });
     game.enemyProjectiles.forEach(projectile=>drawHostileProjectile(ctx,projectile));
-    ctx.shadowBlur=0;
     game.attacks.forEach(attack=>{
-      if(attack.type==="slash"){
-        const progress=clamp(1-attack.life/attack.maxLife,0,1);
-        const fade=Math.sin(progress*Math.PI);
-        ctx.save();ctx.translate(attack.x,attack.y);ctx.rotate(attack.angle);
-        ctx.globalAlpha=fade*.82;ctx.strokeStyle="#a9ff8d";ctx.shadowColor="#75ef8a";ctx.shadowBlur=22;ctx.lineCap="round";
-        ctx.lineWidth=18-progress*9;ctx.beginPath();ctx.arc(0,0,attack.radius,-1.05,1.05);ctx.stroke();
-        ctx.globalAlpha=fade*.9;ctx.strokeStyle="#f6ffe9";ctx.shadowBlur=8;ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,attack.radius+2,-.9,.9);ctx.stroke();
-        ctx.restore();
-      }else if(attack.type==="spin"){
-        const progress=clamp(1-attack.life/attack.maxLife,0,1);
-        const fade=Math.sin(progress*Math.PI);
-        ctx.save();ctx.translate(attack.x,attack.y);ctx.rotate(attack.angle+progress*1.2);
-        ctx.globalAlpha=fade*.75;ctx.strokeStyle="#b7ff9b";ctx.shadowColor="#75ef8a";ctx.shadowBlur=24;ctx.lineWidth=16-progress*7;ctx.lineCap="round";
-        ctx.beginPath();ctx.arc(0,0,attack.radius,-Math.PI*.85,Math.PI*.85);ctx.stroke();
-        ctx.globalAlpha=fade;ctx.strokeStyle="#f6ffe9";ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,attack.radius+3,-Math.PI*.7,Math.PI*.72);ctx.stroke();ctx.restore();
-      }else if(attack.type==="smash"){
-        const progress=clamp(1-attack.life/attack.maxLife,0,1);
-        const radius=attack.radius*(.25+progress*.75);
-        ctx.save();ctx.translate(attack.x,attack.y);ctx.globalAlpha=(1-progress)*.78;
-        ctx.strokeStyle="#ffae42";ctx.shadowColor="#ff6f24";ctx.shadowBlur=24;ctx.lineWidth=18*(1-progress)+4;ctx.beginPath();ctx.ellipse(0,7,radius,radius*.48,0,0,Math.PI*2);ctx.stroke();
-        ctx.strokeStyle="#fff0b8";ctx.shadowBlur=8;ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,7,radius+4,(radius+4)*.48,0,0,Math.PI*2);ctx.stroke();
-        ctx.fillStyle="rgba(92,52,33,.38)";for(let i=0;i<7;i+=1){const angle=i*Math.PI*2/7;const rockDistance=radius*.7;ctx.beginPath();ctx.arc(Math.cos(angle)*rockDistance,7+Math.sin(angle)*rockDistance*.45,3+4*(1-progress),0,Math.PI*2);ctx.fill();}ctx.restore();
-      }else if(attack.type==="perfect"){
-        const progress=clamp(1-attack.life/attack.maxLife,0,1);
+      const progress=clamp(1-attack.life/(attack.maxLife||.25),0,1);
+      const fade=Math.sin(progress*Math.PI);
+      if(attack.type==="slash") drawCombatEffect(ctx,"leafSlash",attack.x,attack.y,attack.radius*2.45,attack.radius*1.85,attack.angle,fade*.92);
+      else if(attack.type==="spin") drawCombatEffect(ctx,"leafSlash",attack.x,attack.y,attack.radius*2.6,attack.radius*2.05,attack.angle+progress*Math.PI*1.5,fade*.9);
+      else if(attack.type==="smash") {
         const radius=attack.radius*(.35+progress*.65);
-        ctx.save();ctx.translate(attack.x,attack.y);ctx.globalAlpha=(1-progress)*.9;ctx.strokeStyle="#d9ffb7";ctx.shadowColor="#8ce568";ctx.shadowBlur=24;ctx.lineWidth=10*(1-progress)+3;ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.stroke();ctx.strokeStyle="#fff7d0";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,radius+8,-.9,1.9);ctx.stroke();ctx.restore();
-      }else{
-        ctx.globalAlpha=clamp(attack.life/.25,0,.45);ctx.fillStyle=attack.color;ctx.beginPath();ctx.arc(attack.x,attack.y,attack.radius,0,Math.PI*2);ctx.fill();
-      }
-    });ctx.globalAlpha=1;ctx.shadowBlur=0;
+        drawCombatEffect(ctx,"hammerShockwave",attack.x,attack.y+6,radius*2.2,radius*1.55,0,(1-progress)*.92);
+      } else if(attack.type==="perfect") {
+        const radius=attack.radius*(.45+progress*.55);
+        drawCombatEffect(ctx,"star",attack.x,attack.y,radius*1.8,radius*1.8,progress*Math.PI,(1-progress)*.9);
+      } else drawCombatEffect(ctx,"star",attack.x,attack.y,attack.radius*1.8,attack.radius*1.8,0,clamp(attack.life/.25,0,.6));
+    });
+    ctx.globalAlpha=1;ctx.shadowBlur=0;
   }
 
   function currentObjectiveTarget() {
@@ -2923,7 +3016,7 @@
   function drawObjectiveMarker(ctx) {
     const target=currentObjectiveTarget();if(!target)return;
     const y=target.y-(target.radius||30)-38+Math.sin(game.sceneTime*5)*5;
-    ctx.save();ctx.translate(target.x,y);haloFill(ctx,0,3,17,"#ffd34f",.26);ctx.fillStyle="#ffd34f";ctx.beginPath();ctx.moveTo(0,14);ctx.lineTo(-12,-5);ctx.lineTo(12,-5);ctx.closePath();ctx.fill();ctx.restore();
+    ctx.save();ctx.translate(target.x,y);ctx.rotate(Math.sin(game.sceneTime*2.5)*.08);drawWorldObject(ctx,"memory",-15,-15,30,30);ctx.restore();
   }
 
   function render() {
@@ -2938,6 +3031,7 @@
     context.setTransform(dpr*viewport.scale,0,0,dpr*viewport.scale,dpr*(viewport.offsetX+shakeX*viewport.scale),dpr*(viewport.offsetY+shakeY*viewport.scale));
     drawBackground(context,game.chapter);
     drawPortal(context,game.chapter.portal,game.portalActive);
+    drawHealingShrine(context);
     drawPuzzle(context);
     game.memoryObjects.forEach(memory=>drawMemory(context,memory));
     drawObjectiveMarker(context);
