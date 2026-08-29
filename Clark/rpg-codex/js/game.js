@@ -129,6 +129,7 @@
     monsters: {},
     props: {},
     heroAnimation: null,
+    heroRig: null,
     monsterAtlas: null,
     finalMonsterAtlas: null,
     bossAtlas: null,
@@ -196,8 +197,14 @@
   const FINAL_MONSTER_ATLAS_CELLS = { inkhound: [0,0], runeknight: [1,0], quillseer: [2,0] };
   const BOSS_ATLAS_SOURCE = "assets/bosses/generated/storybook-boss-atlas-v1.webp";
   const BOSS_ATLAS_CELLS = { pi: [0,0], warden: [1,0], engine: [2,0], shadow: [3,0], golem: [0,1], raven: [1,1], final: [2,1] };
-  const HERO_ANIMATION_SOURCE = "assets/characters/animations/clark-action-atlas-v2.webp";
+  const HERO_ANIMATION_SOURCE = "assets/characters/animations/clark-action-atlas-v4.webp";
   const HERO_ANIMATION_ROWS = Object.freeze({ idle: 0, move: 1, leafblade: 2, hammer: 3, dash: 4, hurt: 5 });
+  const HERO_RIG_SOURCE = "assets/characters/rig/clark-puppet-parts-tight-v1.png";
+  const HERO_RIG_CELLS = Object.freeze({
+    head: [0,0], torso: [1,0], cape: [2,0],
+    upperArm: [0,1], lowerArm: [1,1], fist: [2,1], openHand: [3,1],
+    thigh: [0,2], shin: [1,2], bootRight: [2,2], bootLeft: [3,2]
+  });
   const BOSS_ANIMATION_SOURCES = {
     pi: "assets/bosses/animations/pi-action-atlas-v2.webp",
     warden: "assets/bosses/animations/warden-action-atlas-v2.webp",
@@ -361,6 +368,11 @@
     return art.heroAnimation;
   }
 
+  function loadHeroRig() {
+    if (!art.heroRig) art.heroRig = Object.assign(new Image(), { src: HERO_RIG_SOURCE });
+    return art.heroRig;
+  }
+
   function loadBossAnimation(type) {
     const source = BOSS_ANIMATION_SOURCES[type];
     if (!source) return PENDING_ART;
@@ -402,7 +414,9 @@
     shieldTime: 0, moving: false, walkCycle: 0,
     weapon: save.weapon === "hammer" && save.unlockedChapter >= 3 ? "hammer" : "leafblade", comboStep: 0, comboTimer: 0, attackKind: "leafblade", touchAttackHeld: false,
     attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }, hammerCharging: false, hammerCharge: 0, perfectDodgeTime: 0, counterReadyTime: 0, counterCooldown: 0, dashStrikeWindow: 0,
-    hurtTime: 0, animationTime: 0, animState: "idle", animStateTime: 0
+    hurtTime: 0, animationTime: 0, animState: "idle", animStateTime: 0,
+    previousAnimState: "idle", previousAnimStateTime: 0, animBlend: 1,
+    capeAngle: -.08, capeVelocity: 0
   };
 
   const bradley = { x: 80, y: 390, radius: 20, cooldown: 0, facing: { x: 1, y: 0 }, command: "follow", target: null };
@@ -659,6 +673,7 @@
     loadCombatEffectsAtlas();
     loadProp("clark");
     loadHeroAnimation();
+    loadHeroRig();
     loadProp("leafblade");
     if (save.unlockedChapter >= WEAPONS.hammer.unlockChapter) loadProp("cometHammer");
     game.block = game.chapter.puzzle.type === "push"
@@ -685,6 +700,11 @@
     player.animationTime = 0;
     player.animState = "idle";
     player.animStateTime = 0;
+    player.previousAnimState = "idle";
+    player.previousAnimStateTime = 0;
+    player.animBlend = 1;
+    player.capeAngle = -.08;
+    player.capeVelocity = 0;
     player.dashStrikeWindow = 0;
     player.comboStep = 0;
     player.comboTimer = 0;
@@ -1006,6 +1026,7 @@
   function updatePlayer(delta) {
     player.animationTime += delta;
     player.animStateTime += delta;
+    player.animBlend = Math.min(1, player.animBlend + delta / .13);
     player.invulnerable = Math.max(0, player.invulnerable - delta);
     player.attackCooldown = Math.max(0, player.attackCooldown - delta);
     player.attackTime = Math.max(0, player.attackTime - delta);
@@ -1067,9 +1088,16 @@
     if (game.portalActive && !game.portalTransitioning && distance(player, game.chapter.portal) < 68) completeChapter();
     const nextState = player.hurtTime > 0 ? "hurt" : player.dashTime > 0 ? "dash" : player.attackTime > 0 || player.hammerCharging ? (player.attackKind === "hammer" || player.hammerCharging ? "hammer" : "leafblade") : player.moving ? "move" : "idle";
     if (nextState !== player.animState) {
+      player.previousAnimState = player.animState;
+      player.previousAnimStateTime = player.animStateTime;
       player.animState = nextState;
       player.animStateTime = 0;
+      player.animBlend = 0;
     }
+    const capeTarget = nextState === "dash" ? -.72 : nextState === "move" ? -.28 - Math.abs(Math.sin(player.walkCycle * Math.PI * 2)) * .12 : nextState === "hurt" ? .18 : nextState === "hammer" ? -.16 : -.08;
+    player.capeVelocity += (capeTarget - player.capeAngle) * 48 * delta;
+    player.capeVelocity *= Math.exp(-8.5 * delta);
+    player.capeAngle += player.capeVelocity * delta;
     dom.touchAttack.classList.toggle("is-counter-ready", player.counterReadyTime > 0);
     dom.weaponButton?.classList.toggle("is-counter-ready", player.counterReadyTime > 0);
   }
@@ -2389,8 +2417,11 @@
     player.health = Math.max(0, player.health - amount);
     player.invulnerable = 1;
     player.hurtTime = .36;
+    player.previousAnimState = player.animState;
+    player.previousAnimStateTime = player.animStateTime;
     player.animState = "hurt";
     player.animStateTime = 0;
+    player.animBlend = 0;
     const knock = normalize(player.x - source.x, player.y - source.y);
     moveCircle(player, knock.x * 35, knock.y * 35);
     particles.burst(player.x, player.y, "#ff5d62", 12, 160);
@@ -2433,6 +2464,11 @@
     player.animationTime = 0;
     player.animState = "idle";
     player.animStateTime = 0;
+    player.previousAnimState = "idle";
+    player.previousAnimStateTime = 0;
+    player.animBlend = 1;
+    player.capeAngle = -.08;
+    player.capeVelocity = 0;
     player.dashStrikeWindow = 0;
     player.hammerCharging = false;
     player.hammerCharge = 0;
@@ -2824,6 +2860,155 @@
     ctx.restore();
   }
 
+  function heroRigPose(state, time) {
+    const pose = {
+      rootX: 0, rootY: 0, bodyRot: 0, headRot: 0, headX: 0, headY: 0,
+      leftUpperArm: .16, leftLowerArm: -.18, rightUpperArm: -.16, rightLowerArm: .18,
+      leftThigh: .04, leftShin: -.08, leftFoot: .04,
+      rightThigh: -.04, rightShin: .08, rightFoot: -.04,
+      openLeftHand: false, openRightHand: false, weaponRot: .24
+    };
+    if (state === "idle") {
+      const breath = Math.sin((player.animationTime || 0) * 2.8);
+      pose.rootY = breath * 1.1;
+      pose.headY = breath * -.55;
+      pose.headRot = Math.sin((player.animationTime || 0) * 1.7) * .018;
+      pose.leftUpperArm += breath * .025;
+      pose.rightUpperArm -= breath * .025;
+    } else if (state === "move") {
+      const phase = player.walkCycle * Math.PI * 2;
+      const stride = Math.sin(phase);
+      const liftLeft = Math.max(0, -stride);
+      const liftRight = Math.max(0, stride);
+      pose.rootX = Math.sin(phase * 2) * .8;
+      pose.rootY = -Math.abs(Math.sin(phase)) * 3.2;
+      pose.bodyRot = stride * .035;
+      pose.headRot = -pose.bodyRot * .7;
+      pose.leftThigh = stride * .62;
+      pose.rightThigh = -stride * .62;
+      pose.leftShin = .08 + liftLeft * .72;
+      pose.rightShin = .08 + liftRight * .72;
+      pose.leftFoot = -(pose.leftThigh + pose.leftShin) * .72;
+      pose.rightFoot = -(pose.rightThigh + pose.rightShin) * .72;
+      pose.leftUpperArm = -stride * .48;
+      pose.rightUpperArm = stride * .48;
+      pose.leftLowerArm = -.22 - Math.abs(stride) * .12;
+      pose.rightLowerArm = .16 + Math.abs(stride) * .1;
+    } else if (state === "leafblade") {
+      const progress = clamp(1 - player.attackTime / Math.max(.01, player.attackDuration), 0, 1);
+      const swing = 1 - Math.pow(1 - progress, 3);
+      pose.rootX = Math.sin(progress * Math.PI) * 4;
+      pose.bodyRot = -.11 + swing * .2;
+      pose.rightUpperArm = -1.65 + swing * 2.55;
+      pose.rightLowerArm = -.32 + swing * .18;
+      pose.weaponRot = -.25;
+      pose.leftUpperArm = .58 - swing * .42;
+      pose.leftLowerArm = -.42;
+      pose.rightThigh = -.2; pose.leftThigh = .22;
+    } else if (state === "hammer") {
+      const progress = player.hammerCharging ? clamp(player.hammerCharge, 0, 1) * .28 : clamp(1 - player.attackTime / Math.max(.01, player.attackDuration), 0, 1);
+      const slam = progress < .42 ? progress / .42 : 1 - Math.pow(1 - (progress - .42) / .58, 3);
+      pose.rootY = progress > .42 ? Math.sin((progress - .42) / .58 * Math.PI) * 4 : 0;
+      pose.bodyRot = -.12 + slam * .25;
+      pose.rightUpperArm = -2.35 + slam * 2.75;
+      pose.rightLowerArm = -.42;
+      pose.leftUpperArm = -1.95 + slam * 2.2;
+      pose.leftLowerArm = -.25;
+      pose.weaponRot = -.16;
+      pose.leftThigh = .18; pose.rightThigh = -.18;
+    } else if (state === "dash") {
+      const rush = Math.sin(Math.min(1, time / .28) * Math.PI);
+      pose.rootX = 5 * rush;
+      pose.rootY = -3;
+      pose.bodyRot = .28;
+      pose.headRot = -.16;
+      pose.leftUpperArm = .75; pose.rightUpperArm = .58;
+      pose.leftLowerArm = -.25; pose.rightLowerArm = .1;
+      pose.leftThigh = .75; pose.rightThigh = .42;
+      pose.leftShin = -.35; pose.rightShin = -.18;
+      pose.leftFoot = -.25; pose.rightFoot = -.18;
+      pose.weaponRot = -.55;
+    } else if (state === "hurt") {
+      const recoil = Math.sin(Math.min(1, time / .36) * Math.PI);
+      pose.rootX = -5 * recoil;
+      pose.rootY = -2 * recoil;
+      pose.bodyRot = -.27 * recoil;
+      pose.headRot = -.16 * recoil;
+      pose.leftUpperArm = -1.05 * recoil; pose.rightUpperArm = 1.1 * recoil;
+      pose.leftLowerArm = -.35; pose.rightLowerArm = .35;
+      pose.leftThigh = -.34 * recoil; pose.rightThigh = .42 * recoil;
+      pose.leftShin = .34 * recoil; pose.rightShin = -.16 * recoil;
+      pose.openLeftHand = recoil > .25; pose.openRightHand = recoil > .25;
+    }
+    return pose;
+  }
+
+  function blendHeroRigPose(from, to, amount) {
+    const eased = amount * amount * (3 - 2 * amount);
+    const mixed = {};
+    Object.keys(to).forEach(key => {
+      mixed[key] = typeof to[key] === "number" ? lerp(typeof from[key] === "number" ? from[key] : to[key], to[key], eased) : eased < .5 ? from[key] : to[key];
+    });
+    return mixed;
+  }
+
+  function drawHeroRigPart(ctx, atlas, key, x, y, width, height, rotation = 0, pivotX = .5, pivotY = .1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rotation);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS[key], 4, 3, -width * pivotX, -height * pivotY, width, height);
+    ctx.restore();
+  }
+
+  function drawHeroRigLeg(ctx, atlas, x, upperAngle, lowerAngle, footAngle, bootKey) {
+    ctx.save(); ctx.translate(x, -3); ctx.rotate(upperAngle);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.thigh, 4, 3, -12, -4, 24, 38);
+    ctx.translate(0, 28); ctx.rotate(lowerAngle);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.shin, 4, 3, -10, -3, 20, 34);
+    ctx.translate(0, 27); ctx.rotate(footAngle);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS[bootKey], 4, 3, -11, -7, 34, 24);
+    ctx.restore();
+  }
+
+  function drawHeroRigArm(ctx, atlas, x, y, upperAngle, lowerAngle, openHand, weaponArt, wieldingHammer, weaponRot) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(upperAngle);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.upperArm, 4, 3, -11, -4, 22, 34);
+    ctx.translate(0, 25); ctx.rotate(lowerAngle);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.lowerArm, 4, 3, -5, -9, 31, 18);
+    ctx.translate(23, 0);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS[openHand ? "openHand" : "fist"], 4, 3, -10, -11, 23, 23);
+    if (weaponArt?.complete && weaponArt.naturalWidth) {
+      ctx.rotate(weaponRot);
+      ctx.shadowColor = wieldingHammer ? "#ff852a" : "#79eb8c";
+      ctx.shadowBlur = player.attackTime > 0 ? 14 : 5;
+      if (wieldingHammer) ctx.drawImage(weaponArt, -24, -64, 48, 78);
+      else ctx.drawImage(weaponArt, -16, -56, 32, 64);
+    }
+    ctx.restore();
+  }
+
+  function drawClarkRig(ctx) {
+    const atlas = loadHeroRig();
+    if (!atlas.complete || !atlas.naturalWidth || !atlas.naturalHeight) return false;
+    const current = heroRigPose(player.animState, player.animStateTime);
+    const previous = heroRigPose(player.previousAnimState || player.animState, player.previousAnimStateTime || 0);
+    const pose = blendHeroRigPose(previous, current, player.animBlend);
+    const facingX = player.attackTime > 0 ? player.attackDirection.x : player.facing.x;
+    const directionFlip = facingX < -.08 ? -1 : 1;
+    const wieldingHammer = player.weapon === "hammer";
+    const weaponArt = loadProp(wieldingHammer ? "cometHammer" : "leafblade");
+    ctx.save(); ctx.scale(directionFlip, 1); ctx.translate(pose.rootX, pose.rootY);
+    drawHeroRigPart(ctx, atlas, "cape", 3, -45, 78, 52, player.capeAngle, .86, .22);
+    drawHeroRigLeg(ctx, atlas, -9, pose.leftThigh, pose.leftShin, pose.leftFoot, "bootLeft");
+    drawHeroRigArm(ctx, atlas, -18, -39, pose.leftUpperArm, pose.leftLowerArm, pose.openLeftHand, null, false, 0);
+    drawHeroRigLeg(ctx, atlas, 9, pose.rightThigh, pose.rightShin, pose.rightFoot, "bootRight");
+    ctx.save(); ctx.rotate(pose.bodyRot);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.torso, 4, 3, -31, -52, 62, 59);
+    drawHeroRigPart(ctx, atlas, "head", pose.headX, -65 + pose.headY, 64, 64, pose.headRot, .5, .5);
+    drawHeroRigArm(ctx, atlas, 18, -39, pose.rightUpperArm, pose.rightLowerArm, pose.openRightHand, weaponArt, wieldingHammer, pose.weaponRot);
+    ctx.restore();
+    ctx.restore();
+    return true;
+  }
+
   function drawClark(ctx) {
     const blink = player.invulnerable > 0 && Math.floor(game.sceneTime * 14) % 2 === 0;
     ctx.save();ctx.translate(player.x,player.y);
@@ -2835,6 +3020,21 @@
     const bob = attacking ? -2 : player.moving ? -hop * 5.5 : Math.sin(game.sceneTime*3)*1.2;
     const shadowScale = 1 - hop * .2;
     ctx.save();ctx.scale(shadowScale,shadowScale);ctx.fillStyle="rgba(35,57,34,.28)";ctx.beginPath();ctx.ellipse(0,31,34,13,0,0,Math.PI*2);ctx.fill();ctx.restore();
+    if (loadHeroRig().complete && loadHeroRig().naturalWidth) {
+      if (charging) { ctx.strokeStyle="#ffb347";ctx.shadowColor="#ff7a21";ctx.shadowBlur=18;ctx.lineWidth=5;ctx.globalAlpha=.5+.45*player.hammerCharge;ctx.beginPath();ctx.arc(0,-12,43+player.hammerCharge*15,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;ctx.shadowBlur=0; }
+      if (blink) ctx.globalAlpha=.35;
+      if (player.counterReadyTime > 0) {
+        const counterPulse = 1 + Math.sin(game.sceneTime * 16) * .08;
+        drawCombatEffect(ctx, "leafSlash", 0, -18, 112 * counterPulse, 112 * counterPulse, game.sceneTime * 3.5, .5);
+      }
+      drawClarkRig(ctx);
+      if(player.shieldTime>0){const shieldSize=skillRank()*3;ctx.strokeStyle="#9ce98c";ctx.shadowColor="#d8ffb2";ctx.shadowBlur=24+shieldSize;ctx.lineWidth=6;ctx.beginPath();ctx.ellipse(0,-19,52+shieldSize,58+shieldSize,0,0,Math.PI*2);ctx.stroke();}
+      ctx.globalAlpha=1;ctx.shadowBlur=0;
+      ctx.fillStyle="rgba(251,248,220,.92)";ctx.strokeStyle="rgba(70,91,55,.35)";ctx.lineWidth=2;roundedRect(ctx,-30,-105,60,18,9);ctx.fill();ctx.stroke();
+      ctx.fillStyle="#364b31";ctx.font="800 10px Trebuchet MS";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("CLARK",0,-96);
+      ctx.restore();
+      return;
+    }
     ctx.translate(0,bob);
     if (charging) { ctx.strokeStyle="#ffb347";ctx.shadowColor="#ff7a21";ctx.shadowBlur=18;ctx.lineWidth=5;ctx.globalAlpha=.5+.45*player.hammerCharge;ctx.beginPath();ctx.arc(0,0,43+player.hammerCharge*15,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;ctx.shadowBlur=0; }
     if (blink) ctx.globalAlpha=.35;
@@ -3310,6 +3510,7 @@
   function resizeCanvas() {
     const rect=dom.stage.getBoundingClientRect();const dpr=Math.min(window.devicePixelRatio||1,usesTouchControls()?1.5:2);
     dom.canvas.width=Math.max(1,Math.floor(rect.width*dpr));dom.canvas.height=Math.max(1,Math.floor(rect.height*dpr));
+    context.imageSmoothingEnabled=true;context.imageSmoothingQuality="high";
     const scale=Math.max(rect.width/WORLD_WIDTH,rect.height/WORLD_HEIGHT);
     game.viewport={width:rect.width,height:rect.height,dpr,scale,offsetX:(rect.width-WORLD_WIDTH*scale)/2,offsetY:(rect.height-WORLD_HEIGHT*scale)/2};
   }

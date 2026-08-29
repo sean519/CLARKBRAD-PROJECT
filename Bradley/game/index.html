@@ -2360,6 +2360,48 @@
         scroll-behavior: auto !important;
       }
     }
+
+    /* Combat readability: energy, heat, build identity and first-run coaching */
+    .combat-dashboard {
+      display: grid;
+      gap: 6px;
+      margin: 8px 0 2px;
+      padding: 8px;
+      border: 1px solid rgba(125,211,252,0.16);
+      border-radius: 9px;
+      background: rgba(3,10,31,0.58);
+    }
+    .game-panel > * { flex-shrink: 0; }
+    .meter-row { display: grid; grid-template-columns: 47px 1fr 34px; align-items: center; gap: 6px; }
+    .meter-label, .meter-value { font: 800 8px/1 'Orbitron', monospace; color: rgba(210,232,255,0.72); }
+    .meter-value { text-align: right; }
+    .meter-track { height: 7px; overflow: hidden; border-radius: 5px; background: rgba(255,255,255,0.08); }
+    .meter-fill { height: 100%; width: 100%; border-radius: inherit; transition: width 120ms linear, background 160ms; }
+    #energyFill { background: linear-gradient(90deg,#2aa8d8,#67e8f9); box-shadow: 0 0 8px rgba(103,232,249,.5); }
+    #heatFill { background: linear-gradient(90deg,#fde68a,#ff6b35,#ff4757); box-shadow: 0 0 8px rgba(255,107,53,.45); }
+    .combat-dashboard.is-overheated { border-color: rgba(255,71,87,.65); animation: bossCritical .6s ease-in-out infinite; }
+    .build-paths { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
+    .build-chip { padding:4px 2px; border-radius:5px; text-align:center; font:800 8px/1.2 'Orbitron',monospace; color:rgba(220,235,255,.58); background:rgba(255,255,255,.05); }
+    .build-chip.is-awake { color:#fff; background:rgba(125,211,252,.13); box-shadow:inset 0 0 0 1px rgba(125,211,252,.18); }
+    .weapon-belt button.is-drained { opacity:.42; filter:saturate(.45); }
+    .weapon-cost { font-size:7px; opacity:.65; line-height:1; }
+    .mission-action { display:block; margin-bottom:5px; color:#67e8f9; font:900 9px/1.2 'Orbitron',monospace; letter-spacing:.04em; }
+    .tutorial-card {
+      position:fixed; left:50%; bottom:max(92px,env(safe-area-inset-bottom)); transform:translateX(-50%);
+      z-index:7; width:min(430px,calc(100vw - 32px)); padding:12px 46px 12px 14px;
+      border:1px solid rgba(103,232,249,.62); border-radius:12px;
+      background:linear-gradient(135deg,rgba(6,20,56,.96),rgba(34,12,64,.95));
+      box-shadow:0 14px 44px rgba(0,0,0,.42),0 0 22px rgba(103,232,249,.18);
+      color:#eaf8ff; pointer-events:none; transition:opacity 180ms,transform 180ms;
+    }
+    .tutorial-card[hidden] { display:none; }
+    .tutorial-step { color:#67e8f9; font:900 9px/1 'Orbitron',monospace; letter-spacing:.12em; text-transform:uppercase; }
+    .tutorial-text { margin-top:5px; font-size:13px; font-weight:800; line-height:1.35; }
+    .tutorial-dots { position:absolute; right:13px; top:50%; transform:translateY(-50%); display:grid; gap:4px; }
+    .tutorial-dots i { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.18); }
+    .tutorial-dots i.is-on { background:#67e8f9; box-shadow:0 0 8px #67e8f9; }
+    .boss-phase { padding:3px 7px; border-radius:5px; background:rgba(255,255,255,.08); color:#ffd6ff; font:900 8px/1 'Orbitron',monospace; white-space:nowrap; }
+    .upgrade-path { margin-bottom:5px; font:900 8px/1 'Orbitron',monospace; letter-spacing:.09em; text-transform:uppercase; color:#67e8f9; }
   </style>
 </head>
 <body>
@@ -2466,6 +2508,13 @@
       <div class="ship-status" id="shipStatus">Elements saved: 0/3</div>
       <div class="ship-parts" id="shipParts"></div>
     </div>
+    <div class="combat-dashboard" id="combatDashboard" aria-label="Weapon energy and upgrade paths">
+      <div class="meter-row"><span class="meter-label">ENERGY</span><span class="meter-track"><span class="meter-fill" id="energyFill"></span></span><span class="meter-value" id="energyValue">100</span></div>
+      <div class="meter-row"><span class="meter-label">HEAT</span><span class="meter-track"><span class="meter-fill" id="heatFill"></span></span><span class="meter-value" id="heatValue">0</span></div>
+      <div class="build-paths">
+        <span class="build-chip" id="pathMagnet">🧲 MAG 0</span><span class="build-chip" id="pathGunner">⚡ GUN 0</span><span class="build-chip" id="pathAlchemy">⚗️ ALC 0</span>
+      </div>
+    </div>
     <div class="panel-section-label">Ship Evolution</div>
     <div class="evo-board" id="evoBoard" aria-label="Ship evolution progress"></div>
     <div class="panel-section-label">Controls</div>
@@ -2495,6 +2544,12 @@
     </div>
   </section>
 
+  <div class="tutorial-card" id="tutorialCard" hidden aria-live="polite">
+    <div class="tutorial-step" id="tutorialStep">Flight school · 1/5</div>
+    <div class="tutorial-text" id="tutorialText">Move the UFO with the arrows or drag it.</div>
+    <div class="tutorial-dots" id="tutorialDots" aria-hidden="true"></div>
+  </div>
+
   <!-- Mobile floating controls (visible on touch devices only) -->
   <div class="touch-controls" id="touchControls" aria-label="Touch game controls">
     <button class="touch-btn touch-vac"  id="touchVacuum" type="button" aria-label="Vacuum (hold)">🧲</button>
@@ -2510,6 +2565,7 @@
   <!-- Boss health bar -->
   <div class="boss-bar" id="bossBar">
     <span class="boss-label">👾 VOID BOSS</span>
+    <span class="boss-phase" id="bossPhase">PHASE 1 · HUNTER</span>
     <div class="boss-track"><div class="boss-fill" id="bossFill"></div></div>
     <span class="boss-hp" id="bossHpText">500</span>
   </div>
@@ -2604,6 +2660,15 @@
     const missionName = document.querySelector("#missionName");
     const missionHint = document.querySelector("#missionHint");
     const missionProgress = document.querySelector("#missionProgress");
+    const combatDashboard = document.querySelector("#combatDashboard");
+    const energyFill = document.querySelector("#energyFill");
+    const energyValue = document.querySelector("#energyValue");
+    const heatFill = document.querySelector("#heatFill");
+    const heatValue = document.querySelector("#heatValue");
+    const tutorialCard = document.querySelector("#tutorialCard");
+    const tutorialStep = document.querySelector("#tutorialStep");
+    const tutorialText = document.querySelector("#tutorialText");
+    const tutorialDots = document.querySelector("#tutorialDots");
     const shipStatus = document.querySelector("#shipStatus");
     const shipParts = document.querySelector("#shipParts") || _stubBtn;
     const discoveryStrip = _stubBtn;
@@ -2815,28 +2880,32 @@
     const levelNames = ["Space Cadet", "Star Pilot", "Galaxy Hero"];
 
     const upgradeDefs = [
-      { id: "speed",  icon: "🚀", name: "Warp Drive",    desc: "UFO moves 30% faster" },
-      { id: "cargo",  icon: "📦", name: "Cargo Bay+",    desc: "Carry 2 more elements" },
-      { id: "power",  icon: "⚡", name: "Power Core",    desc: "Weapons deal 35% more damage" },
-      { id: "range",  icon: "🧲", name: "Tractor Field", desc: "Collect from 35% farther away" },
-      { id: "score",  icon: "⭐", name: "Score Boost",   desc: "All score gains +60%" },
-      { id: "time",   icon: "⏱", name: "Time Warp",     desc: "+15 seconds per mission" },
+      { id: "range", path: "magnet", icon: "🧲", name: "Wide Tractor", desc: "Vacuum range +30%" },
+      { id: "cargo", path: "magnet", icon: "📦", name: "Deep Cargo", desc: "Carry 2 more elements" },
+      { id: "magnet", path: "magnet", icon: "🌌", name: "Mission Lock", desc: "Needed elements are pulled harder" },
+      { id: "power", path: "gunner", icon: "⚡", name: "Power Core", desc: "Weapon damage +25%" },
+      { id: "cooling", path: "gunner", icon: "❄️", name: "Cryo Vents", desc: "Cool heat 30% faster" },
+      { id: "energy", path: "gunner", icon: "🔋", name: "Ion Battery", desc: "+20 max energy and faster recharge" },
+      { id: "alchemy", path: "alchemy", icon: "⚗️", name: "Catalyst", desc: "Compound damage +30%" },
+      { id: "duration", path: "alchemy", icon: "⏳", name: "Stable Mix", desc: "Compound abilities last longer" },
+      { id: "compoundShield", path: "alchemy", icon: "🛡️", name: "Reactive Armor", desc: "Firing compounds grants a shield" }
     ];
+    const PATH_LABELS = { magnet: "🧲 MAGNET", gunner: "⚡ GUNNER", alchemy: "⚗️ ALCHEMIST" };
 
     // Synthesis recipes (cargo auto-combines into compound bullets)
     const SYNTH_RECIPES = {
       // Tier 1 — waves 1-3
-      H2O:   { ingredients: { H: 2, O: 1 },  color: "#3aa8e8", glow: "#7ed4ff", power: 7,  label: "💧 H2O" },
-      NaCl:  { ingredients: { Na: 1, Cl: 1 }, color: "#ffe07a", glow: "#fff4b8", power: 6,  label: "🧂 NaCl" },
-      CO2:   { ingredients: { C: 1, O: 2 },  color: "#9be09b", glow: "#d0ffd0", power: 8,  label: "🫧 CO2" },
+      H2O:   { ingredients: { H: 2, O: 1 },  color: "#3aa8e8", glow: "#7ed4ff", power: 7,  label: "💧 H2O", ability: "slow", abilityLabel: "Tidal Slow" },
+      NaCl:  { ingredients: { Na: 1, Cl: 1 }, color: "#ffe07a", glow: "#fff4b8", power: 6,  label: "🧂 NaCl", ability: "emp", abilityLabel: "Salt EMP" },
+      CO2:   { ingredients: { C: 1, O: 2 },  color: "#9be09b", glow: "#d0ffd0", power: 8,  label: "🫧 CO2", ability: "cloak", abilityLabel: "Carbon Cloak" },
       // Tier 2 — waves 4-6
-      NH3:   { ingredients: { N: 1, H: 3 },  color: "#7fe0b0", glow: "#c0ffe0", power: 9,  label: "💨 NH3" },
-      MgO:   { ingredients: { Mg: 1, O: 1 }, color: "#e8e8ff", glow: "#ffffff", power: 8,  label: "✨ MgO" },
-      AgCl:  { ingredients: { Ag: 1, Cl: 1 }, color: "#d8d8e8", glow: "#f0f0ff", power: 8,  label: "🪞 AgCl" },
+      NH3:   { ingredients: { N: 1, H: 3 },  color: "#7fe0b0", glow: "#c0ffe0", power: 9,  label: "💨 NH3", ability: "poison", abilityLabel: "Corrosive Cloud" },
+      MgO:   { ingredients: { Mg: 1, O: 1 }, color: "#e8e8ff", glow: "#ffffff", power: 8,  label: "✨ MgO", ability: "stun", abilityLabel: "White Flash" },
+      AgCl:  { ingredients: { Ag: 1, Cl: 1 }, color: "#d8d8e8", glow: "#f0f0ff", power: 8,  label: "🪞 AgCl", ability: "shield", abilityLabel: "Mirror Shield" },
       // Tier 3 — waves 7+
-      SiO2:  { ingredients: { Si: 1, O: 2 }, color: "#d4c2a8", glow: "#f0e4d0", power: 10, label: "💎 SiO2" },
-      CH4:   { ingredients: { C: 1, H: 4 },  color: "#a8e060", glow: "#d4ff9a", power: 12, label: "🔥 CH4" },
-      Fe2O3: { ingredients: { Fe: 2, O: 3 }, color: "#d4763a", glow: "#ffb080", power: 14, label: "🧱 Fe2O3" }
+      SiO2:  { ingredients: { Si: 1, O: 2 }, color: "#d4c2a8", glow: "#f0e4d0", power: 10, label: "💎 SiO2", ability: "armor", abilityLabel: "Crystal Armor" },
+      CH4:   { ingredients: { C: 1, H: 4 },  color: "#a8e060", glow: "#d4ff9a", power: 12, label: "🔥 CH4", ability: "blast", abilityLabel: "Methane Nova" },
+      Fe2O3: { ingredients: { Fe: 2, O: 3 }, color: "#d4763a", glow: "#ffb080", power: 14, label: "🧱 Fe2O3", ability: "repair", abilityLabel: "Iron Repair" }
     };
 
     // ── SHIP EVOLUTION — collect specific elements to evolve the ship ──
@@ -2898,13 +2967,61 @@
       return activeBuffs.some((b) => b.type === type && b.until > now);
     }
 
-    function ufoMaxSpeed()    { return 7.2  * (1 + 0.30 * (game.upgrades.speed  || 0)) * (1 + 0.15 * evoLevel("engine")) * (hasBuff("magnetize") ? 1.2 : 1); }
-    function ufoCollectRange(){ return 58   * (1 + 0.35 * (game.upgrades.range  || 0)) * (hasBuff("magnetize") ? 3.5 : 1); }
+    function ufoMaxSpeed()    { return 7.2  * (1 + 0.15 * (game.buildLevels.magnet || 0)) * (1 + 0.15 * evoLevel("engine")) * (hasBuff("magnetize") ? 1.2 : 1); }
+    function ufoCollectRange(){ return 58   * (1 + 0.30 * (game.upgrades.range  || 0)) * (hasBuff("magnetize") ? 3.5 : 1); }
     function maxCargoSize()   { return 3 + 2 * (game.upgrades.cargo || 0) + missionTierForWave(game.level).cargoBonus; }
-    function weaponPowerMult(){ return (1   + 0.35 * (game.upgrades.power || 0)) * (1 + 0.20 * evoLevel("cannon")) * (hasBuff("doubleDmg") ? 2 : 1); }
-    function scoreMult()      { return 1    + 0.60 * (game.upgrades.score || 0); }
-    function missionTime()    { return 90   + 15  * (game.upgrades.time  || 0); }
+    function weaponPowerMult(){ return (1   + 0.25 * (game.upgrades.power || 0)) * (1 + 0.20 * evoLevel("cannon")) * (hasBuff("doubleDmg") ? 2 : 1); }
+    function compoundPowerMult(){ return 1 + 0.30 * (game.upgrades.alchemy || 0); }
+    function compoundDurationMult(){ return 1 + 0.35 * (game.upgrades.duration || 0) + ((game.buildLevels.alchemy || 0) >= 3 ? 0.5 : 0); }
+    function scoreMult()      { return 1 + 0.12 * (game.buildLevels.alchemy || 0); }
+    function missionTime()    { return 90; }
     function isBossWave(lvl)  { return lvl % 3 === 0; }
+
+    const TUTORIAL_STEPS = [
+      { event: "move", text: "Move the UFO with the arrows, or drag it on the screen." },
+      { event: "vacuum", text: "Hold C or the VACUUM button to switch on the tractor beam." },
+      { event: "collect", text: "Aim the beam at a glowing mission element and collect it." },
+      { event: "synthesize", text: "Collect the full recipe. The cargo combines automatically." },
+      { event: "compoundFire", text: "Face the Black Hole and FIRE the compound to use its special ability." }
+    ];
+
+    function renderTutorial() {
+      if (!tutorialCard) return;
+      if (game.tutorialDone || game.tutorialStep >= TUTORIAL_STEPS.length) {
+        tutorialCard.hidden = true;
+        return;
+      }
+      const step = TUTORIAL_STEPS[game.tutorialStep];
+      tutorialCard.hidden = false;
+      setTextIfChanged(tutorialStep, `Flight school · ${game.tutorialStep + 1}/${TUTORIAL_STEPS.length}`);
+      setTextIfChanged(tutorialText, step.text);
+      setHtmlIfChanged(tutorialDots, TUTORIAL_STEPS.map((_, i) => `<i class="${i <= game.tutorialStep ? "is-on" : ""}"></i>`).join(""));
+    }
+
+    function advanceTutorial(eventName) {
+      if (game.tutorialDone) return;
+      const step = TUTORIAL_STEPS[game.tutorialStep];
+      if (!step || step.event !== eventName) return;
+      game.tutorialStep += 1;
+      if (game.tutorialStep >= TUTORIAL_STEPS.length) {
+        game.tutorialDone = true;
+        try { localStorage.setItem("bradsUniverse.tutorialDone", "1"); } catch (e) {}
+        setAutoMessage("🎓 Flight school complete!", "Build compounds, discover powerful combos and choose a play style after every wave.");
+      }
+      renderTutorial();
+    }
+
+    function updateWeaponSystems(t) {
+      if (!game.lastWeaponTick) game.lastWeaponTick = t;
+      const dt = Math.min(0.1, Math.max(0, (t - game.lastWeaponTick) / 1000));
+      game.lastWeaponTick = t;
+      game.maxEnergy = 100 + 20 * (game.upgrades.energy || 0);
+      const recharge = 15 * (1 + 0.25 * (game.upgrades.energy || 0));
+      const cooling = 24 * (1 + 0.30 * (game.upgrades.cooling || 0));
+      game.energy = Math.min(game.maxEnergy, game.energy + recharge * dt);
+      game.heat = Math.max(0, game.heat - cooling * dt);
+      if (game.overheatedUntil && t >= game.overheatedUntil && game.heat <= 35) game.overheatedUntil = 0;
+    }
 
     const kidsElements = new Set(["H", "O", "C", "N", "Na", "Cl", "Fe", "Mg", "Ag", "S", "Si"]);
     const discoveryFacts = {
@@ -3008,6 +3125,8 @@
     let tsunami = null;
     let meteors = [];
     let shots = [];
+    let enemies = [];
+    let nextEnemyId = 1;
     let spaceshipPressed = false;
     let suppressCanvasClick = false;
     let suctionActive = false;
@@ -3221,6 +3340,10 @@
       ArrowLeft: false,
       ArrowRight: false
     };
+    function tutorialPreviouslyDone() {
+      try { return localStorage.getItem("bradsUniverse.tutorialDone") === "1"; } catch (e) { return false; }
+    }
+
     let game = {
       active: false,
       score: 0,
@@ -3240,7 +3363,17 @@
       shieldUntil: 0,
       weapon: "bolt",
       phase: "playing",
-      upgrades: { speed: 0, cargo: 0, power: 0, range: 0, score: 0, time: 0 },
+      upgrades: { range: 0, cargo: 0, magnet: 0, power: 0, cooling: 0, energy: 0, alchemy: 0, duration: 0, compoundShield: 0 },
+      buildLevels: { magnet: 0, gunner: 0, alchemy: 0 },
+      energy: 100,
+      maxEnergy: 100,
+      heat: 0,
+      overheatedUntil: 0,
+      lastWeaponTick: 0,
+      cloakUntil: 0,
+      tutorialStep: 0,
+      tutorialDone: tutorialPreviouslyDone(),
+      lastEnemySpawnAt: 0,
       lastBossAttack: 0,
       lives: 3,
       maxLives: 3,
@@ -3254,14 +3387,14 @@
     };
 
     const weapons = {
-      bolt:      { color: "#fff4b8", cooldown: 220,  speed:  9.4, power: 1.0,  lifetime: 1600 },
-      laser:     { color: "#2aa8d8", cooldown:  90,  speed: 17.2, power: 1.15, lifetime: 1400 },
-      megalaser: { color: "#67e8f9", cooldown: 180,  speed: 20,   power: 2.2,  lifetime: 1500 },
-      missile:   { color: "#f0b840", cooldown: 900,  speed:  5.5, power: 3.5,  lifetime: 6000 },
-      megabomb:  { color: "#ffaa00", cooldown: 1800, speed:  4.0, power: 5.5,  lifetime: 5000 },
-      scatter:   { color: "#a484dc", cooldown: 380,  speed: 11,   power: 0.9,  lifetime: 1400 },
-      plasma:    { color: "#c084fc", cooldown: 700,  speed:  3.8, power: 4.5,  lifetime: 5000 },
-      freeze:    { color: "#98dcff", cooldown: 350,  speed:  8.5, power: 1.0,  lifetime: 1600 },
+      bolt:      { color: "#fff4b8", cooldown: 220,  speed:  9.4, power: 1.0,  lifetime: 1600, energy: 4,  heat: 5,  role: "Low-cost push" },
+      laser:     { color: "#2aa8d8", cooldown:  90,  speed: 17.2, power: 1.15, lifetime: 1400, energy: 7,  heat: 9,  role: "Pierces targets" },
+      megalaser: { color: "#67e8f9", cooldown: 180,  speed: 20,   power: 2.2,  lifetime: 1500, energy: 15, heat: 18, role: "Heavy piercing beam" },
+      missile:   { color: "#f0b840", cooldown: 900,  speed:  5.5, power: 3.5,  lifetime: 6000, energy: 20, heat: 18, role: "Homes to mission targets" },
+      megabomb:  { color: "#ffaa00", cooldown: 1800, speed:  4.0, power: 5.5,  lifetime: 5000, energy: 35, heat: 42, role: "Massive rescue blast" },
+      scatter:   { color: "#a484dc", cooldown: 380,  speed: 11,   power: 0.9,  lifetime: 1400, energy: 18, heat: 22, role: "Wide crowd control" },
+      plasma:    { color: "#c084fc", cooldown: 700,  speed:  3.8, power: 4.5,  lifetime: 5000, energy: 28, heat: 30, role: "Boss breaker" },
+      freeze:    { color: "#98dcff", cooldown: 350,  speed:  8.5, power: 1.0,  lifetime: 1600, energy: 12, heat: 12, role: "Freezes hazards" },
     };
 
     function randomBetween(min, max) {
@@ -3487,13 +3620,14 @@
         }
         const hasCompound = spaceship && spaceship.cargo && spaceship.cargo.some((it) => it.type === "compound" && it.formula === mission.formula);
         if (hasCompound) {
-          setHtmlIfChanged(missionHint, `<span class="ready-msg">✓ ${recipe.label} ready — press FIRE!</span>`);
+          setHtmlIfChanged(missionHint, `<span class="mission-action">STEP 3 · FIRE AT THE BLACK HOLE</span><span class="ready-msg">✓ ${recipe.label} ready · ${recipe.abilityLabel}</span>`);
         } else {
           const ingredients = Object.entries(recipe.ingredients).map(([sym, n]) => {
             const got = Math.min(counts[sym] || 0, n);
             return `<span class="ing ${got >= n ? "is-got" : ""}">${sym}<b> ${got}/${n}</b></span>`;
           }).join("");
-          setHtmlIfChanged(missionHint, `Build <b>${mission.formula}</b>: ${ingredients}`);
+          const hasAny = Object.values(counts).some(Boolean);
+          setHtmlIfChanged(missionHint, `<span class="mission-action">${hasAny ? "STEP 2 · COMPLETE THE RECIPE" : "STEP 1 · VACUUM THE ELEMENTS"}</span>Build <b>${mission.formula}</b>: ${ingredients}<br><small>${recipe.abilityLabel}</small>`);
         }
       } else {
         setTextIfChanged(missionHint, mission.hint);
@@ -3556,7 +3690,33 @@
       kidsModeButton.classList.toggle("is-active", game.kidsMode);
       soundToggleButton.classList.toggle("is-active", game.sound);
 
-      weaponButtons.forEach((b) => b.classList.toggle("is-active", b.dataset.weapon === game.weapon));
+      const now = performance.now();
+      const energyPct = Math.max(0, Math.min(100, game.energy / Math.max(1, game.maxEnergy) * 100));
+      const heatPct = Math.max(0, Math.min(100, game.heat));
+      if (energyFill) energyFill.style.width = `${energyPct}%`;
+      if (heatFill) heatFill.style.width = `${heatPct}%`;
+      setTextIfChanged(energyValue, Math.floor(game.energy));
+      setTextIfChanged(heatValue, game.overheatedUntil > now ? "HOT" : Math.floor(game.heat));
+      combatDashboard?.classList.toggle("is-overheated", game.overheatedUntil > now);
+      [["pathMagnet", "magnet", "🧲 MAG"], ["pathGunner", "gunner", "⚡ GUN"], ["pathAlchemy", "alchemy", "⚗️ ALC"]].forEach(([id, path, label]) => {
+        const el = document.getElementById(id);
+        const level = game.buildLevels[path] || 0;
+        setTextIfChanged(el, `${label} ${level}`);
+        el?.classList.toggle("is-awake", level >= 3);
+      });
+      weaponButtons.forEach((b) => {
+        const def = weapons[b.dataset.weapon];
+        b.classList.toggle("is-active", b.dataset.weapon === game.weapon);
+        b.classList.toggle("is-drained", game.energy < def.energy || game.overheatedUntil > now);
+        b.title = `${def.role} · ${def.energy} energy · ${def.heat} heat`;
+        if (!b.querySelector(".weapon-cost")) {
+          const cost = document.createElement("span");
+          cost.className = "weapon-cost";
+          cost.textContent = `${def.energy}E`;
+          b.appendChild(cost);
+        }
+      });
+      renderTutorial();
     }
 
     // Big animated "WAVE N" banner across the play area
@@ -3583,12 +3743,14 @@
       startGameButton.disabled = true;
       setMessage("Mission started", `${currentMission().hint}`);
       showWaveBanner(`WAVE ${game.level}`, currentMission().hint, false);
+      renderTutorial();
       playTone(660, 0.08);
       if (usesTabletLayout()) setPanelCollapsed(true);
     }
 
     function resetGame() {
       shots = [];
+      enemies = [];
       document.getElementById("bossBar").style.display = "none";
       document.getElementById("upgradeModal").style.display = "none";
       const gameOverEl = document.getElementById("gameOverModal");
@@ -3612,7 +3774,17 @@
         shieldUntil: 0,
         weapon: game.weapon,
         phase: "playing",
-        upgrades: { speed: 0, cargo: 0, power: 0, range: 0, score: 0, time: 0 },
+        upgrades: { range: 0, cargo: 0, magnet: 0, power: 0, cooling: 0, energy: 0, alchemy: 0, duration: 0, compoundShield: 0 },
+        buildLevels: { magnet: 0, gunner: 0, alchemy: 0 },
+        energy: 100,
+        maxEnergy: 100,
+        heat: 0,
+        overheatedUntil: 0,
+        lastWeaponTick: performance.now(),
+        cloakUntil: 0,
+        tutorialStep: 0,
+        tutorialDone: tutorialPreviouslyDone(),
+        lastEnemySpawnAt: 0,
         lastBossAttack: 0,
         lives: 3,
         maxLives: 3,
@@ -3647,9 +3819,13 @@
       const cards = document.getElementById("upgradeCards");
       document.getElementById("upgradeTitle").textContent = isBoss ? "👾 Boss Defeated!" : "🎉 Wave Cleared!";
       document.getElementById("upgradeSubtitle").textContent = `Wave ${game.level} → Wave ${game.level + 1}  ·  Choose an upgrade`;
-      const choices = [...upgradeDefs].sort(() => Math.random() - 0.5).slice(0, 3);
+      const choices = ["magnet", "gunner", "alchemy"].map((path) => {
+        const pool = upgradeDefs.filter((u) => u.path === path);
+        return pool[Math.floor(Math.random() * pool.length)];
+      });
       cards.innerHTML = choices.map((u) => `
         <button class="upgrade-card" data-uid="${u.id}" type="button">
+          <div class="upgrade-path">${PATH_LABELS[u.path]} · PATH ${game.buildLevels[u.path] || 0}</div>
           <div class="uc-icon">${u.icon}</div>
           <div class="uc-name">${u.name}</div>
           <div class="uc-desc">${u.desc}</div>
@@ -3659,7 +3835,13 @@
       modal.style.display = "flex";
       cards.querySelectorAll(".upgrade-card").forEach((btn) => {
         btn.addEventListener("click", () => {
+          const def = upgradeDefs.find((u) => u.id === btn.dataset.uid);
           game.upgrades[btn.dataset.uid] = (game.upgrades[btn.dataset.uid] || 0) + 1;
+          game.buildLevels[def.path] = (game.buildLevels[def.path] || 0) + 1;
+          if (game.buildLevels[def.path] === 3) {
+            const mastery = { magnet: "Mission elements now snap into your tractor beam.", gunner: "Weapon heat generation reduced by 25%.", alchemy: "Compound powers last 50% longer." };
+            setAutoMessage(`${PATH_LABELS[def.path]} mastery!`, mastery[def.path]);
+          }
           modal.style.display = "none";
           startNextLevel();
         });
@@ -3681,6 +3863,8 @@
       game.active = true;
       game.missionIndex = 0;
       game.repairedParts = new Set();
+      enemies = [];
+      game.lastEnemySpawnAt = performance.now();
       // Mission tier swap — harder recipes at higher waves
       const tier = missionTierForWave(game.level);
       const tierChanged = missions !== tier.missions;
@@ -3863,6 +4047,55 @@
 
     }
 
+    function applyCompoundAbility(formula, x, y, t) {
+      const recipe = SYNTH_RECIPES[formula];
+      if (!recipe) return;
+      const duration = 3000 * compoundDurationMult();
+      const enemyRadius = 340;
+      const stunEnemies = (ms) => enemies.forEach((enemy) => {
+        if (Math.hypot(enemy.x - x, enemy.y - y) < enemyRadius) enemy.stunnedUntil = Math.max(enemy.stunnedUntil || 0, t + ms);
+      });
+      if (recipe.ability === "slow" && blackHole) blackHole.slowedUntil = t + duration * 1.25;
+      if (recipe.ability === "emp") {
+        if (blackHole) blackHole.stunnedUntil = t + duration;
+        stunEnemies(duration);
+      }
+      if (recipe.ability === "cloak") game.cloakUntil = t + duration * 1.35;
+      if (recipe.ability === "poison" && blackHole) {
+        blackHole.poisonUntil = t + duration * 1.6;
+        blackHole.lastPoisonTick = t;
+      }
+      if (recipe.ability === "stun") {
+        if (blackHole) blackHole.stunnedUntil = t + duration * 0.75;
+        stunEnemies(duration * 1.25);
+        flashScreen("rgba(255,255,235,0.38)", 180);
+      }
+      if (recipe.ability === "shield") game.shieldUntil = t + duration * 1.8;
+      if (recipe.ability === "armor") {
+        game.shieldUntil = t + duration * 1.4;
+        if (spaceship) spaceship.health = Math.min(spaceship.maxHealth, spaceship.health + 20);
+      }
+      if (recipe.ability === "blast") {
+        enemies.forEach((enemy) => {
+          if (Math.hypot(enemy.x - x, enemy.y - y) < 420) enemy.health -= 120;
+        });
+        nodes.forEach((node) => {
+          if (node.swallowedByBlackHole || node.heldByAstronaut) return;
+          const dx = node.x - x, dy = node.y - y, d = Math.max(1, Math.hypot(dx, dy));
+          if (d < 360) { node.vx += dx / d * 10; node.vy += dy / d * 10; }
+        });
+        addAtomicBlastEffect(x, y, t);
+      }
+      if (recipe.ability === "repair" && spaceship) {
+        spaceship.health = spaceship.maxHealth;
+        game.shieldUntil = t + duration;
+      }
+      if ((game.upgrades.compoundShield || 0) > 0) game.shieldUntil = Math.max(game.shieldUntil, t + 1200 * game.upgrades.compoundShield);
+      effects.push({ type: "plasmaWave", x, y, born: t, color: recipe.glow });
+      addScoreEffect(x, y - 48, recipe.abilityLabel.toUpperCase(), t);
+      setAutoMessage(`⚗️ ${recipe.abilityLabel}!`, `${formula} changed the battle. Chain another compound while the effect is active.`);
+    }
+
     // Called when a compound bullet hits the black hole — counts as mission progress.
     function completeMissionByCompound(formula, x, y, t) {
       const mission = currentMission();
@@ -3987,7 +4220,7 @@
         if (Number.isFinite(item.targetY)) item.targetY *= scaleY;
       };
       [spaceship, blackHole, sun, tornado, tsunami].forEach(scalePoint);
-      [nodes, compounds, shots, powerups, meteors, effects, astronauts].forEach((items) => items.forEach(scalePoint));
+      [nodes, compounds, shots, powerups, meteors, effects, astronauts, enemies].forEach((items) => items.forEach(scalePoint));
       if (bonusRound && bonusRound.meteors) bonusRound.meteors.forEach(scalePoint);
     }
 
@@ -4040,7 +4273,12 @@
         hurtUntil: 0,
         swallowed: [],
         lastEatAt: 0,
-        lastVoidPulseAt: 0
+        lastVoidPulseAt: 0,
+        bossStage: boss ? 1 : 0,
+        slowedUntil: 0,
+        stunnedUntil: 0,
+        poisonUntil: 0,
+        lastPoisonTick: 0
       };
     }
 
@@ -4437,6 +4675,167 @@
     function spawnMeteor(){}
     function updateMeteors(_t){}
 
+    function spawnEnemy(type, t) {
+      if (lowPowerMode && enemies.length >= 3) return;
+      const side = Math.floor(Math.random() * 4);
+      const pos = side === 0 ? { x: -30, y: randomBetween(130, height - 60) }
+        : side === 1 ? { x: width + 30, y: randomBetween(130, height - 60) }
+        : side === 2 ? { x: randomBetween(50, width - 50), y: 105 }
+        : { x: randomBetween(50, width - 50), y: height + 30 };
+      enemies.push({
+        id: nextEnemyId++, type, x: pos.x, y: pos.y, vx: 0, vy: 0,
+        radius: type === "thief" ? 24 : 20,
+        health: type === "thief" ? 65 + game.level * 4 : 45 + game.level * 3,
+        maxHealth: type === "thief" ? 65 + game.level * 4 : 45 + game.level * 3,
+        born: t, stunnedUntil: 0, stolenNode: null
+      });
+    }
+
+    function releaseEnemyCargo(enemy, t, escaped = false) {
+      if (!enemy.stolenNode) return;
+      const node = enemy.stolenNode;
+      node.stolenByEnemy = null;
+      node.heldByAstronaut = null;
+      if (escaped) {
+        node._consumed = true;
+        nodes = nodes.filter((n) => n !== node);
+        spawnReplacementElement(node.element.symbol);
+        game.score = Math.max(0, game.score - 35);
+        setAutoMessage("🛸 Element stolen!", "Intercept Space Thieves before they escape with mission ingredients.");
+      } else {
+        node.x = enemy.x; node.y = enemy.y;
+        node.vx = randomBetween(-4, 4); node.vy = randomBetween(-4, 4);
+        addScoreEffect(node.x, node.y - 22, `${node.element.symbol} SAVED!`, t);
+      }
+      enemy.stolenNode = null;
+    }
+
+    function damageSpaceship(amount, x, y, t, label) {
+      if (!spaceship || t - spaceship.lastDamageAt < 500) return;
+      if (hasBuff("shield") || game.shieldUntil > t || game.cloakUntil > t) {
+        addScoreEffect(spaceship.x, spaceship.y - 20, "🛡 BLOCKED", t);
+        return;
+      }
+      spaceship.lastDamageAt = t;
+      const dmg = Math.round(amount * armorDamageMult());
+      spaceship.health = Math.max(0, spaceship.health - dmg);
+      addScoreEffect(spaceship.x, spaceship.y - 22, `-${dmg} ${label}`, t);
+      effects.push({ type: "bump", x, y, born: t });
+      addShake(5, 180);
+      if (spaceship.health <= 0) { addExplosionEffect(spaceship.x, spaceship.y, t); loseLife(t); }
+    }
+
+    function updateEnemies(t) {
+      if (!game.active || game.level < 2) return;
+      const stage = blackHole?.bossStage || 1;
+      const interval = game.phase === "boss" && stage === 3 ? 3300 : Math.max(5200, 9000 - game.level * 350);
+      const cap = lowPowerMode ? 3 : 5;
+      if (t - game.lastEnemySpawnAt > interval && enemies.length < cap) {
+        game.lastEnemySpawnAt = t;
+        const type = Math.random() < (game.phase === "boss" ? 0.48 : 0.62) ? "thief" : "antimatter";
+        spawnEnemy(type, t);
+        setAutoMessage(type === "thief" ? "🛸 Space Thief incoming!" : "☄️ Antimatter Drone incoming!",
+          type === "thief" ? "Shoot it before it steals a glowing mission element." : "Keep it away — destroying it creates a rescue shockwave.");
+      }
+      enemies.forEach((enemy) => {
+        if (enemy.health <= 0) return;
+        if (enemy.stunnedUntil > t) { enemy.vx *= 0.9; enemy.vy *= 0.9; return; }
+        if (enemy.type === "thief") {
+          if (enemy.stolenNode) {
+            const exits = [{ x: -60, y: enemy.y }, { x: width + 60, y: enemy.y }, { x: enemy.x, y: 70 }, { x: enemy.x, y: height + 60 }];
+            const target = exits.sort((a,b) => Math.hypot(a.x-enemy.x,a.y-enemy.y)-Math.hypot(b.x-enemy.x,b.y-enemy.y))[0];
+            const dx = target.x - enemy.x, dy = target.y - enemy.y, d = Math.max(1, Math.hypot(dx,dy));
+            enemy.vx += dx / d * 0.16 * frameScale; enemy.vy += dy / d * 0.16 * frameScale;
+            enemy.stolenNode.x = enemy.x; enemy.stolenNode.y = enemy.y + 20;
+          } else {
+            let target = null, nearest = Infinity;
+            nodes.forEach((node) => {
+              if (node.swallowedByBlackHole || node.heldByAstronaut || node.stolenByEnemy || !isNodeNeeded(node)) return;
+              const d = Math.hypot(node.x-enemy.x,node.y-enemy.y);
+              if (d < nearest) { nearest = d; target = node; }
+            });
+            if (!target) target = spaceship;
+            if (target) {
+              const dx = target.x-enemy.x, dy=target.y-enemy.y, d=Math.max(1,Math.hypot(dx,dy));
+              enemy.vx += dx/d*.11*frameScale; enemy.vy += dy/d*.11*frameScale;
+              if (target.element && d < enemy.radius + target.size*.55) {
+                enemy.stolenNode = target; target.stolenByEnemy = enemy.id; target.heldByAstronaut = `enemy-${enemy.id}`;
+                addScoreEffect(enemy.x, enemy.y-26, `STOLE ${target.element.symbol}!`, t);
+              }
+            }
+          }
+        } else if (spaceship) {
+          const dx=spaceship.x-enemy.x, dy=spaceship.y-enemy.y, d=Math.max(1,Math.hypot(dx,dy));
+          enemy.vx += dx/d*.14*frameScale; enemy.vy += dy/d*.14*frameScale;
+          if (d < enemy.radius + spaceship.radius*.65) {
+            enemy.health = 0;
+            addExplosionEffect(enemy.x,enemy.y,t);
+            damageSpaceship(24,enemy.x,enemy.y,t,"ANTIMATTER");
+          }
+        }
+        const max = enemy.type === "thief" ? 3.1 : 3.8;
+        const speed = Math.max(.01,Math.hypot(enemy.vx,enemy.vy));
+        if (speed > max) { enemy.vx=enemy.vx/speed*max; enemy.vy=enemy.vy/speed*max; }
+        enemy.x += enemy.vx*frameScale; enemy.y += enemy.vy*frameScale;
+        if (enemy.stolenNode && (enemy.x < -45 || enemy.x > width+45 || enemy.y < 70 || enemy.y > height+45)) {
+          releaseEnemyCargo(enemy,t,true); enemy.health=0;
+        }
+      });
+      enemies.forEach((enemy) => {
+        if (enemy.health <= 0 && enemy.stolenNode) releaseEnemyCargo(enemy,t,false);
+      });
+      enemies.forEach((enemy) => {
+        if (t - enemy.born >= 28000 && enemy.stolenNode) releaseEnemyCargo(enemy, t, true);
+      });
+      enemies = enemies.filter((enemy) => enemy.health > 0 && t-enemy.born < 28000);
+    }
+
+    function hitEnemyWithShot(shot, t) {
+      for (const enemy of enemies) {
+        if (enemy.health <= 0 || shot.hitNodes?.has(`e${enemy.id}`)) continue;
+        if (Math.hypot(shot.x-enemy.x,shot.y-enemy.y) > enemy.radius+10) continue;
+        const damage = 24*(shot.power||1)*(shot.kind === "freeze" ? .5 : 1);
+        enemy.health -= damage;
+        shot.hitNodes?.add(`e${enemy.id}`);
+        enemy.stunnedUntil = shot.kind === "freeze" ? t+2500 : enemy.stunnedUntil;
+        effects.push({type:"bump",x:enemy.x,y:enemy.y,born:t});
+        if (enemy.health <= 0) {
+          releaseEnemyCargo(enemy,t,false);
+          const reward=Math.round(75*scoreMult()); game.score+=reward;
+          addScoreEffect(enemy.x,enemy.y-24,`+${reward} ${enemy.type === "thief" ? "THIEF" : "DRONE"}`,t);
+          addExplosionEffect(enemy.x,enemy.y,t);
+          if (enemy.type === "antimatter") nodes.forEach((node) => {
+            const dx=node.x-enemy.x,dy=node.y-enemy.y,d=Math.max(1,Math.hypot(dx,dy));
+            if(d<190){node.vx+=dx/d*7;node.vy+=dy/d*7;}
+          });
+        }
+        const pierces = shot.kind === "laser" || shot.kind === "megalaser" || shot.kind === "compound";
+        if (!pierces) shot.hit = true;
+        return true;
+      }
+      return false;
+    }
+
+    function drawEnemies(t) {
+      enemies.forEach((enemy) => {
+        ctx.save(); ctx.translate(enemy.x,enemy.y);
+        const stunned=enemy.stunnedUntil>t;
+        ctx.shadowColor=enemy.type==="thief"?"#ff7bd5":"#ff6b35";ctx.shadowBlur=lowPowerMode?8:18;
+        ctx.fillStyle=enemy.type==="thief"?"#5b247a":"#7b1f2b";
+        ctx.beginPath();ctx.arc(0,0,enemy.radius,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle=stunned?"#67e8f9":"#fff";ctx.lineWidth=2;
+        if(enemy.type==="thief"){
+          ctx.beginPath();ctx.ellipse(0,2,enemy.radius+8,8,0,0,Math.PI*2);ctx.stroke();
+          ctx.fillStyle="#fff";ctx.font="16px system-ui";ctx.textAlign="center";ctx.fillText("🛸",0,6);
+        }else{
+          ctx.rotate(t*.003);ctx.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4,r=i%2?enemy.radius*.55:enemy.radius+7;const x=Math.cos(a)*r,y=Math.sin(a)*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();ctx.stroke();
+          ctx.fillStyle="#ffd1d1";ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
+        }
+        const hp=Math.max(0,enemy.health/enemy.maxHealth);ctx.fillStyle="rgba(0,0,0,.55)";ctx.fillRect(-22,-enemy.radius-11,44,4);ctx.fillStyle="#67e8f9";ctx.fillRect(-22,-enemy.radius-11,44*hp,4);
+        ctx.restore();
+      });
+    }
+
 
     function updateBlackHole(t) {
       if (!blackHole) makeBlackHole();
@@ -4476,15 +4875,32 @@
 
       growBlackHoleFromMeals();
 
+      if (blackHole.poisonUntil > t && t - (blackHole.lastPoisonTick || 0) > 500) {
+        blackHole.lastPoisonTick = t;
+        blackHole.health = Math.max(0, blackHole.health - 18 * compoundPowerMult());
+        addScoreEffect(blackHole.x, blackHole.y - 42, "CORRODE", t);
+      }
+
       // Boss attacks
       if (game.phase === "boss" && game.active) {
         // Update boss health bar
         const pct = Math.max(0, blackHole.health / blackHole.maxHealth);
+        const nextStage = pct > 0.66 ? 1 : pct > 0.33 ? 2 : 3;
+        if (blackHole.bossStage !== nextStage) {
+          blackHole.bossStage = nextStage;
+          const phaseNames = { 1: "HUNTER", 2: "VOID STORM", 3: "SWARM CORE" };
+          setAutoMessage(`👾 Boss Phase ${nextStage}: ${phaseNames[nextStage]}`, nextStage === 2 ? "Gravity surges give way to dangerous void pulses." : nextStage === 3 ? "The weak core is exposed, but drones are pouring in!" : "The boss hunts the UFO directly.");
+          showWaveBanner(`BOSS PHASE ${nextStage}`, phaseNames[nextStage], true);
+          addShake(9, 350);
+        }
         document.getElementById("bossFill").style.width = `${pct * 100}%`;
         document.getElementById("bossHpText").textContent = Math.ceil(blackHole.health);
+        setTextIfChanged(document.getElementById("bossPhase"), `PHASE ${nextStage} · ${{1:"HUNTER",2:"VOID STORM",3:"SWARM CORE"}[nextStage]}`);
+
+        const bossDisabled = blackHole.stunnedUntil > t;
 
         // Boss CHASES the UFO with active steering
-        if (spaceship) {
+        if (spaceship && !bossDisabled && nextStage === 1) {
           const cdx = spaceship.x - blackHole.x;
           const cdy = spaceship.y - blackHole.y;
           const cd = Math.max(1, Math.hypot(cdx, cdy));
@@ -4495,7 +4911,7 @@
 
         // ⚡ GRAVITY SURGE — much faster + stronger pull
         const surgeInterval = Math.max(2200, 5000 - game.level * 250);
-        if (t - game.lastBossAttack > surgeInterval) {
+        if (!bossDisabled && nextStage <= 2 && t - game.lastBossAttack > surgeInterval) {
           game.lastBossAttack = t;
           nodes.forEach((node) => {
             if (node.swallowedByBlackHole || node.heldByAstronaut) return;
@@ -4520,7 +4936,7 @@
 
         // 💥 VOID PULSE — every 11s, AOE shockwave that damages the UFO if too close
         const pulseInterval = Math.max(7000, 12000 - game.level * 300);
-        if (t - (blackHole.lastVoidPulseAt || 0) > pulseInterval) {
+        if (!bossDisabled && nextStage >= 2 && t - (blackHole.lastVoidPulseAt || 0) > pulseInterval) {
           blackHole.lastVoidPulseAt = t;
           const pulseR = 220 + game.level * 8;
           effects.push({ type: "atomicBlast", x: blackHole.x, y: blackHole.y, born: t, duration: 1200, seed: Math.random() });
@@ -4530,7 +4946,7 @@
             const sdx = spaceship.x - blackHole.x;
             const sdy = spaceship.y - blackHole.y;
             const sd = Math.hypot(sdx, sdy);
-            if (sd < pulseR && t - spaceship.lastDamageAt > 520 && !hasBuff("shield")) {
+            if (sd < pulseR && t - spaceship.lastDamageAt > 520 && !hasBuff("shield") && game.shieldUntil <= t && game.cloakUntil <= t) {
               spaceship.lastDamageAt = t;
               const pulseDmg = Math.round(35 * armorDamageMult());
               spaceship.health = Math.max(0, spaceship.health - pulseDmg);
@@ -4545,8 +4961,10 @@
         }
       }
 
-      blackHole.vx += Math.cos(t * 0.00041 + blackHole.phase) * 0.012 * frameScale;
-      blackHole.vy += Math.sin(t * 0.00047 + blackHole.phase) * 0.012 * frameScale;
+      const bhDisabled = blackHole.stunnedUntil > t;
+      const slowFactor = bhDisabled ? 0 : blackHole.slowedUntil > t ? 0.38 : hasBuff("timeSlow") ? 0.4 : 1;
+      blackHole.vx += Math.cos(t * 0.00041 + blackHole.phase) * 0.012 * frameScale * slowFactor;
+      blackHole.vy += Math.sin(t * 0.00047 + blackHole.phase) * 0.012 * frameScale * slowFactor;
       const speed = Math.max(0.01, Math.hypot(blackHole.vx, blackHole.vy));
       // Boss is ~50% faster
       const maxSpeed = game.phase === "boss"
@@ -4556,8 +4974,8 @@
         blackHole.vx = blackHole.vx / speed * maxSpeed;
         blackHole.vy = blackHole.vy / speed * maxSpeed;
       }
-      blackHole.x += blackHole.vx * frameScale;
-      blackHole.y += (blackHole.vy + Math.sin(t * 0.0012 + blackHole.phase) * 0.1) * frameScale;
+      blackHole.x += blackHole.vx * frameScale * slowFactor;
+      blackHole.y += (blackHole.vy + Math.sin(t * 0.0012 + blackHole.phase) * 0.1) * frameScale * slowFactor;
 
       const margin = blackHole.influence * 0.3;
       if (blackHole.x < margin || blackHole.x > width - margin) blackHole.vx *= -1;
@@ -4575,8 +4993,9 @@
         const distance = Math.max(1, Math.hypot(dx, dy));
         if (distance > blackHole.influence) return;
 
-        const pull = (1 - distance / blackHole.influence) * 0.065;
-        const swirl = (1 - distance / blackHole.influence) * 0.022;
+        const statusPull = (blackHole.slowedUntil > t ? 0.42 : 1) * (game.cloakUntil > t ? 0.2 : 1) * (blackHole.stunnedUntil > t ? 0 : 1);
+        const pull = (1 - distance / blackHole.influence) * 0.065 * statusPull;
+        const swirl = (1 - distance / blackHole.influence) * 0.022 * statusPull;
         node.vx += ((dx / distance) * pull - (dy / distance) * swirl) * frameScale;
         node.vy += ((dy / distance) * pull + (dx / distance) * swirl) * frameScale;
 
@@ -4614,8 +5033,9 @@
       const inSun = sun && Math.hypot(sun.x - spaceship.x, sun.y - spaceship.y) < sun.glowRadius + spaceship.radius;
       const sunShield = inSun ? 0.25 : 1;
 
-      const pull = (1 - distance / threatRange) * 0.13 * sunShield;
-      const swirl = (1 - distance / threatRange) * 0.045 * sunShield;
+      const statusPull = (blackHole.slowedUntil > t ? 0.42 : 1) * (blackHole.stunnedUntil > t ? 0 : 1) * (game.cloakUntil > t ? 0.18 : 1);
+      const pull = (1 - distance / threatRange) * 0.13 * sunShield * statusPull;
+      const swirl = (1 - distance / threatRange) * 0.045 * sunShield * statusPull;
       spaceship.vx += ((dx / distance) * pull - (dy / distance) * swirl) * frameScale;
       spaceship.vy += ((dy / distance) * pull + (dx / distance) * swirl) * frameScale;
 
@@ -4631,7 +5051,7 @@
       if (distance < blackHole.radius + spaceship.radius * 0.62 && t - spaceship.lastDamageAt > 520) {
         spaceship.lastDamageAt = t;
         // Shield buff: immune, just bounce off and flash
-        if (hasBuff("shield")) {
+        if (hasBuff("shield") || game.shieldUntil > t || game.cloakUntil > t) {
           spaceship.vx -= (dx / distance) * 6;
           spaceship.vy -= (dy / distance) * 6;
           effects.push({ type: "bump", x: spaceship.x, y: spaceship.y, born: t });
@@ -4861,7 +5281,7 @@
           vx: Math.cos(angle) * 11 + spaceship.vx * 0.4,
           vy: Math.sin(angle) * 11 + spaceship.vy * 0.4,
           born: t,
-          power: comp.power,
+          power: comp.power * compoundPowerMult(),
           kind: "compound",
           formula: comp.formula,
           color: comp.color,
@@ -4870,6 +5290,7 @@
           lifetime: 4000
         });
         spaceship.lastCargoShotAt = t;
+        advanceTutorial("compoundFire");
         addScoreEffect(spaceship.x, spaceship.y - 30, `⚗️ ${comp.formula} fired!`, t);
         playTone(1240, 0.12);
         playTone(880, 0.08);
@@ -4897,6 +5318,22 @@
       const wdef = weapons[wid];
       const cdMult = hasBuff("rapidFire") ? 0.4 : 1;
       if (t - spaceship.lastShotAt < wdef.cooldown * cdMult) return;
+      if (game.overheatedUntil > t || game.heat >= 100) {
+        game.overheatedUntil = Math.max(game.overheatedUntil, t + 1600);
+        if (t - (shootUfo.lastWarningAt || 0) > 700) {
+          shootUfo.lastWarningAt = t;
+          setAutoMessage("🔥 Weapons overheated", "Stop firing for a moment. The cooling vents work faster while you dodge.");
+          addScoreEffect(spaceship.x, spaceship.y - 30, "OVERHEATED", t);
+        }
+        return;
+      }
+      if (game.energy < wdef.energy) {
+        if (t - (shootUfo.lastWarningAt || 0) > 700) {
+          shootUfo.lastWarningAt = t;
+          setAutoMessage("🔋 Low energy", `Need ${wdef.energy} energy for ${wid}. Use Bolt or wait for recharge.`);
+        }
+        return;
+      }
       const angle = Math.atan2(spaceship.vy, spaceship.vx);
 
       if (wid === "scatter") {
@@ -4921,6 +5358,10 @@
           color: wdef.color, hitNodes: new Set(), lifetime: wdef.lifetime
         });
       }
+      game.energy = Math.max(0, game.energy - wdef.energy);
+      const masteryHeat = (game.buildLevels.gunner || 0) >= 3 ? 0.75 : 1;
+      game.heat = Math.min(110, game.heat + wdef.heat * masteryHeat);
+      if (game.heat >= 100) game.overheatedUntil = t + 1800;
       spaceship.lastShotAt = t;
       const freqs = { bolt: 680, laser: 920, megalaser: 1100, missile: 155, megabomb: 95, scatter: 750, plasma: 215, freeze: 1420 };
       const vols  = { missile: 0.13, megabomb: 0.18, plasma: 0.13 };
@@ -5053,7 +5494,8 @@
           nodes.forEach((n) => {
             if (n.swallowedByBlackHole || n.heldByAstronaut) return;
             const d = Math.hypot(n.x - shot.x, n.y - shot.y);
-            if (d < nd) { nd = d; nearest = { x: n.x, y: n.y }; }
+            const missionBias = isNodeNeeded(n) ? 0.38 : 1;
+            if (d * missionBias < nd) { nd = d * missionBias; nearest = { x: n.x, y: n.y }; }
           });
           if (blackHole && hazards.blackHole) {
             const d = Math.hypot(blackHole.x - shot.x, blackHole.y - shot.y);
@@ -5077,6 +5519,8 @@
           shot.hit = true; detonatePlasma(shot.x, shot.y, t, shot.power || 1); return;
         }
 
+        if (!shot.hit) hitEnemyWithShot(shot, t);
+
         // Black hole collision
         if (!shot.hit && hazards.blackHole && blackHole) {
           const distance = Math.hypot(shot.x - blackHole.x, shot.y - blackHole.y);
@@ -5084,8 +5528,10 @@
             if (shot.kind === "compound") {
               // Compound bullet: huge damage + mission completion
               shot.hit = true;
-              const dmg = 50 * (shot.power || 1);
+              const coreMult = game.phase === "boss" && blackHole.bossStage === 3 ? 1.5 : 1;
+              const dmg = 50 * (shot.power || 1) * coreMult;
               blackHole.health = Math.max(0, blackHole.health - dmg);
+              applyCompoundAbility(shot.formula, shot.x, shot.y, t);
               blackHole.hurtUntil = t + 360;
               addExplosionEffect(shot.x, shot.y, t);
               effects.push({ type: "plasmaWave", x: shot.x, y: shot.y, born: t, color: shot.glow || "#ffffff" });
@@ -5102,7 +5548,8 @@
             } else {
               const pierces = shot.kind === "laser" || shot.kind === "megalaser";
               if (!pierces) shot.hit = true;
-              blackHole.health = Math.max(0, blackHole.health - 18 * (shot.power || 1));
+              const coreMult = game.phase === "boss" && blackHole.bossStage === 3 ? 1.35 : 1;
+              blackHole.health = Math.max(0, blackHole.health - 18 * (shot.power || 1) * coreMult);
               blackHole.hurtUntil = t + 180;
               effects.push({ type: "bump", x: shot.x, y: shot.y, born: t });
               addScoreEffect(shot.x, shot.y - 10, "hit", t);
@@ -5180,6 +5627,7 @@
       spaceship.keyboardControl = keyX !== 0 || keyY !== 0;
 
       if (spaceship.keyboardControl) {
+        advanceTutorial("move");
         const length = Math.max(1, Math.hypot(keyX, keyY));
         const accel = 0.58;
         spaceship.following = true;
@@ -5258,6 +5706,7 @@
       // Beam direction = the UFO's facing/movement angle (`spaceship.angle`).
       // Player aims by flying — turn the UFO with arrows to point the cone where you want to suck.
       if (suctionActive && spaceship.cargo.length < maxCargoSize()) {
+        advanceTutorial("vacuum");
         const catchR = ufoCollectRange();              // capture radius (~58)
         const beamRange = catchR * 5.5;                // ~320
         const halfCone = 0.62;                         // ~35° → 70° total cone
@@ -5283,7 +5732,8 @@
           // Pull element straight back toward UFO
           const isNeeded = neededSet.has(n.element.symbol);
           const base = (1 - d / beamRange);
-          const strength = base * base * (isNeeded ? 2.6 : 1.8) + 0.5;
+          const magnetMastery = isNeeded && (game.buildLevels.magnet || 0) >= 3 ? 1.65 : 1;
+          const strength = (base * base * (isNeeded ? 2.6 : 1.8) + 0.5) * magnetMastery;
           n.vx -= (dx / d) * strength;
           n.vy -= (dy / d) * strength;
           // Capture when close enough
@@ -5291,6 +5741,7 @@
             n.heldByAstronaut = "ufo";
             spaceship.cargo.push(n);
             spaceship.lastCollectAt = t;
+            advanceTutorial("collect");
             captured = true;
             effects.push({ type: "bump", x: n.x, y: n.y, born: t });
             // 🛸 Ship evolution: count this capture (golden counts double)
@@ -5377,6 +5828,7 @@
         bornAt: t
       });
       spaceship.cargo = newCargo;
+      advanceTutorial("synthesize");
       // Spawn fresh elements so the pool stays full — replace the same symbols that were used
       consumed.forEach((c) => spawnReplacementElement(c.element && c.element.symbol));
       // Big synthesis burst
@@ -6801,6 +7253,7 @@
     function drawBlackHole(t) {
       if (!blackHole) return;
       const isBoss = game.phase === "boss";
+      const bossStage = blackHole.bossStage || 1;
 
       ctx.save();
       ctx.translate(blackHole.x, blackHole.y);
@@ -6809,8 +7262,9 @@
       // Outer halo
       const halo = ctx.createRadialGradient(0, 0, 8, 0, 0, blackHole.influence * 0.72);
       halo.addColorStop(0, "rgba(16, 20, 24, 0.7)");
-      halo.addColorStop(0.28, isBoss ? "rgba(200, 32, 220, 0.38)" : "rgba(128, 103, 200, 0.24)");
-      halo.addColorStop(0.62, isBoss ? "rgba(220, 50, 80, 0.18)"  : "rgba(42, 168, 216, 0.12)");
+      const phaseHalo = bossStage === 1 ? "rgba(200,32,220,.38)" : bossStage === 2 ? "rgba(30,150,255,.42)" : "rgba(255,72,55,.46)";
+      halo.addColorStop(0.28, isBoss ? phaseHalo : "rgba(128, 103, 200, 0.24)");
+      halo.addColorStop(0.62, isBoss && bossStage === 3 ? "rgba(255,180,40,.24)" : isBoss ? "rgba(220, 50, 80, 0.18)"  : "rgba(42, 168, 216, 0.12)");
       halo.addColorStop(1, "rgba(42, 168, 216, 0)");
       ctx.fillStyle = halo;
       ctx.beginPath();
@@ -6848,6 +7302,13 @@
         ctx.beginPath();
         ctx.arc(0, 0, blackHole.radius + 6, 0, Math.PI * 2);
         ctx.fill();
+      }
+      if (blackHole.stunnedUntil > t || blackHole.slowedUntil > t || blackHole.poisonUntil > t) {
+        ctx.strokeStyle = blackHole.stunnedUntil > t ? "#67e8f9" : blackHole.poisonUntil > t ? "#7fe0b0" : "#7ed4ff";
+        ctx.lineWidth = 4;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath(); ctx.arc(0, 0, blackHole.radius + 13, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
       }
       ctx.shadowBlur = 0;
 
@@ -6889,7 +7350,7 @@
       ctx.fillStyle = isBoss ? "#e879f9" : "rgba(220,225,255,0.85)";
       ctx.font = "900 10px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(isBoss ? `👾 VOID BOSS  Lv${game.level}` : "Black Hole", 0, -66);
+      ctx.fillText(isBoss ? `👾 PHASE ${bossStage} · ${bossStage === 1 ? "HUNTER" : bossStage === 2 ? "VOID STORM" : "WEAK CORE"}` : "Black Hole", 0, -66);
       ctx.restore();
     }
 
@@ -7116,9 +7577,11 @@
       drawBackground(t);
       const hitStopped = t < hitStopUntil; // freeze-frame: draw but don't update
       if (running && !hitStopped) {
+        updateWeaponSystems(t);
         updateNodes(t);
         updateSun(t);
         updateShots(t);
+        updateEnemies(t);
         autoReactNearby(t);
         updatePowerups(t);
         pruneBuffs(t);
@@ -7135,6 +7598,7 @@
       drawCompoundCargo(t);
       drawPowerups(t);
       drawShots(t);
+      drawEnemies(t);
       drawSpaceship(t);
       drawActiveBuffs(t);
       drawBonusRound(t);
@@ -7157,6 +7621,7 @@
       if (spaceship && spaceship.following && !spaceship.keyboardControl) {
         spaceship.targetX = event.clientX;
         spaceship.targetY = event.clientY;
+        if (spaceshipPressed) advanceTutorial("move");
       }
       hoveredNode = overSpaceship ? null : nodeAt(event.clientX, event.clientY);
       canvas.style.cursor = spaceshipPressed ? "grabbing" : overSpaceship ? "grab" : hoveredNode ? "pointer" : "default";
