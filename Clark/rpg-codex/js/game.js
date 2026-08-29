@@ -128,6 +128,7 @@
     backgrounds: Array(BACKGROUND_SOURCES.length).fill(null),
     monsters: {},
     props: {},
+    heroAnimation: null,
     monsterAtlas: null,
     finalMonsterAtlas: null,
     bossAtlas: null,
@@ -195,16 +196,18 @@
   const FINAL_MONSTER_ATLAS_CELLS = { inkhound: [0,0], runeknight: [1,0], quillseer: [2,0] };
   const BOSS_ATLAS_SOURCE = "assets/bosses/generated/storybook-boss-atlas-v1.webp";
   const BOSS_ATLAS_CELLS = { pi: [0,0], warden: [1,0], engine: [2,0], shadow: [3,0], golem: [0,1], raven: [1,1], final: [2,1] };
+  const HERO_ANIMATION_SOURCE = "assets/characters/animations/clark-action-atlas-v2.webp";
+  const HERO_ANIMATION_ROWS = Object.freeze({ idle: 0, move: 1, leafblade: 2, hammer: 3, dash: 4, hurt: 5 });
   const BOSS_ANIMATION_SOURCES = {
-    pi: "assets/bosses/animations/pi-animation-v1.webp",
-    warden: "assets/bosses/animations/warden-animation-v1.webp",
-    engine: "assets/bosses/animations/engine-animation-v1.webp",
-    shadow: "assets/bosses/animations/shadow-animation-v1.webp",
-    golem: "assets/bosses/animations/golem-animation-v1.webp",
-    raven: "assets/bosses/animations/raven-animation-v1.webp",
-    final: "assets/bosses/animations/final-animation-v1.webp"
+    pi: "assets/bosses/animations/pi-action-atlas-v2.webp",
+    warden: "assets/bosses/animations/warden-action-atlas-v2.webp",
+    engine: "assets/bosses/animations/engine-action-atlas-v2.webp",
+    shadow: "assets/bosses/animations/shadow-action-atlas-v2.webp",
+    golem: "assets/bosses/animations/golem-action-atlas-v2.webp",
+    raven: "assets/bosses/animations/raven-action-atlas-v2.webp",
+    final: "assets/bosses/animations/final-action-atlas-v2.webp"
   };
-  const BOSS_ANIMATION_FRAMES = Object.freeze({ idle: 0, move: 1, hurt: 2, attack: 3 });
+  const BOSS_ANIMATION_ROWS = Object.freeze({ idle: 0, move: 1, hurt: 2, attack: 3, death: 4 });
   const BOSS_SPRITE_SIZES = {
     pi: [190,174], warden: [172,168], engine: [178,174], shadow: [188,178],
     golem: [174,174], raven: [194,178], final: [174,178]
@@ -299,6 +302,8 @@
     timeLeft: null,
     shake: 0,
     flash: 0,
+    flashColor: "255,70,85",
+    zoomPunch: 0,
     hitStop: 0,
     messageTimer: 0,
     storyAction: null,
@@ -351,6 +356,11 @@
     return art.bossAtlas;
   }
 
+  function loadHeroAnimation() {
+    if (!art.heroAnimation) art.heroAnimation = Object.assign(new Image(), { src: HERO_ANIMATION_SOURCE });
+    return art.heroAnimation;
+  }
+
   function loadBossAnimation(type) {
     const source = BOSS_ANIMATION_SOURCES[type];
     if (!source) return PENDING_ART;
@@ -391,7 +401,8 @@
     invulnerable: 0, attackCooldown: 0, dashCooldown: 0, dashTime: 0,
     shieldTime: 0, moving: false, walkCycle: 0,
     weapon: save.weapon === "hammer" && save.unlockedChapter >= 3 ? "hammer" : "leafblade", comboStep: 0, comboTimer: 0, attackKind: "leafblade", touchAttackHeld: false,
-    attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }, hammerCharging: false, hammerCharge: 0, perfectDodgeTime: 0, counterCooldown: 0, dashStrikeWindow: 0
+    attackTime: 0, attackDuration: .3, attackDirection: { x: 1, y: 0 }, hammerCharging: false, hammerCharge: 0, perfectDodgeTime: 0, counterReadyTime: 0, counterCooldown: 0, dashStrikeWindow: 0,
+    hurtTime: 0, animationTime: 0, animState: "idle", animStateTime: 0
   };
 
   const bradley = { x: 80, y: 390, radius: 20, cooldown: 0, facing: { x: 1, y: 0 }, command: "follow", target: null };
@@ -401,6 +412,22 @@
   function announce(text) {
     dom.liveRegion.textContent = "";
     requestAnimationFrame(() => { dom.liveRegion.textContent = text; });
+  }
+
+  function haptic(pattern) {
+    if (!usesTouchControls() || typeof navigator.vibrate !== "function") return;
+    try { navigator.vibrate(pattern); } catch (_) { /* Unsupported iPads simply ignore haptics. */ }
+  }
+
+  function impactFeedback(hit, kind = "light") {
+    if (hit.feedbackPlayed) return;
+    hit.feedbackPlayed = true;
+    const heavy = kind === "heavy" || kind === "critical" || kind === "counter";
+    sound.play(kind === "counter" ? "counter" : kind === "heavy" ? "hammerHit" : kind === "critical" ? "criticalHit" : "leafHit");
+    game.hitStop = Math.max(game.hitStop, kind === "counter" ? .1 : heavy ? .075 : .035);
+    game.shake = Math.max(game.shake, kind === "counter" ? 9 : heavy ? 6 : 2.5);
+    game.zoomPunch = Math.max(game.zoomPunch, kind === "counter" ? .045 : heavy ? .026 : .012);
+    haptic(kind === "counter" ? [18, 24, 28] : heavy ? 28 : 10);
   }
 
   function switchScreen(screen) {
@@ -607,6 +634,7 @@
     game.aimTargetTime = 0;
     game.sceneTime = 0;
     game.hitStop = 0;
+    game.zoomPunch = 0;
     game.timeLeft = game.chapter.timed || null;
     game.attacks = [];
     game.projectiles = [];
@@ -630,6 +658,7 @@
     loadCompanionAtlas();
     loadCombatEffectsAtlas();
     loadProp("clark");
+    loadHeroAnimation();
     loadProp("leafblade");
     if (save.unlockedChapter >= WEAPONS.hammer.unlockChapter) loadProp("cometHammer");
     game.block = game.chapter.puzzle.type === "push"
@@ -650,7 +679,12 @@
     player.hammerCharging = false;
     player.hammerCharge = 0;
     player.perfectDodgeTime = 0;
+    player.counterReadyTime = 0;
     player.counterCooldown = 0;
+    player.hurtTime = 0;
+    player.animationTime = 0;
+    player.animState = "idle";
+    player.animStateTime = 0;
     player.dashStrikeWindow = 0;
     player.comboStep = 0;
     player.comboTimer = 0;
@@ -970,11 +1004,15 @@
   }
 
   function updatePlayer(delta) {
+    player.animationTime += delta;
+    player.animStateTime += delta;
     player.invulnerable = Math.max(0, player.invulnerable - delta);
     player.attackCooldown = Math.max(0, player.attackCooldown - delta);
     player.attackTime = Math.max(0, player.attackTime - delta);
     player.perfectDodgeTime = Math.max(0, player.perfectDodgeTime - delta);
+    player.counterReadyTime = Math.max(0, player.counterReadyTime - delta);
     player.counterCooldown = Math.max(0, player.counterCooldown - delta);
+    player.hurtTime = Math.max(0, player.hurtTime - delta);
     player.dashStrikeWindow = Math.max(0, player.dashStrikeWindow - delta);
     if (player.hammerCharging) player.hammerCharge = Math.min(1, player.hammerCharge + delta / (weaponTrait("hammer") === "meteor" ? .58 : .75));
     player.comboTimer = Math.max(0, player.comboTimer - delta);
@@ -1027,6 +1065,13 @@
     });
     // Active portals behave like doorways on touch devices: walking through the center enters.
     if (game.portalActive && !game.portalTransitioning && distance(player, game.chapter.portal) < 68) completeChapter();
+    const nextState = player.hurtTime > 0 ? "hurt" : player.dashTime > 0 ? "dash" : player.attackTime > 0 || player.hammerCharging ? (player.attackKind === "hammer" || player.hammerCharging ? "hammer" : "leafblade") : player.moving ? "move" : "idle";
+    if (nextState !== player.animState) {
+      player.animState = nextState;
+      player.animStateTime = 0;
+    }
+    dom.touchAttack.classList.toggle("is-counter-ready", player.counterReadyTime > 0);
+    dom.weaponButton?.classList.toggle("is-counter-ready", player.counterReadyTime > 0);
   }
 
   function useDash() {
@@ -1087,10 +1132,44 @@
   }
 
   function useWeapon() {
-    if (player.attackCooldown > 0 || game.mode !== "playing") return;
+    if (game.mode !== "playing") return;
+    if (player.counterReadyTime > 0) { usePerfectCounter(); return; }
+    if (player.attackCooldown > 0) return;
     if (player.dashStrikeWindow > 0) useDashStrike();
     else if (player.weapon === "hammer") useCometHammer();
     else useLeafblade();
+  }
+
+  function usePerfectCounter() {
+    const direction = assistedAim(270);
+    player.counterReadyTime = 0;
+    player.counterCooldown = 1.15;
+    player.attackCooldown = .42;
+    player.attackDuration = .38;
+    player.attackTime = player.attackDuration;
+    player.attackKind = player.weapon === "hammer" ? "hammer" : "leafblade-finisher";
+    player.attackDirection = { ...direction };
+    player.invulnerable = Math.max(player.invulnerable, .38);
+    moveCircle(player, direction.x * 38, direction.y * 38);
+    const counter = {
+      x: player.x + direction.x * 52,
+      y: player.y + direction.y * 52,
+      radius: 98,
+      life: .36,
+      maxLife: .36,
+      angle: Math.atan2(direction.y, direction.x),
+      type: "perfect",
+      color: "#dfffcf",
+      critical: true,
+      consumeMark: true
+    };
+    game.attacks.push(counter);
+    damageEnemies(counter, forgedDamage(player.weapon, 3));
+    damageBoss(counter, forgedDamage(player.weapon, 3));
+    particles.burst(counter.x, counter.y, "#d9ffb7", 30, 270);
+    impactFeedback(counter, "counter");
+    showComicWord("PERFECT COUNTER!", "#fff1a8");
+    announce("Perfect counter released.");
   }
 
   // Skyfall: attack while a dash is still carrying you. No new button -- it is
@@ -1306,7 +1385,7 @@
 
   function damageBoss(hit, amount) {
     const boss = game.boss;
-    if (!boss?.active || boss.peaceful || boss.invulnerable > 0) return;
+    if (!boss?.active || boss.defeated || boss.peaceful || boss.invulnerable > 0) return;
     if (distance(hit, boss) > (hit.radius || 0) + boss.radius) return;
     const critical = hit.critical || hit.type === "spin" || hit.type === "perfect" || Math.random() < .06;
     const dealt = Math.max(1, Math.round(amount * (critical ? 1.55 : 1)));
@@ -1315,6 +1394,7 @@
     boss.hurtTime = .24;
     boss.animState = "hurt";
     boss.animStateTime = 0;
+    impactFeedback(hit, hit.type === "perfect" ? "counter" : hit.type === "smash" ? "heavy" : critical ? "critical" : "light");
     particles.burst(boss.x, boss.y, game.chapter.palette.glow, 12, 170);
     if (critical) showComicWord("CRITICAL!", "#fff1a8");
     const healthRatio = boss.hp / boss.maxHp;
@@ -1341,6 +1421,7 @@
       // shell halves ordinary hits, while the correct weakness breaks through.
       if (enemy.eliteTrait?.id === "shell" && !weakHit) dealt = Math.max(1, Math.round(dealt * .5));
       enemy.hp -= dealt;
+      impactFeedback(hit, hit.type === "perfect" ? "counter" : hit.type === "smash" ? "heavy" : critical ? "critical" : "light");
       if (hit.consumeMark && enemy.marked > 0) {
         enemy.marked = 0;
         particles.burst(enemy.x, enemy.y, "#d6a4ff", 9, 140);
@@ -1624,6 +1705,7 @@
       game.puzzleProgress = 0;
       game.activeTargets.clear();
       game.flash = .25;
+      game.flashColor = "255,70,85";
       sound.play("hurt");
       showComicWord("TRY AGAIN!", "#ff5d62");
       setObjective(game.chapter.objective);
@@ -1715,7 +1797,11 @@
       hurtTime: 0,
       attackAnimTime: 0,
       isMoving: false,
-      facingX: -1
+      facingX: -1,
+      telegraphTarget: null,
+      telegraphDuration: spec.type === "raven" ? .58 : spec.type === "engine" || spec.type === "final" ? .72 : .64,
+      defeated: false,
+      deathTime: 0
     };
     if (spec.peaceful) {
       setObjective(game.chapter.id === 5 ? "The golem is frightened—try talking" : "Approach the Final Gate together");
@@ -1745,11 +1831,32 @@
   }
 
   function defeatBoss() {
-    if (game.boss) game.boss.active = false;
+    const boss = game.boss;
+    if (!boss || boss.defeated) return;
+    boss.defeated = true;
+    boss.deathTime = 1.08;
+    boss.animState = "death";
+    boss.animStateTime = 0;
+    boss.attackAnimTime = 0;
+    boss.meleeTime = 0;
+    boss.invulnerable = 99;
     game.enemies.forEach(enemy => {
       if (enemy.active) particles.burst(enemy.x, enemy.y, enemy.color, 6, 90);
       enemy.active = false;
     });
+    game.enemyProjectiles = [];
+    game.hitStop = Math.max(game.hitStop, .14);
+    game.zoomPunch = Math.max(game.zoomPunch, .06);
+    game.flash = Math.max(game.flash, .2);
+    game.flashColor = "255,255,245";
+    sound.play("bossDown");
+    haptic([35, 45, 50]);
+  }
+
+  function finishBossDefeat() {
+    const boss = game.boss;
+    if (!boss?.active) return;
+    boss.active = false;
     game.phase = "portal";
     game.portalActive = true;
     game.enemyProjectiles = [];
@@ -1995,6 +2102,11 @@
     if (!boss?.active) return;
     boss.animationTime = (boss.animationTime || 0) + delta;
     boss.animStateTime = (boss.animStateTime || 0) + delta;
+    if (boss.defeated) {
+      boss.deathTime = Math.max(0, boss.deathTime - delta);
+      if (boss.deathTime === 0) finishBossDefeat();
+      return;
+    }
     boss.hurtTime = Math.max(0, (boss.hurtTime || 0) - delta);
     boss.attackAnimTime = Math.max(0, (boss.attackAnimTime || 0) - delta);
     if (boss.peaceful) {
@@ -2004,6 +2116,9 @@
     }
     boss.invulnerable = Math.max(0, boss.invulnerable - delta);
     boss.attackTimer -= delta;
+    if (boss.attackTimer <= boss.telegraphDuration && !boss.telegraphTarget) {
+      boss.telegraphTarget = { x: player.x, y: player.y };
+    }
     boss.meleeTime = Math.max(0, (boss.meleeTime || 0) - delta);
     boss.moveTimer += delta;
     boss.angle += delta;
@@ -2029,6 +2144,7 @@
       const cooldowns = { pi: 1.2, warden: 1.02, engine: 1.38, shadow: 1.08, raven: .82, final: .88 };
       boss.attackTimer = cooldowns[boss.type] || 1.15;
       fireBossAttack(boss);
+      boss.telegraphTarget = null;
     }
     const nextState = boss.hurtTime > 0 ? "hurt" : boss.attackAnimTime > 0 || boss.meleeTime > 0 ? "attack" : boss.isMoving ? "move" : "idle";
     if (nextState !== boss.animState) {
@@ -2043,14 +2159,17 @@
     boss.meleeHit = false;
     boss.meleeKind = kind;
     boss.meleeDamage = damage;
-    boss.attackDirection = normalize(player.x - boss.x, player.y - boss.y);
+    const target = boss.telegraphTarget || player;
+    boss.attackDirection = normalize(target.x - boss.x, target.y - boss.y);
     particles.burst(boss.x, boss.y, game.chapter.palette.glow, kind === "dive" ? 14 : 20, 150);
     sound.play("boom");
   }
 
   function fireBossAttack(boss) {
     boss.attackAnimTime = Math.max(boss.attackAnimTime || 0, boss.type === "raven" ? .66 : .52);
-    const aimed = normalize(player.x - boss.x, player.y - boss.y);
+    boss.animStateTime = 0;
+    const target = boss.telegraphTarget || player;
+    const aimed = normalize(target.x - boss.x, target.y - boss.y);
     const aimedAngle = Math.atan2(aimed.y, aimed.x);
     const healthRatio = boss.hp / boss.maxHp;
     const phase = healthRatio <= .34 ? 3 : healthRatio <= .67 ? 2 : 1;
@@ -2250,32 +2369,33 @@
   function hurtPlayer(amount, source) {
     if (player.dashTime > 0) {
       player.perfectDodgeTime = .55;
-      // The dodge itself is always free — that is the mechanic. The counterattack
-      // is what needs a leash: without one, dashing into a crowd was strictly
-      // better than attacking, since it paid for itself in energy and took no risk.
       if (player.counterCooldown > 0) {
         particles.burst(player.x, player.y, "#d9ffb7", 8, 120);
         showComicWord("DODGE!", "#8ce568");
         return;
       }
-      player.counterCooldown = 2.4;
-      const counter = { x: player.x + player.facing.x * 38, y: player.y + player.facing.y * 38, radius: 72, life: .3, maxLife: .3, type: "perfect", color: "#8ce568", consumeMark: true };
-      game.attacks.push(counter);
-      damageEnemies(counter, 1);
-      damageBoss(counter, 1);
+      player.counterReadyTime = .78;
+      player.attackCooldown = 0;
       particles.burst(player.x, player.y, "#d9ffb7", 18, 190);
-      sound.play("shield");
-      showComicWord("PERFECT!", "#8ce568");
-      announce("Perfect dodge. Counterattack ready.");
+      sound.play("perfectDodge");
+      haptic([8, 22, 12]);
+      game.hitStop = Math.max(game.hitStop, .055);
+      game.zoomPunch = Math.max(game.zoomPunch, .025);
+      showComicWord("PERFECT! ATTACK!", "#8ce568");
+      announce("Perfect dodge. Press attack now for a powerful counter.");
       return;
     }
     if (player.invulnerable > 0 || player.shieldTime > 0) return;
     player.health = Math.max(0, player.health - amount);
     player.invulnerable = 1;
+    player.hurtTime = .36;
+    player.animState = "hurt";
+    player.animStateTime = 0;
     const knock = normalize(player.x - source.x, player.y - source.y);
     moveCircle(player, knock.x * 35, knock.y * 35);
     particles.burst(player.x, player.y, "#ff5d62", 12, 160);
     sound.play("hurt");
+    haptic([25, 35, 18]);
     game.shake = 7;
     showComicWord("OOF!", "#ff5d62");
     if (player.health <= 0) heroFell();
@@ -2307,7 +2427,12 @@
     player.comboStep = 0;
     player.comboTimer = 0;
     player.perfectDodgeTime = 0;
+    player.counterReadyTime = 0;
     player.counterCooldown = 0;
+    player.hurtTime = 0;
+    player.animationTime = 0;
+    player.animState = "idle";
+    player.animStateTime = 0;
     player.dashStrikeWindow = 0;
     player.hammerCharging = false;
     player.hammerCharge = 0;
@@ -2353,6 +2478,9 @@
       game.boss.animState = "idle";
       game.boss.animStateTime = 0;
       game.boss.isMoving = false;
+      game.boss.telegraphTarget = null;
+      game.boss.defeated = false;
+      game.boss.deathTime = 0;
       game.boss.x = game.chapter.boss.x;
       game.boss.y = game.chapter.boss.y;
     }
@@ -2390,6 +2518,7 @@
     game.aimTargetTime = Math.max(0, game.aimTargetTime - delta);
     game.flash = Math.max(0, game.flash - delta);
     game.shake = Math.max(0, game.shake - 30 * delta);
+    game.zoomPunch = Math.max(0, game.zoomPunch - delta * .18);
     updatePlayer(delta);
     const cameraEase = 1 - Math.pow(.002, delta);
     game.camera.x = lerp(game.camera.x, player.x, cameraEase);
@@ -2709,6 +2838,50 @@
     ctx.translate(0,bob);
     if (charging) { ctx.strokeStyle="#ffb347";ctx.shadowColor="#ff7a21";ctx.shadowBlur=18;ctx.lineWidth=5;ctx.globalAlpha=.5+.45*player.hammerCharge;ctx.beginPath();ctx.arc(0,0,43+player.hammerCharge*15,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;ctx.shadowBlur=0; }
     if (blink) ctx.globalAlpha=.35;
+    const heroAnimation = loadHeroAnimation();
+    if (heroAnimation.complete && heroAnimation.naturalWidth && heroAnimation.naturalHeight) {
+      const state = HERO_ANIMATION_ROWS[player.animState] === undefined ? "idle" : player.animState;
+      const row = HERO_ANIMATION_ROWS[state];
+      const progress = player.attackTime > 0 ? clamp(1 - player.attackTime / player.attackDuration, 0, 1) : 0;
+      const frame = state === "idle" ? Math.floor(player.animationTime * 5) % 6
+        : state === "move" ? Math.floor(player.walkCycle * 6) % 6
+          : state === "dash" ? Math.min(5, Math.floor(player.animStateTime * 22))
+            : state === "hurt" ? Math.min(5, Math.floor(player.animStateTime * 17))
+              : Math.min(5, Math.floor(progress * 6));
+      const sourceWidth = heroAnimation.naturalWidth / 6;
+      const sourceHeight = heroAnimation.naturalHeight / 6;
+      const facingX = attacking ? player.attackDirection.x : player.facing.x;
+      const directionFlip = facingX < -.08 ? -1 : 1;
+      if (player.counterReadyTime > 0) {
+        const counterPulse = 1 + Math.sin(game.sceneTime * 16) * .08;
+        drawCombatEffect(ctx, "leafSlash", 0, -18, 112 * counterPulse, 112 * counterPulse, game.sceneTime * 3.5, .5);
+      }
+      ctx.save();
+      ctx.scale(directionFlip, 1);
+      ctx.drawImage(heroAnimation, frame * sourceWidth, row * sourceHeight, sourceWidth, sourceHeight, -64, -91, 128, 128);
+      const wieldingHammer = player.weapon === "hammer";
+      const weaponArt = loadProp(wieldingHammer ? "cometHammer" : "leafblade");
+      if (weaponArt.complete && weaponArt.naturalWidth) {
+        const handX = 34, handY = -24;
+        let weaponAngle = wieldingHammer ? -.48 : .26;
+        if (state === "leafblade") weaponAngle = -1.15 + progress * 2.65;
+        else if (state === "hammer") weaponAngle = -1.5 + progress * 2.95;
+        else if (state === "dash") weaponAngle = -.72;
+        else weaponAngle += Math.sin(game.sceneTime * 3.5) * .05;
+        ctx.save(); ctx.translate(handX, handY); ctx.rotate(weaponAngle);
+        ctx.shadowColor = wieldingHammer ? "#ff852a" : "#79eb8c"; ctx.shadowBlur = attacking ? 14 : 5;
+        if (wieldingHammer) ctx.drawImage(weaponArt, -24, -60, 48, 78);
+        else ctx.drawImage(weaponArt, -16, -55, 32, 64);
+        ctx.restore();
+      }
+      ctx.restore();
+      if(player.shieldTime>0){const shieldSize=skillRank()*3;ctx.strokeStyle="#9ce98c";ctx.shadowColor="#d8ffb2";ctx.shadowBlur=24+shieldSize;ctx.lineWidth=6;ctx.beginPath();ctx.ellipse(0,-19,52+shieldSize,58+shieldSize,0,0,Math.PI*2);ctx.stroke();}
+      ctx.globalAlpha=1;ctx.shadowBlur=0;
+      ctx.fillStyle="rgba(251,248,220,.92)";ctx.strokeStyle="rgba(70,91,55,.35)";ctx.lineWidth=2;roundedRect(ctx,-30,-105,60,18,9);ctx.fill();ctx.stroke();
+      ctx.fillStyle="#364b31";ctx.font="800 10px Trebuchet MS";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("CLARK",0,-96);
+      ctx.restore();
+      return;
+    }
     const clarkArt = loadProp("clark");
     if (clarkArt.complete && clarkArt.naturalWidth) {
       const attackProgress = attacking ? clamp(1 - player.attackTime / player.attackDuration, 0, 1) : 0;
@@ -2945,37 +3118,51 @@
     }
   }
 
+  function drawBossTelegraph(ctx, boss) {
+    if (boss.peaceful || boss.defeated || !boss.telegraphTarget || boss.attackTimer > boss.telegraphDuration) return;
+    const warning = 1 - clamp(boss.attackTimer / boss.telegraphDuration, 0, 1);
+    const targetX = boss.telegraphTarget.x - boss.x;
+    const targetY = boss.telegraphTarget.y - boss.y;
+    const effect = { pi: "pi", warden: "crystal", engine: "gear", shadow: "crescent", raven: "storm", final: "rune" }[boss.type] || "star";
+    const rotation = Math.atan2(targetY, targetX);
+    ctx.save();
+    ctx.globalAlpha = .26 + warning * .68;
+    if (boss.type === "engine") {
+      drawCombatEffect(ctx, effect, 0, 0, 150 + warning * 60, 150 + warning * 60, game.sceneTime * 2.4, .8);
+    } else if (boss.type === "raven" || boss.type === "shadow") {
+      for (let index = 1; index <= 4; index += 1) {
+        const amount = index / 4;
+        drawCombatEffect(ctx, effect, targetX * amount, targetY * amount, 48 + warning * 20, 48 + warning * 20, rotation, .28 + amount * .16);
+      }
+      drawCombatEffect(ctx, effect, targetX, targetY, 118 + warning * 36, 118 + warning * 36, rotation, .7);
+    } else {
+      drawCombatEffect(ctx, effect, targetX, targetY, 126 + warning * 54, 126 + warning * 54, game.sceneTime * (boss.type === "final" ? 2.8 : 1.2), .76);
+    }
+    ctx.restore();
+  }
+
   function drawBoss(ctx, boss) {
     if(!boss?.active)return;
     ctx.save();ctx.translate(boss.x,boss.y);
-    if(!boss.peaceful&&boss.attackTimer<.34){const warning=1-clamp(boss.attackTimer/.34,0,1);ctx.save();ctx.globalAlpha=.3+warning*.55;ctx.strokeStyle=game.chapter.palette.glow;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;ctx.lineWidth=4;ctx.rotate(boss.type==="raven"?Math.atan2(player.y-boss.y,player.x-boss.x):game.sceneTime*1.4);
-      if(boss.type==="engine"){for(let i=0;i<8;i+=1){const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*55,Math.sin(a)*55);ctx.lineTo(Math.cos(a)*(82+warning*24),Math.sin(a)*(82+warning*24));ctx.stroke();}}
-      else if(boss.type==="raven"){for(const spread of[-.48,.48]){ctx.beginPath();ctx.moveTo(25,0);ctx.lineTo(Math.cos(spread)*(125+warning*35),Math.sin(spread)*(125+warning*35));ctx.stroke();}}
-      else{ctx.beginPath();ctx.arc(0,0,boss.radius+14+warning*16,0,Math.PI*2);ctx.stroke();}ctx.restore();}
-    if (!boss.peaceful && boss.meleeTime > 0) { ctx.save(); ctx.rotate(Math.atan2(boss.attackDirection.y, boss.attackDirection.x)); ctx.globalAlpha = .78; ctx.strokeStyle = boss.meleeKind === "dive" ? "#c77dff" : "#ffd34f"; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 20; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(22, 0, boss.radius + 25, -.95, .95); ctx.stroke(); ctx.restore(); }
+    drawBossTelegraph(ctx, boss);
+    if (!boss.peaceful && boss.meleeTime > 0) {
+      const meleeAngle = Math.atan2(boss.attackDirection.y, boss.attackDirection.x);
+      drawCombatEffect(ctx, boss.meleeKind === "dive" ? "crescent" : "hammerShockwave", boss.attackDirection.x * 38, boss.attackDirection.y * 38, boss.radius * 2.5, boss.radius * 2.5, meleeAngle, .82);
+    }
     const pulse=1+Math.sin(game.sceneTime*4)*.035;ctx.scale(pulse,pulse);ctx.globalAlpha=boss.invulnerable>0?.55:1;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;
     const bossSize = BOSS_SPRITE_SIZES[boss.type] || [176, 176];
     const bossAnimation = loadBossAnimation(boss.type);
     if (bossAnimation.complete && bossAnimation.naturalWidth && bossAnimation.naturalHeight) {
-      const state = BOSS_ANIMATION_FRAMES[boss.animState] === undefined ? "idle" : boss.animState;
-      const frame = BOSS_ANIMATION_FRAMES[state];
+      const state = BOSS_ANIMATION_ROWS[boss.animState] === undefined ? "idle" : boss.animState;
+      const row = BOSS_ANIMATION_ROWS[state];
       const stateTime = boss.animStateTime || 0;
-      let bob = 0;
-      let lean = 0;
-      let squashX = 1;
-      let squashY = 1;
-      let shake = 0;
-      if (state === "idle") bob = Math.sin((boss.animationTime || 0) * 3.2) * 2.5;
-      if (state === "move") { bob = -Math.abs(Math.sin(stateTime * 8.5)) * 6; lean = clamp((boss.facingX || 0) * .035, -.035, .035); }
-      if (state === "hurt") { shake = Math.sin(stateTime * 45) * 5; lean = Math.sin(stateTime * 24) * .045; squashX = 1.06; squashY = .94; }
-      if (state === "attack") { const punch = Math.sin(Math.min(1, stateTime / .34) * Math.PI); bob = -punch * 4; squashX = 1 + punch * .055; squashY = 1 - punch * .035; }
-      const sourceWidth = bossAnimation.naturalWidth / 4;
-      ctx.save();
-      ctx.translate(shake, bob);
-      ctx.rotate(lean);
-      ctx.scale(squashX, squashY);
-      ctx.drawImage(bossAnimation, frame * sourceWidth, 0, sourceWidth, bossAnimation.naturalHeight, -bossSize[0] / 2, -bossSize[1] * .62, bossSize[0], bossSize[1]);
-      ctx.restore();
+      const frameRate = state === "idle" ? 5 : state === "move" ? 9 : state === "hurt" ? 22 : state === "attack" ? 11 : 5.6;
+      const frame = state === "idle" || state === "move" ? Math.floor((state === "idle" ? boss.animationTime : stateTime) * frameRate) % 6 : Math.min(5, Math.floor(stateTime * frameRate));
+      const sourceWidth = bossAnimation.naturalWidth / 6;
+      const sourceHeight = bossAnimation.naturalHeight / 5;
+      const drawWidth = state === "attack" ? bossSize[0] * 1.08 : bossSize[0];
+      const drawHeight = state === "attack" ? bossSize[1] * 1.08 : bossSize[1];
+      ctx.drawImage(bossAnimation, frame * sourceWidth, row * sourceHeight, sourceWidth, sourceHeight, -drawWidth / 2, -drawHeight * .62, drawWidth, drawHeight);
       ctx.shadowBlur = 0; ctx.restore(); return;
     }
     const bossAtlas = loadBossAtlas();
@@ -3104,7 +3291,8 @@
     const cameraY=visibleHeight>=WORLD_HEIGHT?WORLD_HEIGHT/2:clamp(game.camera.y,visibleHeight/2,WORLD_HEIGHT-visibleHeight/2);
     viewport.offsetX=viewport.width/2-cameraX*viewport.scale;
     viewport.offsetY=viewport.height/2-cameraY*viewport.scale;
-    context.setTransform(dpr*viewport.scale,0,0,dpr*viewport.scale,dpr*(viewport.offsetX+shakeX*viewport.scale),dpr*(viewport.offsetY+shakeY*viewport.scale));
+    const actionScale=viewport.scale*(1+game.zoomPunch);
+    context.setTransform(dpr*actionScale,0,0,dpr*actionScale,dpr*(viewport.offsetX+shakeX*viewport.scale-(game.zoomPunch*viewport.width/2)),dpr*(viewport.offsetY+shakeY*viewport.scale-(game.zoomPunch*viewport.height/2)));
     drawBackground(context,game.chapter);
     drawPortal(context,game.chapter.portal,game.portalActive);
     drawHealingShrine(context);
@@ -3116,7 +3304,7 @@
     drawProjectiles(context);
     drawGuardian(context);drawBird(context);drawBradley(context);drawClark(context);
     particles.draw(context);
-    if(game.flash>0){context.fillStyle=`rgba(255,70,85,${game.flash})`;context.fillRect(0,0,WORLD_WIDTH,WORLD_HEIGHT);}
+    if(game.flash>0){context.fillStyle=`rgba(${game.flashColor||"255,70,85"},${game.flash})`;context.fillRect(0,0,WORLD_WIDTH,WORLD_HEIGHT);}
   }
 
   function resizeCanvas() {

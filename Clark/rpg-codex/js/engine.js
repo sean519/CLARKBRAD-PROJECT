@@ -80,11 +80,11 @@
       }
       if (this.context?.state === "suspended") this.context.resume();
     }
-    tone(frequency = 440, duration = .08, type = "sine", volume = .04, slide = 0) {
+    tone(frequency = 440, duration = .08, type = "sine", volume = .04, slide = 0, delay = 0) {
       if (this.muted) return;
       this.unlock();
       if (!this.context) return;
-      const now = this.context.currentTime;
+      const now = this.context.currentTime + delay;
       const oscillator = this.context.createOscillator();
       const gain = this.context.createGain();
       oscillator.type = type;
@@ -107,13 +107,20 @@
         success: [430, .18, "triangle", .04, 300],
         hurt: [105, .14, "square", .05, -45],
         shield: [350, .18, "sine", .035, 260],
+        leafHit: [[230, .055, "triangle", .035, 210, 0], [720, .035, "sine", .018, -120, .018]],
+        hammerHit: [[78, .2, "sawtooth", .075, -38, 0], [165, .08, "square", .025, -90, .025]],
+        criticalHit: [[260, .09, "triangle", .045, 360, 0], [920, .08, "sine", .03, -180, .045]],
+        perfectDodge: [[760, .11, "sine", .035, 340, 0], [1180, .08, "triangle", .02, -120, .055]],
+        counter: [[125, .14, "sawtooth", .06, 180, 0], [820, .13, "triangle", .045, 380, .035]],
+        bossDown: [[92, .34, "sawtooth", .075, -48, 0], [360, .28, "triangle", .04, -220, .08]],
         note1: [262, .18, "sine", .04, 0],
         note2: [330, .18, "sine", .04, 0],
         note3: [392, .18, "sine", .04, 0],
         note4: [523, .18, "sine", .04, 0]
       };
       const spec = sounds[name] || sounds.click;
-      this.tone(...spec);
+      if (Array.isArray(spec[0])) spec.forEach(layer => this.tone(...layer));
+      else this.tone(...spec);
     }
   }
 
