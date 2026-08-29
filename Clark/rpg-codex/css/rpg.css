@@ -152,6 +152,19 @@ kbd { display: inline-block; min-width: 24px; padding: 3px 6px; border: 1px soli
 .codex-entry strong { font-size: 1.06rem; }
 .codex-entry span { color: var(--gold); font-size: .82rem; }
 .codex-entry small { color: #c4d3df; line-height: 1.35; }
+.forge-copy { color: #b7c8e3; line-height: 1.55; }
+.material-inventory { display: flex; flex-wrap: wrap; gap: 7px; margin: 16px 0 22px; }
+.material-chip { display: inline-flex; gap: 6px; align-items: center; padding: 6px 9px; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; background: rgba(255,255,255,.055); color: #c9d8e9; font-size: 11px; font-weight: 800; }
+.material-chip strong { color: var(--gold); }
+.forge-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+.forge-item { padding: 17px; border: 1px solid rgba(154,190,221,.2); border-radius: 14px; background: rgba(255,255,255,.045); }
+.forge-item h3 { margin: 0; color: var(--gold); }
+.forge-level { margin: 5px 0 11px; color: var(--cyan); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.forge-item p { min-height: 42px; color: #b7c8e3; font-size: 12px; line-height: 1.45; }
+.forge-cost { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.forge-cost span { padding: 4px 7px; border-radius: 7px; background: rgba(255,255,255,.07); color: #d9e5ef; font-size: 10px; }
+.forge-cost span.is-missing { color: #ff9a9e; background: rgba(255,93,98,.09); }
+.forge-item button { width: 100%; }
 .modal-card.compact { width: min(460px,92vw); text-align: center; }
 .modal-actions { display: grid; gap: 10px; margin-top: 20px; }
 .close-button { position: absolute; right: 16px; top: 14px; width: 40px; min-height: 40px; padding: 0; border-radius: 50%; font-size: 24px; }
@@ -233,6 +246,7 @@ kbd { display: inline-block; min-width: 24px; padding: 3px 6px; border: 1px soli
   .dialogue-card .portrait::before, .dialogue-card .portrait::after { top:20px; width:6px; height:12px; }
   .dialogue-card .portrait::before { left:15px; } .dialogue-card .portrait::after { right:15px; }
   .chapter-grid, .how-grid { grid-template-columns: 1fr; }
+  .forge-grid { grid-template-columns: 1fr; }
   .weapon-dock { width: 154px; }
   .weapon-dock-head { padding-bottom: 4px; }
   .weapon-slots { gap: 5px; }

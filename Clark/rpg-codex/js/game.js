@@ -64,6 +64,12 @@
     bestiaryOverlay: document.querySelector("#bestiaryOverlay"),
     closeBestiary: document.querySelector("#closeBestiary"),
     bestiaryGrid: document.querySelector("#bestiaryGrid"),
+    forgeButton: document.querySelector("#forgeButton"),
+    restoreButton: document.querySelector("#restoreButton"),
+    forgeOverlay: document.querySelector("#forgeOverlay"),
+    closeForge: document.querySelector("#closeForge"),
+    materialInventory: document.querySelector("#materialInventory"),
+    forgeGrid: document.querySelector("#forgeGrid"),
     endingOverlay: document.querySelector("#endingOverlay"),
     endingImage: document.querySelector("#endingImage"),
     endingChapters: document.querySelector("#endingChapters"),
@@ -121,7 +127,9 @@
   const art = {
     backgrounds: Array(BACKGROUND_SOURCES.length).fill(null),
     monsters: {},
-    props: {}
+    props: {},
+    monsterAtlas: null,
+    finalMonsterAtlas: null
   };
   // Stand-in for a prop that has not been requested yet, so draw code can test
   // .complete/.naturalWidth without a null check and fall back to vector art.
@@ -131,6 +139,19 @@
     hammer: { name: "Comet Hammer", shortName: "Comet Hammer", icon: "◆", unlockChapter: 3 }
   };
   const WEAPON_ORDER = ["leafblade", "hammer"];
+  const MATERIAL_LABELS = { gel: "Rift Gel", moss: "Soft Moss", amber: "Amber Shell", shard: "Star Shard", prism: "Prism Dust", cog: "Clockwork Cog", silk: "Moon Silk", void: "Void Drop", fiber: "Thorn Fiber", vine: "Living Vine", crystal: "Storm Crystal", wing: "Storm Wing", page: "Living Page" };
+  const FORGE_RECIPES = {
+    leafblade: [
+      { gel: 3, moss: 2 },
+      { prism: 3, cog: 3 },
+      { fiber: 4, vine: 3 }
+    ],
+    hammer: [
+      { amber: 2, shard: 3 },
+      { silk: 3, void: 3 },
+      { crystal: 2, wing: 4 }
+    ]
+  };
   const WEAPON_TRAITS = {
     leafblade: [
       { id: "windstep", name: "Windstep", icon: "↝", desc: "Faster combo rhythm" },
@@ -159,6 +180,23 @@
     thornling: "assets/monsters/thornling.webp",
     wisp: "assets/monsters/storm-wisp.webp"
   };
+  const MONSTER_ATLAS_SOURCE = "assets/monsters/generated/storybook-monster-atlas-v1.webp";
+  const MONSTER_ATLAS_CELLS = {
+    mossling: [0,0], sandbeetle: [1,0], prismimp: [2,0],
+    gearbug: [0,1], shadowmoth: [1,1], voidling: [2,1],
+    vinebrute: [0,2], stormbat: [1,2], bookwisp: [2,2]
+  };
+  const FINAL_MONSTER_ATLAS_SOURCE = "assets/monsters/generated/final-trial-monster-atlas-v1.webp";
+  const FINAL_MONSTER_ATLAS_CELLS = { inkhound: [0,0], runeknight: [1,0], quillseer: [2,0] };
+  const ELITE_TRAITS = {
+    1: { id: "splitter", name: "SPLITTER", color: "#8ce568", hint: "Splits into two Mosslings" },
+    2: { id: "shell", name: "STAR SHELL", color: "#ffd34f", hint: "Armor yields to its weakness" },
+    3: { id: "overclock", name: "OVERCLOCK", color: "#69e5ff", hint: "Attacks in rapid bursts" },
+    4: { id: "phase", name: "PHASEWALKER", color: "#d6a4ff", hint: "Fades out of danger" },
+    5: { id: "regrowth", name: "REGROWTH", color: "#8ce568", hint: "Slowly restores health" },
+    6: { id: "tempest", name: "TEMPEST", color: "#69cfff", hint: "Releases storm rings" },
+    7: { id: "summoner", name: "PAGECALLER", color: "#ffd34f", hint: "Calls Ink Hounds at half health" }
+  };
   const MONSTER_TYPES = {
     slime: { name: "Rift Slime", hp: 3, radius: 25, speed: 78, behavior: "melee", damage: 1, weakness: "hammer", xp: 8, width: 82, height: 75, color: "#a65dff" },
     drone: { name: "Star Drone", hp: 4, radius: 25, speed: 66, behavior: "ranged", damage: 1, weakness: "hammer", xp: 10, width: 82, height: 82, color: "#69e5ff" },
@@ -172,7 +210,10 @@
     stormbat: { name: "Storm Bat", hp: 4, radius: 24, speed: 102, behavior: "ranged", damage: 1, weakness: "shield", xp: 14, width: 88, height: 76, color: "#77b9df" },
     bookwisp: { name: "Book Wisp", hp: 5, radius: 25, speed: 88, behavior: "ranged", damage: 1, weakness: "hammer", xp: 16, width: 88, height: 84, color: "#e9b85e" },
     gearbug: { name: "Gear Bug", hp: 5, radius: 25, speed: 74, behavior: "charger", damage: 1, weakness: "dash", xp: 13, width: 84, height: 78, color: "#c2a15a" },
-    voidling: { name: "Voidling", hp: 4, radius: 24, speed: 80, behavior: "ranged", damage: 1, weakness: "shield", xp: 13, width: 82, height: 82, color: "#8c78c7" }
+    voidling: { name: "Voidling", hp: 4, radius: 24, speed: 80, behavior: "ranged", damage: 1, weakness: "shield", xp: 13, width: 82, height: 82, color: "#8c78c7" },
+    inkhound: { name: "Ink Hound", hp: 5, radius: 25, speed: 112, behavior: "melee", damage: 1, weakness: "dash", xp: 16, width: 92, height: 78, color: "#7e55c9" },
+    runeknight: { name: "Rune Knight", hp: 8, radius: 29, speed: 64, behavior: "charger", damage: 2, weakness: "hammer", xp: 19, width: 94, height: 94, color: "#d2a252" },
+    quillseer: { name: "Quill Seer", hp: 5, radius: 25, speed: 78, behavior: "ranged", damage: 1, weakness: "shield", xp: 18, width: 90, height: 92, color: "#69cfea" }
   };
   const MONSTER_NOTES = {
     slime: ["Meadow", "Hammer", "Gel", "Bouncy pounce"], drone: ["Skyway", "Hammer", "Shard", "Twin star shots"],
@@ -181,7 +222,9 @@
     shadowmoth: ["Gloam", "Shield", "Silk", "Curving shadow volley"], voidling: ["Gloam", "Shield", "Void", "Orbiting void shots"],
     thornling: ["Wildwood", "Dash", "Fiber", "Thornline charge"], vinebrute: ["Wildwood", "Dash", "Vine", "Heavy vine rush"],
     stormbat: ["Stormpeak", "Shield", "Wing", "Five-feather fan"], wisp: ["Stormpeak", "Shield", "Crystal", "Curling storm shots"],
-    bookwisp: ["Finale", "Hammer", "Page", "Homing rune volley"]
+    bookwisp: ["Finale", "Hammer", "Page", "Homing rune volley"],
+    inkhound: ["Finale", "Dash", "Void", "Fast ink pounce"], runeknight: ["Finale", "Hammer", "Page", "Armored rune charge"],
+    quillseer: ["Finale", "Shield", "Page", "Curving quill fan"]
   };
   const CHAPTER_ENCOUNTERS = {
     1: [["slime",280,525],["mossling",530,345],["mossling",865,535],["slime",905,185]],
@@ -190,12 +233,12 @@
     4: [["shadowmoth",275,350],["shadowmoth",500,555],["voidling",740,430],["voidling",910,235],["shadowmoth",985,540]],
     5: [["thornling",245,555],["vinebrute",515,175],["vinebrute",810,540],["thornling",930,175],["vinebrute",870,330]],
     6: [["stormbat",270,320],["stormbat",610,535],["wisp",520,155],["stormbat",855,535],["wisp",975,265],["stormbat",760,300]],
-    7: [["bookwisp",255,570],["bookwisp",295,350],["bookwisp",520,545],["bookwisp",600,335],["bookwisp",825,170],["bookwisp",915,520]]
+    7: [["inkhound",255,570],["inkhound",315,340],["bookwisp",555,540],["quillseer",650,300],["inkhound",870,175],["bookwisp",950,520]]
   };
   const FINAL_WAVES = [
-    [["bookwisp",275,350],["bookwisp",520,185],["bookwisp",760,535],["bookwisp",1010,220]],
-    [["bookwisp",250,180],["bookwisp",430,550],["bookwisp",700,180],["bookwisp",930,545],["bookwisp",1080,330]],
-    [["bookwisp",235,350],["bookwisp",420,175],["bookwisp",420,545],["bookwisp",725,175],["bookwisp",725,545],["bookwisp",1040,350]]
+    [["inkhound",275,350],["inkhound",520,185],["bookwisp",760,535],["quillseer",1010,220]],
+    [["runeknight",250,180],["quillseer",430,550],["bookwisp",700,180],["runeknight",930,545],["quillseer",1080,330]],
+    [["inkhound",235,350],["runeknight",420,175],["quillseer",420,545],["bookwisp",725,175],["runeknight",725,545],["quillseer",1040,350]]
   ];
   const input = new Input();
   const sound = new Sound();
@@ -234,6 +277,7 @@
     enemies: [],
     waveIndex: 0,
     waveDelay: 0,
+    spawnSerial: 0,
     memoryObjects: [],
     obstacles: [],
     boss: null,
@@ -255,6 +299,16 @@
       art.monsters[type] = Object.assign(new Image(), { src: MONSTER_SOURCES[type] });
     }
     return art.monsters[type];
+  }
+
+  function loadMonsterAtlas() {
+    if (!art.monsterAtlas) art.monsterAtlas = Object.assign(new Image(), { src: MONSTER_ATLAS_SOURCE });
+    return art.monsterAtlas;
+  }
+
+  function loadFinalMonsterAtlas() {
+    if (!art.finalMonsterAtlas) art.finalMonsterAtlas = Object.assign(new Image(), { src: FINAL_MONSTER_ATLAS_SOURCE });
+    return art.finalMonsterAtlas;
   }
 
   // Props are fetched the first time a chapter actually needs them: the Pi Monster
@@ -317,10 +371,18 @@
     updateMenu();
   }
 
+  function hasAnyProgress(data = save) {
+    const materialCount = Object.values(data.materials || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+    const defeatedCount = Object.values(data.defeated || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+    const forged = Object.values(data.weaponUpgrades || {}).some(value => Number(value) > 0);
+    return data.chapter > 1 || data.unlockedChapter > 1 || data.level > 1 || data.xp > 0 || data.completed.length > 0 || data.memories.length > 0 || materialCount > 0 || defeatedCount > 0 || data.scanned.length > 0 || forged || Object.values(data.weaponTraits || {}).some(Boolean);
+  }
+
   function updateMenu() {
-    const hasProgress = save.completed.length > 0 || save.memories.length > 0 || save.chapter > 1;
+    const hasProgress = hasAnyProgress();
     dom.continueButton.hidden = !hasProgress;
     dom.continueButton.textContent = hasProgress ? `Continue · Chapter ${save.chapter}` : "Continue Adventure";
+    dom.restoreButton.hidden = !store.hasBackup();
     dom.soundButton.textContent = sound.muted ? "×" : "♪";
     dom.soundButton.setAttribute("aria-label", sound.muted ? "Turn sound on" : "Mute sound");
   }
@@ -397,40 +459,62 @@
     }));
   }
 
+  function buildEnemy(chapter, type, x, y, index, elite = false, options = {}) {
+    const spec = MONSTER_TYPES[type];
+    const scale = options.scale || 1;
+    const eliteTrait = elite ? ELITE_TRAITS[chapter.id] : null;
+    loadMonsterArt(type);
+    if (MONSTER_ATLAS_CELLS[type]) loadMonsterAtlas();
+    if (FINAL_MONSTER_ATLAS_CELLS[type]) loadFinalMonsterAtlas();
+    const maxHp = Math.max(1, Math.round((spec.hp + (elite ? 2 : 0)) * scale));
+    return {
+      ...spec,
+      id: options.id || `${chapter.id}-${index}`,
+      type,
+      elite,
+      eliteTrait,
+      eliteTimer: elite ? 1.4 + Math.random() * 1.2 : 0,
+      eliteTriggered: false,
+      phaseTime: 0,
+      noDrop: Boolean(options.noDrop),
+      speed: spec.speed * (elite ? 1.12 : 1) * (eliteTrait?.id === "overclock" ? 1.18 : 1),
+      damage: spec.damage + (elite ? 1 : 0),
+      xp: Math.max(1, Math.round((spec.xp + (elite ? 8 : 0)) * scale)),
+      radius: (spec.radius + (elite ? 3 : 0)) * scale,
+      width: spec.width * scale,
+      height: spec.height * scale,
+      x, y,
+      homeX: x,
+      homeY: y,
+      hp: maxHp,
+      maxHp,
+      active: true,
+      invulnerable: 0,
+      attackCooldown: (elite ? .35 : .5) + Math.random() * (elite ? .8 : 1.2),
+      contactCooldown: 0,
+      chargeTime: 0,
+      windupTime: 0,
+      marked: 0,
+      stunTime: 0,
+      exposed: 0,
+      hitStagger: 0,
+      attackDirection: { x: 1, y: 0 },
+      phase: Math.random() * Math.PI * 2,
+      facingX: 1
+    };
+  }
+
   function createEnemies(chapter, encounters = CHAPTER_ENCOUNTERS[chapter.id]) {
-    game.enemies = (encounters || []).map(([type, x, y], index) => {
-      const spec = MONSTER_TYPES[type];
-      const elite = index % 4 === 3;
-      loadMonsterArt(type);
-      return {
-        ...spec,
-        id: `${chapter.id}-${index}`,
-        type,
-        elite,
-        speed: spec.speed * (elite ? 1.12 : 1),
-        damage: spec.damage + (elite ? 1 : 0),
-        xp: spec.xp + (elite ? 8 : 0),
-        radius: spec.radius + (elite ? 3 : 0),
-        x, y,
-        homeX: x,
-        homeY: y,
-        hp: spec.hp + (elite ? 2 : 0),
-        maxHp: spec.hp + (elite ? 2 : 0),
-        active: true,
-        invulnerable: 0,
-        attackCooldown: (elite ? .35 : .5) + Math.random() * (elite ? .8 : 1.2),
-        contactCooldown: 0,
-        chargeTime: 0,
-        windupTime: 0,
-        marked: 0,
-        stunTime: 0,
-        exposed: 0,
-        hitStagger: 0,
-        attackDirection: { x: 1, y: 0 },
-        phase: Math.random() * Math.PI * 2,
-        facingX: 1
-      };
-    });
+    game.spawnSerial = 0;
+    game.enemies = (encounters || []).map(([type, x, y], index) => buildEnemy(chapter, type, x, y, index, index % 4 === 3));
+  }
+
+  function spawnEnemy(type, x, y, options = {}) {
+    if (!MONSTER_TYPES[type]) return null;
+    const id = `${game.chapter.id}-spawn-${game.spawnSerial++}`;
+    const enemy = buildEnemy(game.chapter, type, clamp(x, 70, WORLD_WIDTH - 70), clamp(y, 70, WORLD_HEIGHT - 70), game.enemies.length, false, { ...options, id });
+    game.enemies.push(enemy);
+    return enemy;
   }
 
   function chapterObstacles(chapter) {
@@ -632,6 +716,10 @@
     return Math.min(4, 1 + Math.floor(save.memories.length / 5));
   }
 
+  function weaponForgeLevel(weapon = player.weapon) { return clamp(Number(save.weaponUpgrades?.[weapon] || 0), 0, 3); }
+  function forgedDamage(weapon, amount) { return Math.max(1, Math.round(amount * (1 + weaponForgeLevel(weapon) * .18))); }
+  function forgedRecovery(weapon, duration) { return duration * (1 - weaponForgeLevel(weapon) * .04); }
+
   function skillRank() { return weaponRank(); }
   function skillCost(name, rank = skillRank()) {
     const costs = {
@@ -687,8 +775,9 @@
     const rank = weaponRank();
     dom.weaponIcon.textContent = weapon.icon;
     dom.weaponName.textContent = weapon.shortName;
-    dom.weaponRank.textContent = `Rank ${ROMAN_RANKS[rank - 1]} · R switch`;
-    dom.weaponDockRank.textContent = `Rank ${ROMAN_RANKS[rank - 1]}`;
+    const forge = weaponForgeLevel();
+    dom.weaponRank.textContent = `Rank ${ROMAN_RANKS[rank - 1]} · Forge +${forge}`;
+    dom.weaponDockRank.textContent = `Rank ${ROMAN_RANKS[rank - 1]} · +${forge}`;
     dom.weaponButton.title = `${weapon.name}, Rank ${ROMAN_RANKS[rank - 1]}. Press R or click again to switch.`;
     dom.touchAttack.textContent = weapon.icon;
     dom.touchAttack.setAttribute("aria-label", `Hold to attack with ${weapon.name}`);
@@ -941,7 +1030,7 @@
     player.dashStrikeWindow = 0;
     player.comboStep = 0;
     player.comboTimer = 0;
-    player.attackCooldown = heavy ? .52 : .34;
+    player.attackCooldown = forgedRecovery(player.weapon, heavy ? .52 : .34);
     player.attackDuration = heavy ? .46 : .34;
     player.attackTime = player.attackDuration;
     player.attackKind = heavy ? "hammer" : "leafblade-finisher";
@@ -964,7 +1053,7 @@
     sound.play(heavy ? "boom" : "attack");
     game.shake = Math.max(game.shake, heavy ? 9 : 6);
     showComicWord("SKYFALL!", "#69e5ff");
-    const damage = (heavy ? 3 : 2) + Math.floor((rank - 1) / 2);
+    const damage = forgedDamage(player.weapon, (heavy ? 3 : 2) + Math.floor((rank - 1) / 2));
     damageBreakTargets(hit, heavy ? 3 : 2);
     damageEnemies(hit, damage);
     damageBoss(hit, damage);
@@ -977,7 +1066,7 @@
     const trait = weaponTrait("leafblade");
     player.comboTimer = trait === "windstep" ? .82 : .62;
     const finisher = player.comboStep === 3;
-    player.attackCooldown = Math.max(.16, (finisher ? .4 : .24) - (trait === "windstep" ? .05 : 0));
+    player.attackCooldown = forgedRecovery("leafblade", Math.max(.16, (finisher ? .4 : .24) - (trait === "windstep" ? .05 : 0)));
     player.attackDuration = finisher ? .4 : .27;
     player.attackTime = player.attackDuration;
     player.attackKind = finisher ? "leafblade-finisher" : "leafblade";
@@ -1000,7 +1089,7 @@
     particles.burst(hit.x, hit.y, "#d9ffb7", finisher ? 20 : 11, finisher ? 210 : 155);
     sound.play("attack");
     showComicWord(finisher ? "LEAFSTORM!" : player.comboStep === 2 ? "SWOOSH!" : "SLASH!", "#b7ff9b");
-    const damage = (rank >= 3 ? 2 : 1) + (finisher ? 1 : 0) + (trait === "thornedge" && finisher ? 1 : 0);
+    const damage = forgedDamage("leafblade", (rank >= 3 ? 2 : 1) + (finisher ? 1 : 0) + (trait === "thornedge" && finisher ? 1 : 0));
     damageBreakTargets(hit, finisher ? 2 : 1);
     damageEnemies(hit, damage);
     damageBoss(hit, damage);
@@ -1013,7 +1102,7 @@
     const chargePower = clamp(charge * (trait === "meteor" ? 1.22 : 1), 0, 1);
     player.comboStep = 0;
     player.comboTimer = 0;
-    player.attackCooldown = .7;
+    player.attackCooldown = forgedRecovery("hammer", .7);
     player.attackDuration = .58;
     player.attackTime = player.attackDuration;
     player.attackKind = "hammer";
@@ -1035,7 +1124,7 @@
     game.shake = 9 + rank + chargePower * 5;
     showComicWord(chargePower > .65 || rank === 4 ? "COMET CRASH!" : "KRAKOOM!", "#ff9f1c");
     damageBreakTargets(hit, 3 + Math.floor(chargePower * 2));
-    const damage = Math.round((2 + Math.floor((rank - 1) / 2) + (trait === "breaker" ? 1 : 0)) * (1 + chargePower * .65));
+    const damage = forgedDamage("hammer", Math.round((2 + Math.floor((rank - 1) / 2) + (trait === "breaker" ? 1 : 0)) * (1 + chargePower * .65)));
     damageEnemies({ ...hit, consumeMark: true }, damage);
     damageBoss(hit, damage);
   }
@@ -1171,7 +1260,10 @@
       const weakHit = enemy.exposed > 0 || hit.companion || (enemy.weakness === "hammer" && hit.type === "smash") || (enemy.weakness === "dash" && hit.type === "dash");
       const markedBonus = hit.consumeMark && enemy.marked > 0 ? 1.75 : 1;
       const critical = hit.critical || hit.type === "spin" || Math.random() < .08;
-      const dealt = Math.max(1, Math.round(amount * markedBonus * (weakHit ? 1.8 : 1) * (critical ? 1.65 : 1)));
+      let dealt = Math.max(1, Math.round(amount * markedBonus * (weakHit ? 1.8 : 1) * (critical ? 1.65 : 1)));
+      // Dune elites teach counterplay instead of merely soaking damage: their
+      // shell halves ordinary hits, while the correct weakness breaks through.
+      if (enemy.eliteTrait?.id === "shell" && !weakHit) dealt = Math.max(1, Math.round(dealt * .5));
       enemy.hp -= dealt;
       if (hit.consumeMark && enemy.marked > 0) {
         enemy.marked = 0;
@@ -1201,9 +1293,19 @@
     enemy.active = false;
     particles.burst(enemy.x, enemy.y, enemy.color, 22, 215);
     sound.play("pickup");
-    const material = { slime: "gel", drone: "shard", thornling: "fiber", wisp: "crystal", mossling: "moss", sandbeetle: "amber", prismimp: "prism", gearbug: "cog", shadowmoth: "silk", voidling: "void", vinebrute: "vine", stormbat: "wing", bookwisp: "page" }[enemy.type] || "shard";
-    save.materials[material] = (save.materials[material] || 0) + (enemy.elite ? 3 : 1);
-    save.defeated[enemy.type] = (save.defeated[enemy.type] || 0) + 1;
+    const material = { slime: "gel", drone: "shard", thornling: "fiber", wisp: "crystal", mossling: "moss", sandbeetle: "amber", prismimp: "prism", gearbug: "cog", shadowmoth: "silk", voidling: "void", vinebrute: "vine", stormbat: "wing", bookwisp: "page", inkhound: "void", runeknight: "page", quillseer: "page" }[enemy.type] || "shard";
+    if (!enemy.noDrop) {
+      save.materials[material] = (save.materials[material] || 0) + (enemy.elite ? 3 : 1);
+      save.defeated[enemy.type] = (save.defeated[enemy.type] || 0) + 1;
+    }
+    if (enemy.eliteTrait?.id === "splitter" && !enemy.eliteTriggered) {
+      enemy.eliteTriggered = true;
+      const left = spawnEnemy("mossling", enemy.x - 34, enemy.y + 12, { scale: .72, noDrop: true });
+      const right = spawnEnemy("mossling", enemy.x + 34, enemy.y - 12, { scale: .72, noDrop: true });
+      if (left) left.hp = left.maxHp = 1;
+      if (right) right.hp = right.maxHp = 1;
+      showComicWord("SPLIT!", "#8ce568");
+    }
     // Freeing a rune is the more useful thing to shout about, so it wins the
     // banner over the generic defeat word.
     const freed = enemy.guardsRune
@@ -1216,10 +1318,10 @@
       announce(`${enemy.name} defeated. The rune is free — go light it.`);
     } else {
       showComicWord(enemy.elite ? "ELITE DOWN!" : enemy.type === "drone" ? "SHORTED!" : enemy.type === "thornling" ? "TUMBLED!" : "POOF!", enemy.color);
-      announce(`${enemy.elite ? "Elite " : ""}${enemy.name} defeated. ${enemy.elite ? "3" : "1"} ${material} collected.`);
+      announce(enemy.noDrop ? `${enemy.name} dispersed.` : `${enemy.elite ? "Elite " : ""}${enemy.name} defeated. ${enemy.elite ? "3" : "1"} ${material} collected.`);
     }
-    gainExperience(enemy.xp);
-    persist(false);
+    gainExperience(enemy.noDrop ? 1 : enemy.xp);
+    if (!enemy.noDrop) persist(false);
   }
 
   function collectMemory(memory) {
@@ -1440,7 +1542,11 @@
     game.phase = "waves";
     game.waveIndex = 1;
     game.waveDelay = 0;
-    createEnemies(game.chapter, FINAL_WAVES[0]);
+    // The living enemies already in the trial become Wave 1. Replacing the
+    // array here used to make undefeated monsters vanish without drops.
+    const survivors = game.enemies.filter(enemy => enemy.active);
+    if (!survivors.length) createEnemies(game.chapter, FINAL_WAVES[0]);
+    else game.enemies = survivors;
     setObjective("Survive Wave 1/3 · defeat every attacker");
     showComicWord("WAVE 1!", "#ffd34f");
     announce("Final trial wave 1 of 3. Defeat every attacker.");
@@ -1452,6 +1558,9 @@
     game.waveDelay -= delta;
     if (game.waveDelay > 0) return;
     if (game.waveIndex < FINAL_WAVES.length) {
+      // Do not carry a dead wave's remaining bullets into the next encounter.
+      // On iPad those overlapping rune paths were the largest Chapter 7 spike.
+      game.enemyProjectiles = [];
       createEnemies(game.chapter, FINAL_WAVES[game.waveIndex]);
       game.waveIndex += 1;
       setObjective(`Survive Wave ${game.waveIndex}/3 · defeat every attacker`);
@@ -1459,6 +1568,7 @@
       announce(`Final trial wave ${game.waveIndex} of ${FINAL_WAVES.length}.`);
     } else {
       game.phase = "boss";
+      game.enemyProjectiles = [];
       setObjective(`Defeat ${game.chapter.boss.name}`);
       showComicWord("THE BOOK AWAKENS!", "#d6a4ff");
       spawnBoss();
@@ -1610,13 +1720,14 @@
 
   function fireMonsterAttack(enemy) {
     const aimed = normalize(player.x - enemy.x, player.y - enemy.y);
-    const curling = ["wisp", "shadowmoth"].includes(enemy.type);
+    const curling = ["wisp", "shadowmoth", "quillseer"].includes(enemy.type);
     const rune = ["prismimp", "bookwisp"].includes(enemy.type);
-    const count = enemy.type === "stormbat" ? 5 : curling ? 3 : 2;
+    const count = enemy.type === "stormbat" ? 5 : enemy.type === "quillseer" ? 4 : curling ? 3 : 2;
     for (let index = 0; index < count; index += 1) {
-      const spread = (index - (count - 1) / 2) * (enemy.type === "stormbat" ? .17 : curling ? .28 : .15);
+      if (game.enemyProjectiles.length >= 96) break;
+      const spread = (index - (count - 1) / 2) * (enemy.type === "stormbat" ? .17 : enemy.type === "quillseer" ? .2 : curling ? .28 : .15);
       const angle = Math.atan2(aimed.y, aimed.x) + spread;
-      const speed = enemy.type === "stormbat" ? 255 : rune ? 245 : curling ? 220 : 285;
+      const speed = enemy.type === "stormbat" ? 255 : enemy.type === "quillseer" ? 235 : rune ? 245 : curling ? 220 : 285;
       game.enemyProjectiles.push({
         x: enemy.x, y: enemy.y,
         vx: Math.cos(angle) * speed,
@@ -1626,12 +1737,27 @@
         color: enemy.color,
         damage: enemy.damage,
         monsterShot: true,
-        shape: enemy.type === "stormbat" ? "feather" : rune ? "rune" : enemy.type === "shadowmoth" ? "shadow" : enemy.type === "prismimp" ? "prism" : curling ? "storm" : "star",
-        turnRate: enemy.type === "shadowmoth" ? (index - 1) * -.22 : curling ? (index - 1) * .34 : enemy.type === "voidling" ? (index - 1) * .2 : 0,
+        shape: ["stormbat", "quillseer"].includes(enemy.type) ? "feather" : rune ? "rune" : enemy.type === "shadowmoth" ? "shadow" : enemy.type === "prismimp" ? "prism" : curling ? "storm" : "star",
+        turnRate: enemy.type === "quillseer" ? (index - 1.5) * .16 : enemy.type === "shadowmoth" ? (index - 1) * -.22 : curling ? (index - 1) * .34 : enemy.type === "voidling" ? (index - 1) * .2 : 0,
         age: 0
       });
     }
     particles.burst(enemy.x, enemy.y, enemy.color, 7, 80);
+    sound.play("bolt");
+  }
+
+  function fireElitePulse(enemy) {
+    for (let index = 0; index < 6; index += 1) {
+      if (game.enemyProjectiles.length >= 96) break;
+      const angle = index * Math.PI / 3 + game.sceneTime * .35;
+      game.enemyProjectiles.push({
+        x: enemy.x, y: enemy.y, vx: Math.cos(angle) * 205, vy: Math.sin(angle) * 205,
+        radius: 9, life: 2.8, color: enemy.eliteTrait?.color || enemy.color,
+        damage: enemy.damage, monsterShot: true, shape: "storm", turnRate: index % 2 ? .12 : -.12, age: 0
+      });
+    }
+    particles.burst(enemy.x, enemy.y, enemy.eliteTrait?.color || enemy.color, 12, 105);
+    showComicWord("TEMPEST!", enemy.eliteTrait?.color || enemy.color);
     sound.play("bolt");
   }
 
@@ -1642,17 +1768,41 @@
       enemy.invulnerable = Math.max(0, enemy.invulnerable - delta);
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - delta);
       enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
+      const previousCharge = enemy.chargeTime;
       enemy.chargeTime = Math.max(0, enemy.chargeTime - delta);
       enemy.marked = Math.max(0, (enemy.marked || 0) - delta);
       enemy.stunTime = Math.max(0, (enemy.stunTime || 0) - delta);
       enemy.exposed = Math.max(0, (enemy.exposed || 0) - delta);
       enemy.hitStagger = Math.max(0, (enemy.hitStagger || 0) - delta);
       const previousWindup = enemy.windupTime;
-      const previousCharge = enemy.chargeTime;
       enemy.windupTime = Math.max(0, enemy.windupTime - delta);
-      if (previousWindup > 0 && enemy.windupTime === 0) enemy.chargeTime = ["thornling", "sandbeetle"].includes(enemy.type) ? .4 : ["vinebrute", "gearbug"].includes(enemy.type) ? .52 : .28;
+      if (previousWindup > 0 && enemy.windupTime === 0) enemy.chargeTime = ["thornling", "sandbeetle", "inkhound"].includes(enemy.type) ? .4 : ["vinebrute", "gearbug", "runeknight"].includes(enemy.type) ? .52 : .28;
       if (previousCharge > 0 && enemy.chargeTime === 0) enemy.exposed = .8;
       const away = distance(enemy, player);
+      if (enemy.eliteTrait) {
+        enemy.eliteTimer -= delta;
+        enemy.phaseTime = Math.max(0, (enemy.phaseTime || 0) - delta);
+        if (enemy.eliteTrait.id === "overclock" && enemy.eliteTimer <= 0 && away < 430) {
+          fireMonsterAttack(enemy);
+          enemy.eliteTimer = 1.75;
+        } else if (enemy.eliteTrait.id === "phase" && enemy.eliteTimer <= 0) {
+          enemy.phaseTime = .72;
+          enemy.eliteTimer = 3.15;
+          showComicWord("PHASE!", enemy.eliteTrait.color);
+        } else if (enemy.eliteTrait.id === "regrowth" && enemy.hp < enemy.maxHp) {
+          enemy.hp = Math.min(enemy.maxHp, enemy.hp + delta * .3);
+        } else if (enemy.eliteTrait.id === "tempest" && enemy.eliteTimer <= 0 && away < 470) {
+          fireElitePulse(enemy);
+          enemy.eliteTimer = 2.75;
+        } else if (enemy.eliteTrait.id === "summoner" && !enemy.eliteTriggered && enemy.hp <= enemy.maxHp * .5) {
+          enemy.eliteTriggered = true;
+          spawnEnemy("inkhound", enemy.x - 54, enemy.y + 28, { scale: .78, noDrop: true });
+          spawnEnemy("inkhound", enemy.x + 54, enemy.y - 28, { scale: .78, noDrop: true });
+          particles.burst(enemy.x, enemy.y, enemy.eliteTrait.color, 18, 140);
+          showComicWord("PAGECALL!", enemy.eliteTrait.color);
+        }
+        if (enemy.phaseTime > 0) enemy.invulnerable = Math.max(enemy.invulnerable, .06);
+      }
       if (away < 430) scanMonster(enemy.type);
       const toward = normalize(player.x - enemy.x, player.y - enemy.y);
       let direction = { x: 0, y: 0 };
@@ -1660,11 +1810,13 @@
 
       if (enemy.stunTime > 0 || enemy.hitStagger > 0) {
         direction = { x: 0, y: 0 };
+      } else if (enemy.phaseTime > 0) {
+        direction = { x: Math.cos(enemy.phase) * .22, y: Math.sin(enemy.phase) * .22 };
       } else if (enemy.windupTime > 0) {
         direction = { x: 0, y: 0 };
       } else if (enemy.chargeTime > 0) {
         direction = enemy.attackDirection;
-        speed *= enemy.type === "thornling" || enemy.type === "sandbeetle" ? 3.05 : enemy.type === "gearbug" ? 2.85 : enemy.type === "vinebrute" ? 2.55 : 2.25;
+        speed *= ["thornling", "sandbeetle", "inkhound"].includes(enemy.type) ? 3.05 : enemy.type === "gearbug" ? 2.85 : ["vinebrute", "runeknight"].includes(enemy.type) ? 2.55 : 2.25;
         if (Math.floor(enemy.chargeTime * 40) % 3 === 0) particles.burst(enemy.x, enemy.y, enemy.color, 2, 35);
       } else if (enemy.behavior === "ranged" && away < 430) {
         if (away > 245) direction = toward;
@@ -1676,11 +1828,12 @@
         }
       } else if (away < 390) {
         direction = toward;
-        const charger = ["thornling", "sandbeetle", "vinebrute", "gearbug"].includes(enemy.type);
-        const canSpecial = (charger && away < 285) || (enemy.type === "slime" && away < 220);
+        const charger = ["thornling", "sandbeetle", "vinebrute", "gearbug", "runeknight"].includes(enemy.type);
+        const pouncer = ["slime", "inkhound"].includes(enemy.type);
+        const canSpecial = (charger && away < 285) || (pouncer && away < 220);
         if (canSpecial && enemy.attackCooldown <= 0) {
-          enemy.windupTime = ["thornling", "sandbeetle"].includes(enemy.type) ? .42 : charger ? .52 : .28;
-          enemy.attackCooldown = enemy.type === "vinebrute" ? 2.1 : enemy.type === "gearbug" ? 1.65 : enemy.type === "thornling" ? 1.85 : enemy.type === "sandbeetle" ? 1.7 : 1.45;
+          enemy.windupTime = ["thornling", "sandbeetle"].includes(enemy.type) ? .42 : enemy.type === "inkhound" ? .24 : charger ? .52 : .28;
+          enemy.attackCooldown = enemy.type === "vinebrute" ? 2.1 : enemy.type === "runeknight" ? 2.25 : enemy.type === "gearbug" ? 1.65 : enemy.type === "thornling" ? 1.85 : enemy.type === "sandbeetle" ? 1.7 : enemy.type === "inkhound" ? 1.2 : 1.45;
           enemy.attackDirection = toward;
           direction = { x: 0, y: 0 };
           particles.burst(enemy.x, enemy.y, enemy.color, 8, 95);
@@ -1708,7 +1861,7 @@
           enemy.y = post.y - back.y * LEASH;
         }
       }
-      if (enemy.stunTime <= 0 && away < player.radius + enemy.radius + 7 && enemy.contactCooldown <= 0) {
+      if (enemy.stunTime <= 0 && enemy.phaseTime <= 0 && away < player.radius + enemy.radius + 7 && enemy.contactCooldown <= 0) {
         enemy.contactCooldown = 1.05;
         hurtPlayer(enemy.damage, enemy);
       }
@@ -1762,6 +1915,9 @@
     const healthRatio = boss.hp / boss.maxHp;
     const phase = healthRatio <= .34 ? 3 : healthRatio <= .67 ? 2 : 1;
     const launch = (angle, speed, options = {}) => {
+      // A defensive ceiling keeps older iPads responsive even if several
+      // patterns overlap after a slow frame or repeated phase transition.
+      if (game.enemyProjectiles.length >= 96) return;
       game.enemyProjectiles.push({
         x: boss.x, y: boss.y,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
@@ -2040,6 +2196,9 @@
       enemy.hitStagger = 0;
       enemy.contactCooldown = 0;
       enemy.attackCooldown = .8 + Math.random() * .9;
+      enemy.eliteTimer = enemy.elite ? 1.4 + Math.random() * 1.2 : 0;
+      enemy.eliteTriggered = false;
+      enemy.phaseTime = 0;
     });
     if (game.boss?.active && !game.boss.peaceful) {
       game.boss.hp = game.boss.maxHp;
@@ -2102,7 +2261,18 @@
 
   function roundedRect(ctx, x, y, width, height, radius) {
     ctx.beginPath();
-    ctx.roundRect(x, y, width, height, radius);
+    if (typeof ctx.roundRect === "function") {
+      ctx.roundRect(x, y, width, height, radius);
+      return;
+    }
+    // Canvas roundRect is missing on older iPadOS Safari. A thrown TypeError
+    // here used to abort the animation frame and make Chapter 7 look frozen.
+    const r = Math.max(0, Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2));
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y); ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r); ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height); ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
   }
 
   // ctx.shadowBlur re-blurs the source bitmap on every single draw call, which
@@ -2501,7 +2671,11 @@
   function drawEnemy(ctx, enemy) {
     if (!enemy.active) return;
     const monsterArt = art.monsters[enemy.type] || loadMonsterArt(enemy.type);
-    const hover = enemy.type === "drone" || enemy.type === "wisp"
+    const atlasCell = MONSTER_ATLAS_CELLS[enemy.type];
+    const monsterAtlas = atlasCell ? loadMonsterAtlas() : null;
+    const finalAtlasCell = FINAL_MONSTER_ATLAS_CELLS[enemy.type];
+    const finalMonsterAtlas = finalAtlasCell ? loadFinalMonsterAtlas() : null;
+    const hover = ["drone", "wisp", "bookwisp", "quillseer"].includes(enemy.type)
       ? Math.sin(enemy.phase) * 7 - 9
       : Math.abs(Math.sin(enemy.phase)) * -3;
     const hitBlink = enemy.invulnerable > 0 && Math.floor(game.sceneTime * 22) % 2 === 0;
@@ -2515,8 +2689,8 @@
       ctx.restore();
     }
     if(enemy.windupTime>0){
-      const warning=1-clamp(enemy.windupTime/(["thornling","sandbeetle"].includes(enemy.type)?.42:["vinebrute","gearbug"].includes(enemy.type)?.52:.28),0,1);ctx.save();ctx.globalAlpha=.38+warning*.42;const warnColor=["thornling","sandbeetle","vinebrute","gearbug"].includes(enemy.type)?"#ffcf55":"#d6a4ff";ctx.strokeStyle=warnColor;ctx.lineWidth=3;
-      if(["thornling","sandbeetle","vinebrute","gearbug"].includes(enemy.type)){ctx.rotate(Math.atan2(enemy.attackDirection.y,enemy.attackDirection.x));ctx.setLineDash([10,7]);ctx.lineWidth=9;ctx.globalAlpha*=.32;ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.globalAlpha/=.32;ctx.lineWidth=3;ctx.strokeStyle=warnColor;ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.setLineDash([]);}
+      const warning=1-clamp(enemy.windupTime/(["thornling","sandbeetle"].includes(enemy.type)?.42:["vinebrute","gearbug","runeknight"].includes(enemy.type)?.52:enemy.type==="inkhound"?.24:.28),0,1);ctx.save();ctx.globalAlpha=.38+warning*.42;const warnColor=["thornling","sandbeetle","vinebrute","gearbug","runeknight"].includes(enemy.type)?"#ffcf55":"#d6a4ff";ctx.strokeStyle=warnColor;ctx.lineWidth=3;
+      if(["thornling","sandbeetle","vinebrute","gearbug","runeknight"].includes(enemy.type)){ctx.rotate(Math.atan2(enemy.attackDirection.y,enemy.attackDirection.x));ctx.setLineDash([10,7]);ctx.lineWidth=9;ctx.globalAlpha*=.32;ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.globalAlpha/=.32;ctx.lineWidth=3;ctx.strokeStyle=warnColor;ctx.beginPath();ctx.moveTo(enemy.radius,0);ctx.lineTo(150,0);ctx.stroke();ctx.setLineDash([]);}
       else{const ringRadius=enemy.radius+10+warning*13;haloArc(ctx,0,5,ringRadius,warnColor,3);ctx.strokeStyle=warnColor;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,5,ringRadius,0,Math.PI*2);ctx.stroke();}
       ctx.restore();
     }
@@ -2532,22 +2706,30 @@
       ctx.setLineDash([]); ctx.restore();
     }
     if (enemy.elite) {
+      const eliteColor = enemy.eliteTrait?.color || "#ffd34f";
       ctx.save(); ctx.globalAlpha = .72; const eliteRadius = enemy.radius + 18 + Math.sin(game.sceneTime * 4 + enemy.phase) * 2;
-      haloArc(ctx, 0, 2, eliteRadius, "#ffd34f", 2, 0, Math.PI * 2, .22);
-      ctx.strokeStyle = "#ffd34f"; ctx.lineWidth = 2; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(0, 2, eliteRadius, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#ffd34f"; ctx.font = "900 10px Trebuchet MS"; ctx.textAlign = "center"; ctx.fillText("ELITE", 0, -enemy.height * .72 - 17); ctx.restore();
+      haloArc(ctx, 0, 2, eliteRadius, eliteColor, 2, 0, Math.PI * 2, .22);
+      ctx.strokeStyle = eliteColor; ctx.lineWidth = 2; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.arc(0, 2, eliteRadius, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = eliteColor; ctx.font = "900 10px Trebuchet MS"; ctx.textAlign = "center"; ctx.fillText(enemy.eliteTrait?.name || "ELITE", 0, -enemy.height * .72 - 17); ctx.restore();
     }
     // Painted and vector monsters share one footprint so the two styles read as
     // one set when they appear side by side in the same chapter.
     const spriteHalf = enemy.width / 2;
     ctx.fillStyle="rgba(30,38,33,.26)";ctx.beginPath();ctx.ellipse(0,enemy.radius*.78,spriteHalf*.74,spriteHalf*.27,0,0,Math.PI*2);ctx.fill();
     ctx.translate(0,hover);
-    if (hitBlink) ctx.globalAlpha=.42;
+    if (enemy.phaseTime > 0) ctx.globalAlpha = .3 + Math.sin(game.sceneTime * 18) * .12;
+    else if (hitBlink) ctx.globalAlpha=.42;
     const flip = enemy.facingX < 0 ? -1 : 1;
     const squash = enemy.type === "slime" ? 1 + Math.sin(enemy.phase) * .045 : 1;
     haloFill(ctx,0,-enemy.height*.12,spriteHalf*(enemy.type==="wisp"?1.12:.94),enemy.color,enemy.type==="wisp"?.28:.18);
     ctx.save();ctx.scale(flip/squash,squash);
     if (monsterArt?.complete && monsterArt.naturalWidth) {
       ctx.drawImage(monsterArt,-spriteHalf,-enemy.height*.68,enemy.width,enemy.height);
+    } else if (monsterAtlas?.complete && monsterAtlas.naturalWidth && atlasCell) {
+      const cellWidth = monsterAtlas.naturalWidth / 3, cellHeight = monsterAtlas.naturalHeight / 3;
+      ctx.drawImage(monsterAtlas, atlasCell[0] * cellWidth, atlasCell[1] * cellHeight, cellWidth, cellHeight, -spriteHalf, -enemy.height * .74, enemy.width, enemy.height);
+    } else if (finalMonsterAtlas?.complete && finalMonsterAtlas.naturalWidth && finalAtlasCell) {
+      const cellWidth = finalMonsterAtlas.naturalWidth / 3, cellHeight = finalMonsterAtlas.naturalHeight;
+      ctx.drawImage(finalMonsterAtlas, finalAtlasCell[0] * cellWidth, 0, cellWidth, cellHeight, -spriteHalf, -enemy.height * .74, enemy.width, enemy.height);
     } else drawProceduralMonster(ctx, enemy);
     ctx.restore();ctx.globalAlpha=1;
     if (enemy.hp < enemy.maxHp) {
@@ -2768,7 +2950,7 @@
   }
 
   function resizeCanvas() {
-    const rect=dom.stage.getBoundingClientRect();const dpr=Math.min(window.devicePixelRatio||1,2);
+    const rect=dom.stage.getBoundingClientRect();const dpr=Math.min(window.devicePixelRatio||1,usesTouchControls()?1.5:2);
     dom.canvas.width=Math.max(1,Math.floor(rect.width*dpr));dom.canvas.height=Math.max(1,Math.floor(rect.height*dpr));
     const scale=Math.max(rect.width/WORLD_WIDTH,rect.height/WORLD_HEIGHT);
     game.viewport={width:rect.width,height:rect.height,dpr,scale,offsetX:(rect.width-WORLD_WIDTH*scale)/2,offsetY:(rect.height-WORLD_HEIGHT*scale)/2};
@@ -2776,6 +2958,7 @@
 
   function frame(now) {
     const delta=Math.min(.034,Math.max(0,(now-game.lastFrame)/1000));game.lastFrame=now;
+    if(!Number.isFinite(game.hitStop)||game.hitStop<0)game.hitStop=0;
     if(game.hitStop>0){game.hitStop-=delta;}
     else if(game.mode==="playing")update(delta);
     if(dom.gameScreen.classList.contains("is-active"))render();
@@ -2816,6 +2999,45 @@
     dom.bestiaryOverlay.hidden = false; dom.closeBestiary.focus();
   }
 
+  function renderForge() {
+    dom.materialInventory.innerHTML = Object.entries(MATERIAL_LABELS).map(([key, label]) => `<span class="material-chip">${label}<strong>${Number(save.materials?.[key] || 0)}</strong></span>`).join("");
+    dom.forgeGrid.innerHTML = WEAPON_ORDER.map(weapon => {
+      const level = weaponForgeLevel(weapon);
+      const recipe = FORGE_RECIPES[weapon][level];
+      const locked = save.unlockedChapter < WEAPONS[weapon].unlockChapter;
+      const affordable = recipe && Object.entries(recipe).every(([key, amount]) => Number(save.materials?.[key] || 0) >= amount);
+      const cost = recipe ? Object.entries(recipe).map(([key, amount]) => `<span class="${Number(save.materials?.[key] || 0) < amount ? "is-missing" : ""}">${MATERIAL_LABELS[key]} ${Number(save.materials?.[key] || 0)}/${amount}</span>`).join("") : `<span>Maximum forge level reached</span>`;
+      const buttonText = locked ? "Unlock in Chapter 3" : level >= 3 ? "Masterwork Complete" : `Forge to +${level + 1}`;
+      return `<article class="forge-item"><h3>${WEAPONS[weapon].icon} ${WEAPONS[weapon].name}</h3><div class="forge-level">Forge +${level} / +3</div><p>Each level grants +18% weapon damage and 4% faster attack recovery.</p><div class="forge-cost">${cost}</div><button type="button" data-forge="${weapon}" ${locked || !affordable || level >= 3 ? "disabled" : ""}>${buttonText}</button></article>`;
+    }).join("");
+    dom.forgeGrid.querySelectorAll("[data-forge]").forEach(button => button.addEventListener("click", () => forgeWeapon(button.dataset.forge)));
+  }
+
+  function forgeWeapon(weapon) {
+    const level = weaponForgeLevel(weapon);
+    const recipe = FORGE_RECIPES[weapon]?.[level];
+    if (!recipe || save.unlockedChapter < WEAPONS[weapon].unlockChapter) return;
+    if (!Object.entries(recipe).every(([key, amount]) => Number(save.materials?.[key] || 0) >= amount)) return;
+    Object.entries(recipe).forEach(([key, amount]) => { save.materials[key] -= amount; });
+    save.weaponUpgrades[weapon] = level + 1;
+    traitUiSignature = "";
+    persist(); renderForge(); updateHud();
+    sound.play("success"); showComicWord(`FORGE +${level + 1}!`, weapon === "hammer" ? "#ff9f1c" : "#8ce568");
+    announce(`${WEAPONS[weapon].name} forged to level ${level + 1}.`);
+  }
+
+  function showForge() { renderForge(); dom.forgeOverlay.hidden = false; dom.closeForge.focus(); }
+
+  function restorePreviousSave() {
+    if (!window.confirm("Restore the previous save? Your current progress will be kept as the new backup.")) return;
+    const restored = store.restoreBackup(save);
+    if (!restored) return;
+    save = restored; sound.muted = save.muted;
+    player.maxHealth = save.maxHealth; player.maxEnergy = save.maxEnergy; player.weapon = save.weapon;
+    resetChapterState(save.chapter); updateMenu();
+    showComicWord("SAVE RESTORED!", "#8ce568"); announce("Previous adventure restored.");
+  }
+
   function bindTouchStick() {
     let pointerId=null;
     const updateStick=event=>{
@@ -2832,12 +3054,11 @@
     document.addEventListener("pointerdown",()=>sound.unlock(),{once:true});
     dom.continueButton.addEventListener("click",()=>startChapter(save.chapter,true));
     dom.newGameButton.addEventListener("click",()=>{
-      const hasProgress=save.completed.length||save.memories.length;
-      if(hasProgress&&!window.confirm("Start a new adventure and erase the current Codex Edition save?"))return;
-      save=store.reset();sound.muted=false;player.maxHealth=save.maxHealth;player.maxEnergy=save.maxEnergy;player.weapon="leafblade";startChapter(1,true);
+      if(hasAnyProgress()&&!window.confirm("Start a new adventure? Your current progress will be protected as a restorable backup."))return;
+      save=store.reset(save);sound.muted=false;player.maxHealth=save.maxHealth;player.maxEnergy=save.maxEnergy;player.weapon="leafblade";startChapter(1,true);
     });
-    dom.chaptersButton.addEventListener("click",showChapters);dom.howButton.addEventListener("click",()=>{dom.howOverlay.hidden=false;dom.closeHow.focus();});dom.bestiaryButton.addEventListener("click",showBestiary);
-    dom.closeChapters.addEventListener("click",()=>{dom.chapterOverlay.hidden=true;dom.chaptersButton.focus();});dom.closeHow.addEventListener("click",()=>{dom.howOverlay.hidden=true;dom.howButton.focus();});dom.closeBestiary.addEventListener("click",()=>{dom.bestiaryOverlay.hidden=true;dom.bestiaryButton.focus();});
+    dom.chaptersButton.addEventListener("click",showChapters);dom.howButton.addEventListener("click",()=>{dom.howOverlay.hidden=false;dom.closeHow.focus();});dom.bestiaryButton.addEventListener("click",showBestiary);dom.forgeButton.addEventListener("click",showForge);dom.restoreButton.addEventListener("click",restorePreviousSave);
+    dom.closeChapters.addEventListener("click",()=>{dom.chapterOverlay.hidden=true;dom.chaptersButton.focus();});dom.closeHow.addEventListener("click",()=>{dom.howOverlay.hidden=true;dom.howButton.focus();});dom.closeBestiary.addEventListener("click",()=>{dom.bestiaryOverlay.hidden=true;dom.bestiaryButton.focus();});dom.closeForge.addEventListener("click",()=>{dom.forgeOverlay.hidden=true;dom.forgeButton.focus();});
     dom.storyContinue.addEventListener("click",()=>{sound.play("click");if(game.storyAction)game.storyAction();});
     dom.dialogueOverlay.addEventListener("click",advanceDialogue);
     dom.interactionPrompt.addEventListener("click",interact);

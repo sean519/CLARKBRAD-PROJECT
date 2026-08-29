@@ -134,6 +134,7 @@
         maxEnergy: 100,
         weapon: "leafblade",
         weaponTraits: { leafblade: null, hammer: null },
+        weaponUpgrades: { leafblade: 0, hammer: 0 },
         materials: { gel: 0, shard: 0, fiber: 0, crystal: 0 },
         muted: false
       };
@@ -154,6 +155,9 @@
         loaded.weaponTraits = loaded.weaponTraits && typeof loaded.weaponTraits === "object" ? loaded.weaponTraits : { leafblade: null, hammer: null };
         loaded.weaponTraits.leafblade = typeof loaded.weaponTraits.leafblade === "string" ? loaded.weaponTraits.leafblade : null;
         loaded.weaponTraits.hammer = typeof loaded.weaponTraits.hammer === "string" ? loaded.weaponTraits.hammer : null;
+        loaded.weaponUpgrades = loaded.weaponUpgrades && typeof loaded.weaponUpgrades === "object" ? loaded.weaponUpgrades : { leafblade: 0, hammer: 0 };
+        loaded.weaponUpgrades.leafblade = clamp(Math.floor(Number(loaded.weaponUpgrades.leafblade) || 0), 0, 3);
+        loaded.weaponUpgrades.hammer = clamp(Math.floor(Number(loaded.weaponUpgrades.hammer) || 0), 0, 3);
         loaded.materials = loaded.materials && typeof loaded.materials === "object" ? loaded.materials : { gel: 0, shard: 0, fiber: 0, crystal: 0 };
         ["gel", "shard", "fiber", "crystal", "moss", "amber", "prism", "cog", "silk", "void", "vine", "wing", "page"].forEach(key => { loaded.materials[key] = Math.max(0, Math.floor(Number(loaded.materials[key]) || 0)); });
         loaded.completed = Array.isArray(loaded.completed) ? loaded.completed.filter(Number.isFinite) : [];
@@ -167,10 +171,31 @@
       }
     }
     save(data) {
-      try { localStorage.setItem(this.key, JSON.stringify(data)); return true; }
+      try {
+        const previous = localStorage.getItem(this.key);
+        if (previous) localStorage.setItem(`${this.key}-backup`, previous);
+        localStorage.setItem(this.key, JSON.stringify(data));
+        return true;
+      }
       catch (_) { return false; }
     }
-    reset() {
+    hasBackup() {
+      try { return Boolean(localStorage.getItem(`${this.key}-protected`) || localStorage.getItem(`${this.key}-backup`)); }
+      catch (_) { return false; }
+    }
+    restoreBackup(current) {
+      try {
+        const protectedKey = `${this.key}-protected`;
+        const backupKey = localStorage.getItem(protectedKey) ? protectedKey : `${this.key}-backup`;
+        const backup = localStorage.getItem(backupKey);
+        if (!backup) return null;
+        localStorage.setItem(backupKey, JSON.stringify(current));
+        localStorage.setItem(this.key, backup);
+        return this.load();
+      } catch (_) { return null; }
+    }
+    reset(current) {
+      try { if (current) localStorage.setItem(`${this.key}-protected`, JSON.stringify(current)); } catch (_) { /* storage can be unavailable */ }
       try { localStorage.removeItem(this.key); } catch (_) { /* storage can be unavailable */ }
       return this.defaults();
     }
@@ -179,7 +204,8 @@
   class ParticleField {
     constructor() { this.items = []; }
     burst(x, y, color, count = 10, force = 170) {
-      for (let i = 0; i < count; i += 1) {
+      const available = Math.max(0, 260 - this.items.length);
+      for (let i = 0; i < Math.min(count, available); i += 1) {
         const angle = Math.random() * Math.PI * 2;
         const speed = force * (.3 + Math.random() * .7);
         this.items.push({
