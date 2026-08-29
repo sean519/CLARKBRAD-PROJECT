@@ -131,6 +131,7 @@
     monsterAtlas: null,
     finalMonsterAtlas: null,
     bossAtlas: null,
+    bossAnimations: {},
     worldObjectAtlas: null,
     companionAtlas: null,
     combatEffectsAtlas: null
@@ -194,6 +195,16 @@
   const FINAL_MONSTER_ATLAS_CELLS = { inkhound: [0,0], runeknight: [1,0], quillseer: [2,0] };
   const BOSS_ATLAS_SOURCE = "assets/bosses/generated/storybook-boss-atlas-v1.webp";
   const BOSS_ATLAS_CELLS = { pi: [0,0], warden: [1,0], engine: [2,0], shadow: [3,0], golem: [0,1], raven: [1,1], final: [2,1] };
+  const BOSS_ANIMATION_SOURCES = {
+    pi: "assets/bosses/animations/pi-animation-v1.webp",
+    warden: "assets/bosses/animations/warden-animation-v1.webp",
+    engine: "assets/bosses/animations/engine-animation-v1.webp",
+    shadow: "assets/bosses/animations/shadow-animation-v1.webp",
+    golem: "assets/bosses/animations/golem-animation-v1.webp",
+    raven: "assets/bosses/animations/raven-animation-v1.webp",
+    final: "assets/bosses/animations/final-animation-v1.webp"
+  };
+  const BOSS_ANIMATION_FRAMES = Object.freeze({ idle: 0, move: 1, hurt: 2, attack: 3 });
   const BOSS_SPRITE_SIZES = {
     pi: [190,174], warden: [172,168], engine: [178,174], shadow: [188,178],
     golem: [174,174], raven: [194,178], final: [174,178]
@@ -338,6 +349,13 @@
   function loadBossAtlas() {
     if (!art.bossAtlas) art.bossAtlas = Object.assign(new Image(), { src: BOSS_ATLAS_SOURCE });
     return art.bossAtlas;
+  }
+
+  function loadBossAnimation(type) {
+    const source = BOSS_ANIMATION_SOURCES[type];
+    if (!source) return PENDING_ART;
+    if (!art.bossAnimations[type]) art.bossAnimations[type] = Object.assign(new Image(), { src: source });
+    return art.bossAnimations[type];
   }
 
   function loadWorldObjectAtlas() {
@@ -1294,6 +1312,9 @@
     const dealt = Math.max(1, Math.round(amount * (critical ? 1.55 : 1)));
     boss.hp -= dealt;
     boss.invulnerable = .12;
+    boss.hurtTime = .24;
+    boss.animState = "hurt";
+    boss.animStateTime = 0;
     particles.burst(boss.x, boss.y, game.chapter.palette.glow, 12, 170);
     if (critical) showComicWord("CRITICAL!", "#fff1a8");
     const healthRatio = boss.hp / boss.maxHp;
@@ -1671,6 +1692,7 @@
   function spawnBoss() {
     const spec = game.chapter.boss;
     if (spec.type === "pi") loadProp("piMonster");
+    loadBossAnimation(spec.type);
     game.boss = {
       ...spec,
       radius: spec.type === "raven" ? 66 : spec.type === "pi" || spec.type === "shadow" ? 58 : 48,
@@ -1686,7 +1708,14 @@
       attackDirection: { x: 1, y: 0 },
       moveTimer: 0,
       invulnerable: 0,
-      angle: 0
+      angle: 0,
+      animationTime: 0,
+      animState: "idle",
+      animStateTime: 0,
+      hurtTime: 0,
+      attackAnimTime: 0,
+      isMoving: false,
+      facingX: -1
     };
     if (spec.peaceful) {
       setObjective(game.chapter.id === 5 ? "The golem is frightened—try talking" : "Approach the Final Gate together");
@@ -1963,7 +1992,16 @@
 
   function updateBoss(delta) {
     const boss = game.boss;
-    if (!boss?.active || boss.peaceful) return;
+    if (!boss?.active) return;
+    boss.animationTime = (boss.animationTime || 0) + delta;
+    boss.animStateTime = (boss.animStateTime || 0) + delta;
+    boss.hurtTime = Math.max(0, (boss.hurtTime || 0) - delta);
+    boss.attackAnimTime = Math.max(0, (boss.attackAnimTime || 0) - delta);
+    if (boss.peaceful) {
+      boss.animState = "idle";
+      boss.isMoving = false;
+      return;
+    }
     boss.invulnerable = Math.max(0, boss.invulnerable - delta);
     boss.attackTimer -= delta;
     boss.meleeTime = Math.max(0, (boss.meleeTime || 0) - delta);
@@ -1973,6 +2011,8 @@
     const desiredDistance = ["engine", "warden", "raven", "final"].includes(boss.type) ? 260 : 150;
     const away = distance(player, boss);
     const movement = away > desiredDistance ? 48 : away < desiredDistance - 70 ? -35 : 0;
+    boss.isMoving = boss.meleeTime > 0 || movement !== 0;
+    if (Math.abs(direction.x) > .08) boss.facingX = direction.x;
     if (boss.meleeTime > 0) {
       const lunge = boss.meleeKind === "dive" ? 390 : 275;
       boss.x = clamp(boss.x + boss.attackDirection.x * lunge * delta, 100, 1180);
@@ -1990,10 +2030,16 @@
       boss.attackTimer = cooldowns[boss.type] || 1.15;
       fireBossAttack(boss);
     }
+    const nextState = boss.hurtTime > 0 ? "hurt" : boss.attackAnimTime > 0 || boss.meleeTime > 0 ? "attack" : boss.isMoving ? "move" : "idle";
+    if (nextState !== boss.animState) {
+      boss.animState = nextState;
+      boss.animStateTime = 0;
+    }
   }
 
   function startBossMelee(boss, kind = "slam", damage = 2) {
     boss.meleeTime = kind === "dive" ? .52 : .42;
+    boss.attackAnimTime = Math.max(boss.attackAnimTime || 0, kind === "dive" ? .66 : .54);
     boss.meleeHit = false;
     boss.meleeKind = kind;
     boss.meleeDamage = damage;
@@ -2003,6 +2049,7 @@
   }
 
   function fireBossAttack(boss) {
+    boss.attackAnimTime = Math.max(boss.attackAnimTime || 0, boss.type === "raven" ? .66 : .52);
     const aimed = normalize(player.x - boss.x, player.y - boss.y);
     const aimedAngle = Math.atan2(aimed.y, aimed.x);
     const healthRatio = boss.hp / boss.maxHp;
@@ -2300,6 +2347,12 @@
       game.boss.attackPattern = 0;
       game.boss.meleeTime = 0;
       game.boss.invulnerable = 0;
+      game.boss.hurtTime = 0;
+      game.boss.attackAnimTime = 0;
+      game.boss.animationTime = 0;
+      game.boss.animState = "idle";
+      game.boss.animStateTime = 0;
+      game.boss.isMoving = false;
       game.boss.x = game.chapter.boss.x;
       game.boss.y = game.chapter.boss.y;
     }
@@ -2901,9 +2954,32 @@
       else{ctx.beginPath();ctx.arc(0,0,boss.radius+14+warning*16,0,Math.PI*2);ctx.stroke();}ctx.restore();}
     if (!boss.peaceful && boss.meleeTime > 0) { ctx.save(); ctx.rotate(Math.atan2(boss.attackDirection.y, boss.attackDirection.x)); ctx.globalAlpha = .78; ctx.strokeStyle = boss.meleeKind === "dive" ? "#c77dff" : "#ffd34f"; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 20; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(22, 0, boss.radius + 25, -.95, .95); ctx.stroke(); ctx.restore(); }
     const pulse=1+Math.sin(game.sceneTime*4)*.035;ctx.scale(pulse,pulse);ctx.globalAlpha=boss.invulnerable>0?.55:1;ctx.shadowColor=game.chapter.palette.glow;ctx.shadowBlur=18;
+    const bossSize = BOSS_SPRITE_SIZES[boss.type] || [176, 176];
+    const bossAnimation = loadBossAnimation(boss.type);
+    if (bossAnimation.complete && bossAnimation.naturalWidth && bossAnimation.naturalHeight) {
+      const state = BOSS_ANIMATION_FRAMES[boss.animState] === undefined ? "idle" : boss.animState;
+      const frame = BOSS_ANIMATION_FRAMES[state];
+      const stateTime = boss.animStateTime || 0;
+      let bob = 0;
+      let lean = 0;
+      let squashX = 1;
+      let squashY = 1;
+      let shake = 0;
+      if (state === "idle") bob = Math.sin((boss.animationTime || 0) * 3.2) * 2.5;
+      if (state === "move") { bob = -Math.abs(Math.sin(stateTime * 8.5)) * 6; lean = clamp((boss.facingX || 0) * .035, -.035, .035); }
+      if (state === "hurt") { shake = Math.sin(stateTime * 45) * 5; lean = Math.sin(stateTime * 24) * .045; squashX = 1.06; squashY = .94; }
+      if (state === "attack") { const punch = Math.sin(Math.min(1, stateTime / .34) * Math.PI); bob = -punch * 4; squashX = 1 + punch * .055; squashY = 1 - punch * .035; }
+      const sourceWidth = bossAnimation.naturalWidth / 4;
+      ctx.save();
+      ctx.translate(shake, bob);
+      ctx.rotate(lean);
+      ctx.scale(squashX, squashY);
+      ctx.drawImage(bossAnimation, frame * sourceWidth, 0, sourceWidth, bossAnimation.naturalHeight, -bossSize[0] / 2, -bossSize[1] * .62, bossSize[0], bossSize[1]);
+      ctx.restore();
+      ctx.shadowBlur = 0; ctx.restore(); return;
+    }
     const bossAtlas = loadBossAtlas();
     const bossCell = BOSS_ATLAS_CELLS[boss.type];
-    const bossSize = BOSS_SPRITE_SIZES[boss.type] || [176, 176];
     if (drawAtlasCell(ctx, bossAtlas, bossCell, 4, 2, -bossSize[0] / 2, -bossSize[1] * .58, bossSize[0], bossSize[1])) {
       ctx.shadowBlur = 0; ctx.restore(); return;
     }
