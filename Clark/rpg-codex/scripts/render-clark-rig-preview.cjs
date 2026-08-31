@@ -17,14 +17,18 @@ const player = {
 };
 
 async function main() {
-  const atlas = await loadImage(path.join(root, "assets", "characters", "rig", "clark-puppet-parts-tight-v1.png"));
+  const atlas = await loadImage(path.join(root, "assets", "characters", "rig", "clark-puppet-parts-tight-v2.png"));
+  const props = {
+    leafblade: await loadImage(path.join(root, "assets", "chapter1", "leafblade.webp")),
+    cometHammer: await loadImage(path.join(root, "assets", "weapons", "comet-hammer.webp"))
+  };
   const drawAtlasCell = (ctx, image, cell, columns, rows, x, y, width, height) => {
     const sourceWidth = image.width / columns;
     const sourceHeight = image.height / rows;
     ctx.drawImage(image, cell[0] * sourceWidth, cell[1] * sourceHeight, sourceWidth, sourceHeight, x, y, width, height);
   };
   const factory = new Function("player", "clamp", "lerp", "HERO_RIG_CELLS", "HERO_RIG_RENDER_SCALE", "loadHeroRig", "loadProp", "drawAtlasCell", `${rigSource}; return { heroRigPose, blendHeroRigPose, drawClarkRig };`);
-  const api = factory(player, (value, min, max) => Math.max(min, Math.min(max, value)), (a, b, t) => a + (b - a) * t, cells, .88, () => atlas, () => null, drawAtlasCell);
+  const api = factory(player, (value, min, max) => Math.max(min, Math.min(max, value)), (a, b, t) => a + (b - a) * t, cells, .88, () => atlas, key => props[key] || null, drawAtlasCell);
   const states = ["idle", "move", "leafblade", "hammer", "dash", "hurt"];
   const canvas = createCanvas(900, 220);
   const ctx = canvas.getContext("2d");
@@ -33,6 +37,7 @@ async function main() {
   states.forEach((state, index) => {
     player.animState = state;
     player.previousAnimState = state;
+    player.weapon = state === "hammer" ? "hammer" : "leafblade";
     player.animationTime = .42;
     player.walkCycle = .18;
     player.attackTime = .12;

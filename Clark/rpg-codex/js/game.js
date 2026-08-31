@@ -199,7 +199,7 @@
   const BOSS_ATLAS_CELLS = { pi: [0,0], warden: [1,0], engine: [2,0], shadow: [3,0], golem: [0,1], raven: [1,1], final: [2,1] };
   const HERO_ANIMATION_SOURCE = "assets/characters/animations/clark-action-atlas-v4.webp";
   const HERO_ANIMATION_ROWS = Object.freeze({ idle: 0, move: 1, leafblade: 2, hammer: 3, dash: 4, hurt: 5 });
-  const HERO_RIG_SOURCE = "assets/characters/rig/clark-puppet-parts-tight-v1.png";
+  const HERO_RIG_SOURCE = "assets/characters/rig/clark-puppet-parts-tight-v2.png";
   const HERO_RIG_RENDER_SCALE = .88;
   const HERO_RIG_CELLS = Object.freeze({
     head: [0,0], torso: [1,0], cape: [2,0],
@@ -2867,7 +2867,7 @@
       leftUpperArm: .16, leftLowerArm: -.18, rightUpperArm: -.16, rightLowerArm: .18,
       leftThigh: .04, leftShin: -.08, leftFoot: .04,
       rightThigh: -.04, rightShin: .08, rightFoot: -.04,
-      openLeftHand: false, openRightHand: false, weaponRot: .24
+      openLeftHand: false, openRightHand: false, weaponRot: .82
     };
     if (state === "idle") {
       const breath = Math.sin((player.animationTime || 0) * 2.8);
@@ -2902,7 +2902,7 @@
       pose.bodyRot = -.11 + swing * .2;
       pose.rightUpperArm = -1.65 + swing * 2.55;
       pose.rightLowerArm = -.32 + swing * .18;
-      pose.weaponRot = -.25;
+      pose.weaponRot = .55;
       pose.leftUpperArm = .58 - swing * .42;
       pose.leftLowerArm = -.42;
       pose.rightThigh = -.2; pose.leftThigh = .22;
@@ -2928,7 +2928,7 @@
       pose.leftThigh = .75; pose.rightThigh = .42;
       pose.leftShin = -.35; pose.rightShin = -.18;
       pose.leftFoot = -.25; pose.rightFoot = -.18;
-      pose.weaponRot = -.55;
+      pose.weaponRot = .65;
     } else if (state === "hurt") {
       const recoil = Math.sin(Math.min(1, time / .36) * Math.PI);
       pose.rootX = -5 * recoil;
@@ -2961,9 +2961,9 @@
 
   function drawHeroRigLeg(ctx, atlas, x, upperAngle, lowerAngle, footAngle, bootKey) {
     ctx.save(); ctx.translate(x, -3); ctx.rotate(upperAngle);
-    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.thigh, 4, 3, -14, -3, 28, 34);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.thigh, 4, 3, -11, -3, 22, 33);
     ctx.translate(0, 24); ctx.rotate(lowerAngle);
-    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.shin, 4, 3, -12, -3, 24, 29);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.shin, 4, 3, -10, -3, 20, 29);
     ctx.translate(0, 22); ctx.rotate(footAngle);
     drawAtlasCell(ctx, atlas, HERO_RIG_CELLS[bootKey], 4, 3, -10, -6, 30, 21);
     ctx.restore();
@@ -2971,10 +2971,10 @@
 
   function drawHeroRigArm(ctx, atlas, x, y, upperAngle, lowerAngle, openHand, weaponArt, wieldingHammer, weaponRot) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(upperAngle);
-    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.upperArm, 4, 3, -12, -3, 24, 31);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.upperArm, 4, 3, -10, -3, 20, 31);
     ctx.translate(0, 23); ctx.rotate(lowerAngle);
-    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.lowerArm, 4, 3, -5, -8, 29, 17);
-    ctx.translate(21, 0);
+    drawAtlasCell(ctx, atlas, HERO_RIG_CELLS.lowerArm, 4, 3, -9, -3, 18, 28);
+    ctx.translate(0, 22);
     drawAtlasCell(ctx, atlas, HERO_RIG_CELLS[openHand ? "openHand" : "fist"], 4, 3, -8, -9, 18, 18);
     if (weaponArt?.complete && weaponArt.naturalWidth) {
       ctx.rotate(weaponRot);
