@@ -4,7 +4,7 @@ const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 const root = path.resolve(__dirname, "..");
 const source = fs.readFileSync(path.join(root, "js", "game.js"), "utf8");
-const rigSource = source.slice(source.indexOf("  function heroRigPose("), source.indexOf("  function drawClark(ctx)"));
+const rigSource = source.slice(source.indexOf("  function solveHeroLegIK("), source.indexOf("  function drawClark(ctx)"));
 const cells = {
   head: [0,0], torso: [1,0], cape: [2,0], upperArm: [0,1], lowerArm: [1,1],
   fist: [2,1], openHand: [3,1], thigh: [0,2], shin: [1,2], bootRight: [2,2], bootLeft: [3,2]
@@ -29,8 +29,9 @@ async function main() {
   };
   const factory = new Function("player", "clamp", "lerp", "HERO_RIG_CELLS", "HERO_RIG_RENDER_SCALE", "loadHeroRig", "loadProp", "drawAtlasCell", `${rigSource}; return { heroRigPose, blendHeroRigPose, drawClarkRig };`);
   const api = factory(player, (value, min, max) => Math.max(min, Math.min(max, value)), (a, b, t) => a + (b - a) * t, cells, .88, () => atlas, key => props[key] || null, drawAtlasCell);
-  const states = ["idle", "move", "leafblade", "hammer", "dash", "hurt"];
-  const canvas = createCanvas(900, 220);
+  const walkMode = process.argv.includes("--walk");
+  const states = walkMode ? Array(8).fill("move") : ["idle", "move", "leafblade", "hammer", "dash", "hurt"];
+  const canvas = createCanvas(states.length * 150, 220);
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#e8f1d9";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -39,7 +40,7 @@ async function main() {
     player.previousAnimState = state;
     player.weapon = state === "hammer" ? "hammer" : "leafblade";
     player.animationTime = .42;
-    player.walkCycle = .18;
+    player.walkCycle = walkMode ? index / states.length : .18;
     player.attackTime = .12;
     player.hammerCharging = state === "hammer";
     player.hammerCharge = .75;
@@ -51,7 +52,7 @@ async function main() {
     ctx.fillStyle = "#33452f";
     ctx.font = "700 15px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(state, 75 + index * 150, 202);
+    ctx.fillText(walkMode ? `${index + 1}/8` : state, 75 + index * 150, 202);
   });
   const output = process.argv[2] || path.join(root, "clark-rig-preview.png");
   fs.writeFileSync(output, canvas.toBuffer("image/png"));

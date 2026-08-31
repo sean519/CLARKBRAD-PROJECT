@@ -1842,8 +1842,11 @@
   }
 
   function completePeacefulEncounter() {
-    if (!game.boss?.active) return;
-    game.boss.active = false;
+    if (!game.boss?.active || game.boss.resolving) return;
+    // Keep the peaceful boss active until its farewell animation completes.
+    // Marking it inactive here prevented updateBoss() from advancing deathTime,
+    // so Chapter 5 could never call finishBossDefeat() or open the portal.
+    game.boss.resolving = true;
     if (game.chapter.id === 5) {
       showDialogue([
         ["Clark", "We're sorry. We thought you were guarding the corruption."],
@@ -2861,6 +2864,32 @@
     ctx.restore();
   }
 
+  function solveHeroLegIK(footX, footY, bendDirection = 1) {
+    const upperLength = 24;
+    const lowerLength = 22;
+    const distanceToFoot = clamp(Math.hypot(footX, footY), Math.abs(upperLength - lowerLength) + .01, upperLength + lowerLength - .01);
+    const targetAngle = Math.atan2(footY, footX);
+    const hipOffset = Math.acos(clamp((upperLength * upperLength + distanceToFoot * distanceToFoot - lowerLength * lowerLength) / (2 * upperLength * distanceToFoot), -1, 1));
+    const upperAbsolute = targetAngle - hipOffset * bendDirection;
+    const kneeX = Math.cos(upperAbsolute) * upperLength;
+    const kneeY = Math.sin(upperAbsolute) * upperLength;
+    const lowerAbsolute = Math.atan2(footY - kneeY, footX - kneeX);
+    const upperAngle = upperAbsolute - Math.PI / 2;
+    const lowerAngle = lowerAbsolute - upperAbsolute;
+    return { upperAngle, lowerAngle, footAngle: -(upperAngle + lowerAngle) };
+  }
+
+  function heroWalkFoot(cycle) {
+    const phase = ((cycle % 1) + 1) % 1;
+    if (phase < .5) {
+      const progress = phase / .5;
+      return { x: lerp(10, -10, progress), y: 40 };
+    }
+    const progress = (phase - .5) / .5;
+    const eased = progress * progress * (3 - 2 * progress);
+    return { x: lerp(-10, 10, eased), y: 40 - Math.sin(progress * Math.PI) * 7 };
+  }
+
   function heroRigPose(state, time) {
     const pose = {
       rootX: 0, rootY: 0, bodyRot: 0, headRot: 0, headX: 0, headY: 0,
@@ -2879,18 +2908,20 @@
     } else if (state === "move") {
       const phase = player.walkCycle * Math.PI * 2;
       const stride = Math.sin(phase);
-      const liftLeft = Math.max(0, -stride);
-      const liftRight = Math.max(0, stride);
+      const leftFoot = heroWalkFoot(player.walkCycle);
+      const rightFoot = heroWalkFoot(player.walkCycle + .5);
+      const leftLeg = solveHeroLegIK(leftFoot.x, leftFoot.y, 1);
+      const rightLeg = solveHeroLegIK(rightFoot.x, rightFoot.y, 1);
       pose.rootX = Math.sin(phase * 2) * .8;
-      pose.rootY = -Math.abs(Math.sin(phase)) * 3.2;
+      pose.rootY = -Math.abs(Math.sin(phase * 2)) * 1.15;
       pose.bodyRot = stride * .035;
       pose.headRot = -pose.bodyRot * .7;
-      pose.leftThigh = stride * .62;
-      pose.rightThigh = -stride * .62;
-      pose.leftShin = .08 + liftLeft * .72;
-      pose.rightShin = .08 + liftRight * .72;
-      pose.leftFoot = -(pose.leftThigh + pose.leftShin) * .72;
-      pose.rightFoot = -(pose.rightThigh + pose.rightShin) * .72;
+      pose.leftThigh = leftLeg.upperAngle;
+      pose.leftShin = leftLeg.lowerAngle;
+      pose.leftFoot = leftLeg.footAngle;
+      pose.rightThigh = rightLeg.upperAngle;
+      pose.rightShin = rightLeg.lowerAngle;
+      pose.rightFoot = rightLeg.footAngle;
       pose.leftUpperArm = -stride * .48;
       pose.rightUpperArm = stride * .48;
       pose.leftLowerArm = -.22 - Math.abs(stride) * .12;

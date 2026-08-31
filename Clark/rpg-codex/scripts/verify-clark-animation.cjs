@@ -40,6 +40,8 @@ async function verifyClearCellBorders(file, columns, rows, label) {
 async function main() {
   assert.match(gameSource, /HERO_RIG_SOURCE\s*=\s*"assets\/characters\/rig\/clark-puppet-parts-tight-v2\.png"/);
   assert.match(gameSource, /function heroRigPose\(/);
+  assert.match(gameSource, /function solveHeroLegIK\(/);
+  assert.match(gameSource, /function heroWalkFoot\(/);
   assert.match(gameSource, /function blendHeroRigPose\(/);
   assert.match(gameSource, /function drawClarkRig\(/);
   assert.match(gameSource, /HERO_RIG_RENDER_SCALE\s*=\s*\.88/);
